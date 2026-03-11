@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Order } from '@/data/products';
 import { supabase } from '@/integrations/supabase/client';
@@ -17,10 +17,10 @@ const getLocalISOString = (): string => {
   return `${year}-${month}-${date}T${hours}:${minutes}:${seconds}`;
 };
 
-// Helper para gerar IDs únicos para order_items (usando timestamp + random pequeno)
+// Helper para gerar IDs ├║nicos para order_items (usando timestamp + random pequeno)
 const generateItemId = (): number => {
-  // Gerar um número único e pequeno o bastante para bigint
-  // Formato: timestamp em ms + número aleatório (garante unicidade e está dentro dos limites de bigint)
+  // Gerar um n├║mero ├║nico e pequeno o bastante para bigint
+  // Formato: timestamp em ms + n├║mero aleat├│rio (garante unicidade e est├í dentro dos limites de bigint)
   return Date.now() * 1000 + Math.floor(Math.random() * 1000);
 };
 
@@ -57,36 +57,36 @@ export const useOrdersStore = create<OrdersStore>()(
         };
 
         try {
-          // 🔧 CRÍTICO: Usar hora do cliente (JavaScript hora local)
+          // ­ƒöº CR├ìTICO: Usar hora do cliente (JavaScript hora local)
           // Enviar como ISO com timezone para Supabase converter corretamente
           const nowDate = new Date(); // Hora local do cliente
           const createdAtISO = nowDate.toISOString(); // Formato: 2026-03-11T15:41:00.000Z
           
-          console.log('⏰ [TIMESTAMP] Hora do cliente:', {
+          console.log('ÔÅ░ [TIMESTAMP] Hora do cliente:', {
             navegador: nowDate.toLocaleString('pt-BR'),
             iso: createdAtISO,
           });
           
-          // ✅ CRÍTICO: Garantir tenant_id sempre valid ou usar padrão
+          // Ô£à CR├ìTICO: Garantir tenant_id sempre valid ou usar padr├úo
           let finalTenantId = newOrder.tenantId;
           if (!finalTenantId) {
-            console.warn('⚠️ [ADDORDER] tenant_id não fornecido, buscando padrão...');
+            console.warn('ÔÜá´©Å [ADDORDER] tenant_id n├úo fornecido, buscando padr├úo...');
             const { data: tenants } = await (supabase as any)
               .from('tenants')
               .select('id')
               .limit(1);
             if (tenants?.length > 0) {
               finalTenantId = tenants[0].id;
-              console.log('📍 [ADDORDER] Usando tenant padrão:', finalTenantId);
+              console.log('­ƒôì [ADDORDER] Usando tenant padr├úo:', finalTenantId);
             } else {
-              console.error('❌ [ADDORDER] Nenhum tenant encontrado no banco!');
+              console.error('ÔØî [ADDORDER] Nenhum tenant encontrado no banco!');
             }
           } else {
-            console.log('📍 [ADDORDER] Usando tenant fornecido:', finalTenantId);
+            console.log('­ƒôì [ADDORDER] Usando tenant fornecido:', finalTenantId);
           }
           
-          // 🔍 LOG: Verificar dados do cliente
-          console.log('📦 [ADDORDER] Criando pedido com dados:', {
+          // ­ƒöì LOG: Verificar dados do cliente
+          console.log('­ƒôª [ADDORDER] Criando pedido com dados:', {
             id: newOrder.id,
             customerName: newOrder.customer.name,
             customerPhone: newOrder.customer.phone,
@@ -97,11 +97,11 @@ export const useOrdersStore = create<OrdersStore>()(
             tenantId: finalTenantId,
           });
 
-          // Validar que email não é vazio
+          // Validar que email n├úo ├® vazio
           const customerEmail = (newOrder.customer.email || '').trim();
           if (!customerEmail) {
-            console.error('❌ [ADDORDER] ERRO: Email do cliente é obrigatório!');
-            throw new Error('Email do cliente é obrigatório para criar pedido');
+            console.error('ÔØî [ADDORDER] ERRO: Email do cliente ├® obrigat├│rio!');
+            throw new Error('Email do cliente ├® obrigat├│rio para criar pedido');
           }
           
           // Store payment_method as metadata in address JSONB
@@ -110,20 +110,20 @@ export const useOrdersStore = create<OrdersStore>()(
             paymentMethod: newOrder.paymentMethod, // Store internally for later retrieval
           };
           
-          // 🔑 CRÍTICO: Calcular pending_points baseado em se cliente usou pontos
-          // Se cliente resgatou pontos: NÃO ganhou novos pontos nesta compra
-          // Se cliente NÃO resgatou pontos: Ganha pontos normalmente (1 real = 1 ponto)
+          // ­ƒöæ CR├ìTICO: Calcular pending_points baseado em se cliente usou pontos
+          // Se cliente resgatou pontos: N├âO ganhou novos pontos nesta compra
+          // Se cliente N├âO resgatou pontos: Ganha pontos normalmente (1 real = 1 ponto)
           const pointsRedeemed = newOrder.pointsRedeemed || 0;
           const pendingPoints = pointsRedeemed > 0 ? 0 : Math.round(newOrder.total);
           
-          console.log('💰 [ADDORDER] Cálculo de pontos:', {
+          console.log('­ƒÆ░ [ADDORDER] C├ílculo de pontos:', {
             pointsRedeemed,
             total: newOrder.total,
             pendingPoints,
-            rule: pointsRedeemed > 0 ? 'Cliente usou pontos - NÃO ganha novos' : 'Cliente não usou pontos - Ganha novos'
+            rule: pointsRedeemed > 0 ? 'Cliente usou pontos - N├âO ganha novos' : 'Cliente n├úo usou pontos - Ganha novos'
           });
           
-          // 📋 Preparar scheduled_for - Converter para ISO se for Date
+          // ­ƒôï Preparar scheduled_for - Converter para ISO se for Date
           let scheduledForValue: string | null = null;
           if (newOrder.scheduledFor) {
             if (typeof newOrder.scheduledFor === 'string') {
@@ -133,19 +133,19 @@ export const useOrdersStore = create<OrdersStore>()(
             }
           }
           
-          // 🔧 CRÍTICO: Normalizar timestamp para formato exato YYYY-MM-DDTHH:MM:SS
+          // ­ƒöº CR├ìTICO: Normalizar timestamp para formato exato YYYY-MM-DDTHH:MM:SS
           if (scheduledForValue && scheduledForValue.includes('T')) {
             const [datePart, timePart] = scheduledForValue.split('T');
             // Pegar apenas os primeiros 8 caracteres do time: HH:MM:SS
             const cleanTime = timePart.substring(0, 8);
             scheduledForValue = `${datePart}T${cleanTime}`;
-            console.log('🔧 [TIMESTAMP] Normalizado:', { input: newOrder.scheduledFor, output: scheduledForValue });
+            console.log('­ƒöº [TIMESTAMP] Normalizado:', { input: newOrder.scheduledFor, output: scheduledForValue });
           }
           
-          // 🆕 Se pedido é agendado, usar status "agendado" em vez de "pending"
+          // ­ƒåò Se pedido ├® agendado, usar status "agendado" em vez de "pending"
           const statusToUse = (newOrder.isScheduled && scheduledForValue) ? 'agendado' : newOrder.status;
           
-          // 🔒 VALIDAÇÃO SERVIDOR: Se agendado, verificar se data está dentro do limite permitido
+          // ­ƒöÆ VALIDA├ç├âO SERVIDOR: Se agendado, verificar se data est├í dentro do limite permitido
           if (newOrder.isScheduled && scheduledForValue) {
             const scheduledDate = scheduledForValue.split('T')[0]; // 'YYYY-MM-DD'
             const today = new Date();
@@ -153,7 +153,7 @@ export const useOrdersStore = create<OrdersStore>()(
             const selectedDateObj = new Date(`${scheduledDate}T00:00`);
             const daysDifference = Math.floor((selectedDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
             
-            // Buscar maxScheduleDays da configuração do tenant
+            // Buscar maxScheduleDays da configura├º├úo do tenant
             const { data: settingsData } = await (supabase as any)
               .from('settings')
               .select('max_schedule_days')
@@ -163,17 +163,17 @@ export const useOrdersStore = create<OrdersStore>()(
             const maxScheduleDays = settingsData?.max_schedule_days ?? 7;
             
             if (daysDifference > maxScheduleDays) {
-              console.error('🚨 [SECURITY] Tentativa de agendar além do limite:', {
+              console.error('­ƒÜ¿ [SECURITY] Tentativa de agendar al├®m do limite:', {
                 orderId: newOrder.id,
                 scheduledDate,
                 daysDifference,
                 maxScheduleDays
               });
-              throw new Error(`❌ Data inválida! Você só pode agendar com até ${maxScheduleDays} dia${maxScheduleDays !== 1 ? 's' : ''} de antecedência`);
+              throw new Error(`ÔØî Data inv├ílida! Voc├¬ s├│ pode agendar com at├® ${maxScheduleDays} dia${maxScheduleDays !== 1 ? 's' : ''} de anteced├¬ncia`);
             }
           }
           
-          console.log('📋 [PRE-INSERT] Enviando para Supabase:', {
+          console.log('­ƒôï [PRE-INSERT] Enviando para Supabase:', {
             id: newOrder.id,
             customer_name: newOrder.customer.name,
             customer_phone: newOrder.customer.phone,
@@ -214,8 +214,8 @@ export const useOrdersStore = create<OrdersStore>()(
           ] as any);
 
           if (error) {
-            console.error('❌ Erro ao inserir order:', error);
-            console.error('❌ Erro detalhes:', {
+            console.error('ÔØî Erro ao inserir order:', error);
+            console.error('ÔØî Erro detalhes:', {
               message: error.message,
               code: error.code,
               details: error.details,
@@ -223,22 +223,22 @@ export const useOrdersStore = create<OrdersStore>()(
             });
             throw error;
           }
-          console.log('✅ Order inserida com sucesso:', newOrder.id, 'em', createdAtISO, 'com email:', customerEmail, 'pending_points:', pendingPoints, 'tenant_id:', finalTenantId);
+          console.log('Ô£à Order inserida com sucesso:', newOrder.id, 'em', createdAtISO, 'com email:', customerEmail, 'pending_points:', pendingPoints, 'tenant_id:', finalTenantId);
 
-          // 🔀 NOVA INTEGRAÇÃO: Incrementar current_orders do slot se pedido está agendado
+          // ­ƒöÇ NOVA INTEGRA├ç├âO: Incrementar current_orders do slot se pedido est├í agendado
           if (newOrder.isScheduled && scheduledForValue && finalTenantId) {
             try {
               const scheduledDate = scheduledForValue.split('T')[0]; // 'YYYY-MM-DD'
               const scheduledTime = scheduledForValue.split('T')[1]?.substring(0, 5); // 'HH:MM'
               
-              console.log('🔄 Incrementando contador do slot:', {
+              console.log('­ƒöä Incrementando contador do slot:', {
                 orderId: newOrder.id,
                 tenantId: finalTenantId,
                 slotDate: scheduledDate,
                 slotTime: scheduledTime,
               });
 
-              // ✅ CORRIGIDO: Atualizar current_orders diretamente (sem Edge Function - CORS issue)
+              // Ô£à CORRIGIDO: Atualizar current_orders diretamente (sem Edge Function - CORS issue)
               const { data: slot, error: slotError } = await (supabase as any)
                 .from('scheduling_slots')
                 .select('id, current_orders, max_orders')
@@ -248,11 +248,11 @@ export const useOrdersStore = create<OrdersStore>()(
                 .maybeSingle();
 
               if (slotError) {
-                console.warn('⚠️ Erro ao buscar slot:', slotError);
+                console.warn('ÔÜá´©Å Erro ao buscar slot:', slotError);
               } else if (slot) {
                 const newOrderCount = slot.current_orders + 1;
                 
-                // Verificar se não vai exceder kapacidade
+                // Verificar se n├úo vai exceder kapacidade
                 if (newOrderCount <= slot.max_orders) {
                   const { error: updateError } = await (supabase as any)
                     .from('scheduling_slots')
@@ -260,33 +260,33 @@ export const useOrdersStore = create<OrdersStore>()(
                     .eq('id', slot.id);
 
                   if (updateError) {
-                    console.warn('⚠️ Erro ao atualizar current_orders:', updateError);
+                    console.warn('ÔÜá´©Å Erro ao atualizar current_orders:', updateError);
                   } else {
-                    console.log('✅ Slot reservado: current_orders incrementado para', newOrderCount);
+                    console.log('Ô£à Slot reservado: current_orders incrementado para', newOrderCount);
                   }
                 } else {
-                  console.warn('⚠️ Slot chegou ao limite de pedidos');
+                  console.warn('ÔÜá´©Å Slot chegou ao limite de pedidos');
                 }
               }
             } catch (err) {
-              console.error('❌ Erro ao atualizar slot:', err);
-              // Não bloquear criação do pedido se atualização falhar
+              console.error('ÔØî Erro ao atualizar slot:', err);
+              // N├úo bloquear cria├º├úo do pedido se atualiza├º├úo falhar
             }
           }
 
           // Salvar itens do pedido com TODOS os dados inclusos
-          // 🎯 CRÍTICO: Gerar ID para cada item (campo obrigatório na BD)
-          console.log('📦 [ITEMS] Preparando para salvar', newOrder.items?.length || 0, 'items...');
+          // ­ƒÄ» CR├ìTICO: Gerar ID para cada item (campo obrigat├│rio na BD)
+          console.log('­ƒôª [ITEMS] Preparando para salvar', newOrder.items?.length || 0, 'items...');
 
           const orderItems = (newOrder.items || []).map((item) => {
-            // ✅ IMPORTANTE: Incluir TODOS os dados do item no item_data JSONB
+            // Ô£à IMPORTANTE: Incluir TODOS os dados do item no item_data JSONB
             const itemDataObj = {
-              // Informações da pizza
+              // Informa├º├Áes da pizza
               pizzaType: item.isHalfHalf ? 'meia-meia' : 'inteira',
               sabor1: item.product?.name || 'Sem sabor',
               sabor2: item.isHalfHalf && item.secondHalf ? item.secondHalf.name : null,
               
-              // Customizações
+              // Customiza├º├Áes
               customIngredients: Array.isArray(item.customIngredients) ? item.customIngredients : [],
               paidIngredients: Array.isArray(item.paidIngredients) ? item.paidIngredients : [],
               extras: Array.isArray(item.extras) ? item.extras.map((e: any) => typeof e === 'string' ? e : e.name || e) : [],
@@ -298,59 +298,59 @@ export const useOrdersStore = create<OrdersStore>()(
               // Combos
               comboPizzas: Array.isArray(item.comboPizzasData) ? item.comboPizzasData : [],
               
-              // Observações
+              // Observa├º├Áes
               notes: newOrder.observations || null,
             };
             
-            // ✅ CRUCIAL: Gerar ID único para cada item (necessário para bigint pk)
+            // Ô£à CRUCIAL: Gerar ID ├║nico para cada item (necess├írio para bigint pk)
             const itemId = generateItemId();
             
-            // 🔧 CORRIGIDO: Mapear para campos EXATOS da tabela order_items conforme schema
+            // ­ƒöº CORRIGIDO: Mapear para campos EXATOS da tabela order_items conforme schema
             // Schema: id, order_id, product_id, product_name, quantity, size, total_price, item_data (jsonb), created_at
             const itemRecord = {
-              id: itemId, // 🎯 ID obrigatório bigint
+              id: itemId, // ­ƒÄ» ID obrigat├│rio bigint
               order_id: newOrder.id,
               product_id: item.product?.id || 'unknown',
               product_name: item.product?.name || 'Produto desconhecido',
               quantity: item.quantity || 1,
               size: item.size || 'grande',
               total_price: item.totalPrice || 0,
-              item_data: itemDataObj, // ✅ JSONB com TODOS os dados do item (sem JSON.stringify - Supabase cuida)
+              item_data: itemDataObj, // Ô£à JSONB com TODOS os dados do item (sem JSON.stringify - Supabase cuida)
               created_at: createdAtISO, // Usar timestamp do pedido
             };
             
-            console.log(`✅ [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}, total: ${itemRecord.total_price}) -> inserindo na BD...`);
+            console.log(`Ô£à [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}, total: ${itemRecord.total_price}) -> inserindo na BD...`);
             
             return itemRecord;
           });
 
           if (orderItems.length > 0) {
-            console.log(`💾 [SAVEORDER] Tentando inserir ${orderItems.length} items na tabela order_items...`);
+            console.log(`­ƒÆ¥ [SAVEORDER] Tentando inserir ${orderItems.length} items na tabela order_items...`);
             
             const { error: itemsError, data: itemsData } = await supabase
               .from('order_items')
               .insert(orderItems as any);
               
             if (itemsError) {
-              console.error('❌ ERRO ao inserir order_items:', {
+              console.error('ÔØî ERRO ao inserir order_items:', {
                 message: itemsError.message,
                 code: itemsError.code,
                 details: itemsError.details,
                 hint: itemsError.hint,
               });
-              // Não bloquear criação do pedido se items falharem
+              // N├úo bloquear cria├º├úo do pedido se items falharem
             } else {
-              console.log(`✅ SUCESSO! ${orderItems.length} items foram inseridos na BD:`, 
+              console.log(`Ô£à SUCESSO! ${orderItems.length} items foram inseridos na BD:`, 
                 orderItems.map(item => `${item.id}(${item.product_name})`).join(', ')
               );
             }
           } else {
-            console.warn('⚠️ AVISO: Nenhum item para salvar! Items array vazio');
+            console.warn('ÔÜá´©Å AVISO: Nenhum item para salvar! Items array vazio');
           }
 
           // Tentar imprimir pedido automaticamente via Edge Function com RETRY (apenas se autoprint = true)
           if (autoprint) {
-            console.log('🖨️ Auto-print HABILITADO. Iniciando impressão para:', newOrder.id);
+            console.log('­ƒû¿´©Å Auto-print HABILITADO. Iniciando impress├úo para:', newOrder.id);
             
             const invokePrintWithRetry = async () => {
               for (let attempt = 1; attempt <= 5; attempt++) {
@@ -380,19 +380,19 @@ export const useOrdersStore = create<OrdersStore>()(
                     .eq('id', newOrder.id);
                     
                   if (!updateError) {
-                    console.log('Status de impressão atualizado');
+                    console.log('Status de impress├úo atualizado');
                   }
                   return;
                 } catch (err) {
                   console.error(`Tentativa ${attempt} falhou:`, err);
                   if (attempt === 5) {
-                    console.error('Falha: não foi possível invocar printorder após 5 tentativas');
+                    console.error('Falha: n├úo foi poss├¡vel invocar printorder ap├│s 5 tentativas');
                   }
                 }
               }
             };
 
-            // Invocar assincronamente (não bloqueia)
+            // Invocar assincronamente (n├úo bloqueia)
             invokePrintWithRetry();
           } else {
             console.log('Auto-print desabilitado para este pagamento');
@@ -401,7 +401,7 @@ export const useOrdersStore = create<OrdersStore>()(
           console.error('Erro ao salvar pedido no Supabase:', error);
         }
 
-        // Salvar localmente também
+        // Salvar localmente tamb├®m
         set((state) => ({
           orders: [newOrder, ...state.orders],
         }));
@@ -410,8 +410,8 @@ export const useOrdersStore = create<OrdersStore>()(
       },
 
       addOrderToStoreOnly: (orderData) => {
-        // Apenas adicionar à store local, sem persistir no BD
-        // Usado para sincronização realtime onde o pedido já foi salvo no BD
+        // Apenas adicionar ├á store local, sem persistir no BD
+        // Usado para sincroniza├º├úo realtime onde o pedido j├í foi salvo no BD
         const newOrder: Order = {
           ...orderData,
           createdAt: orderData.createdAt instanceof Date ? orderData.createdAt : new Date(orderData.createdAt),
@@ -425,29 +425,29 @@ export const useOrdersStore = create<OrdersStore>()(
       updateOrderStatus: async (id, status) => {
         try {
           console.log(`
-╔═══════════════════════════════════════╗
-║  UPDATE ORDER STATUS                  ║
-╠═══════════════════════════════════════╣
-║  Pedido:  ${id}
-║  Status:  ${status}
-╚═══════════════════════════════════════╝
+ÔòöÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòù
+Ôòæ  UPDATE ORDER STATUS                  Ôòæ
+ÔòáÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòú
+Ôòæ  Pedido:  ${id}
+Ôòæ  Status:  ${status}
+ÔòÜÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòØ
 `);
           
-          // Buscar order completo para enviar notificação e reversão de pontos
+          // Buscar order completo para enviar notifica├º├úo e revers├úo de pontos
           const { data: orderData } = await (supabase as any).from('orders')
             .select('id, customer_name, email, tenant_id, customer_phone, customer_id, pending_points, points_redeemed, address, is_scheduled, scheduled_for')
             .eq('id', id)
             .single();
 
-          console.log(`📦 Order data:`, orderData);
+          console.log(`­ƒôª Order data:`, orderData);
 
-          // 🔄 SE CANCELANDO PEDIDO AGENDADO: Liberar vaga no slot
+          // ­ƒöä SE CANCELANDO PEDIDO AGENDADO: Liberar vaga no slot
           if (status === 'cancelled' && orderData?.is_scheduled && orderData?.scheduled_for && orderData?.tenant_id) {
             try {
               const scheduledDate = orderData.scheduled_for.split('T')[0]; // 'YYYY-MM-DD'
               const scheduledTime = orderData.scheduled_for.split('T')[1]?.substring(0, 5); // 'HH:MM'
 
-              console.log('🔄 Liberando slot do pedido agendado:', {
+              console.log('­ƒöä Liberando slot do pedido agendado:', {
                 orderId: id,
                 tenantId: orderData.tenant_id,
                 slotDate: scheduledDate,
@@ -464,7 +464,7 @@ export const useOrdersStore = create<OrdersStore>()(
                 .maybeSingle();
 
               if (slotError) {
-                console.warn('⚠️ Erro ao buscar slot:', slotError);
+                console.warn('ÔÜá´©Å Erro ao buscar slot:', slotError);
               } else if (slot && slot.current_orders > 0) {
                 const { error: updateError } = await (supabase as any)
                   .from('scheduling_slots')
@@ -472,14 +472,14 @@ export const useOrdersStore = create<OrdersStore>()(
                   .eq('id', slot.id);
 
                 if (updateError) {
-                  console.warn('⚠️ Erro ao liberar slot:', updateError);
+                  console.warn('ÔÜá´©Å Erro ao liberar slot:', updateError);
                 } else {
-                  console.log('✅ Slot liberado com sucesso');
+                  console.log('Ô£à Slot liberado com sucesso');
                 }
               }
             } catch (err) {
-              console.error('❌ Erro ao liberar slot:', err);
-              // Não bloquear cancelamento se liberação falhar
+              console.error('ÔØî Erro ao liberar slot:', err);
+              // N├úo bloquear cancelamento se libera├º├úo falhar
             }
           }
 
@@ -489,24 +489,24 @@ export const useOrdersStore = create<OrdersStore>()(
             .eq('id', id);
 
           if (error) throw error;
-          console.log(`✅ Status atualizado no banco: ${status}`);
+          console.log(`Ô£à Status atualizado no banco: ${status}`);
 
-          // � CRÍTICO: Se cancelado, os pontos devem ser revertidos automaticamente via trigger
+          // ´┐¢ CR├ìTICO: Se cancelado, os pontos devem ser revertidos automaticamente via trigger
           if (status === 'cancelled') {
             console.log(`
-💎 [REVERSÃO-PONTOS] Cancelamento detectado!
+­ƒÆÄ [REVERS├âO-PONTOS] Cancelamento detectado!
    Pedido: ${id}
    Cliente ID: ${orderData?.customer_id}
    Pontos Pendentes: ${orderData?.pending_points}
    Pontos Resgatados: ${orderData?.points_redeemed}
-   ⚠️ Trigger no banco irá reverter automaticamente
+   ÔÜá´©Å Trigger no banco ir├í reverter automaticamente
 `);
           }
 
-          // �📱 CRÍTICO: Enviar notificação WhatsApp (fire-and-forget com logs)
+          // ´┐¢­ƒô▒ CR├ìTICO: Enviar notifica├º├úo WhatsApp (fire-and-forget com logs)
           if (orderData?.customer_phone && orderData?.tenant_id) {
             console.log(`
-🔔 [DISPARO-NOTIFICAÇÃO] Iniciando envio...
+­ƒöö [DISPARO-NOTIFICA├ç├âO] Iniciando envio...
    Pedido: ${id}
    Status: ${status}
    Telefone: ${orderData.customer_phone}
@@ -514,7 +514,7 @@ export const useOrdersStore = create<OrdersStore>()(
    Cliente: ${orderData.customer_name || 'Desconhecido'}
 `);
             
-            // Não aguarda pois é assíncrono, mas faz log de sucesso/erro
+            // N├úo aguarda pois ├® ass├¡ncrono, mas faz log de sucesso/erro
             supabase.functions.invoke('send-whatsapp-notification', {
               body: {
                 orderId: id,
@@ -525,18 +525,18 @@ export const useOrdersStore = create<OrdersStore>()(
               },
             })
               .then((response) => {
-                console.log(`✅ [WHATSAPP] Notificação disparada com sucesso:`, response.data);
+                console.log(`Ô£à [WHATSAPP] Notifica├º├úo disparada com sucesso:`, response.data);
               })
               .catch((err) => {
-                console.error(`❌ [WHATSAPP] Erro ao enviar notificação:`, err);
+                console.error(`ÔØî [WHATSAPP] Erro ao enviar notifica├º├úo:`, err);
               });
           } else {
-            console.warn(`⚠️ [WHATSAPP] Sem telefone ou tenant_id:`);
+            console.warn(`ÔÜá´©Å [WHATSAPP] Sem telefone ou tenant_id:`);
             console.warn(`   - phone: ${orderData?.customer_phone}`);
             console.warn(`   - tenant_id: ${orderData?.tenant_id}`);
           }
         } catch (error) {
-          console.error('❌ Erro ao atualizar status no Supabase:', error);
+          console.error('ÔØî Erro ao atualizar status no Supabase:', error);
         }
 
         set((state) => ({
@@ -568,21 +568,21 @@ export const useOrdersStore = create<OrdersStore>()(
 
       updateOrderPointsRedeemed: async (id, pointsRedeemed) => {
         try {
-          // 🔒 CRÍTICO: Atualizar points_redeemed no Supabase IMEDIATAMENTE
+          // ­ƒöÆ CR├ìTICO: Atualizar points_redeemed no Supabase IMEDIATAMENTE
           // Isso registra que esses pontos foram "reservados" para esta compra
           const { error } = await (supabase as any).from('orders')
             .update({ 
               points_redeemed: pointsRedeemed,
-              points_discount: pointsRedeemed // Atualizar desconto também
+              points_discount: pointsRedeemed // Atualizar desconto tamb├®m
             })
             .eq('id', id);
 
           if (error) {
-            console.error('❌ Erro ao atualizar points_redeemed:', error);
+            console.error('ÔØî Erro ao atualizar points_redeemed:', error);
             throw error;
           }
 
-          console.log(`✅ Points redeemed registrados: ${pointsRedeemed} pontos para ordem ${id}`);
+          console.log(`Ô£à Points redeemed registrados: ${pointsRedeemed} pontos para ordem ${id}`);
         } catch (error) {
           console.error('Erro ao atualizar points_redeemed no Supabase:', error);
         }
@@ -629,35 +629,35 @@ export const useOrdersStore = create<OrdersStore>()(
 
       syncOrdersFromSupabase: async () => {
         try {
-          console.log('🔍 [SYNC] Iniciando sincronização de pedidos do Supabase...');
+          console.log('­ƒöì [SYNC] Iniciando sincroniza├º├úo de pedidos do Supabase...');
           const { data, error } = await supabase.from('orders')
             .select('*')
             .order('created_at', { ascending: false });
 
           if (error) {
-            console.error('❌ [SYNC] Erro ao carregar orders:', error);
+            console.error('ÔØî [SYNC] Erro ao carregar orders:', error);
             throw error;
           }
 
           if (data && data.length > 0) {
-            console.log(`🔄 [SYNC] Sincronizando ${data.length} pedidos do Supabase`);
+            console.log(`­ƒöä [SYNC] Sincronizando ${data.length} pedidos do Supabase`);
             
-            // Buscar também os itens de cada pedido
+            // Buscar tamb├®m os itens de cada pedido
             const ordersWithItems = await Promise.all(
               data.map(async (row: any) => {
-                console.log(`📦 [SYNC] Carregando items para ${row.id}...`);
+                console.log(`­ƒôª [SYNC] Carregando items para ${row.id}...`);
                 const { data: items, error: itemsError } = await supabase.from('order_items')
                   .select('*')
                   .eq('order_id', row.id);
                   
                 if (itemsError) {
-                  console.warn(`⚠️ [SYNC] Erro ao carregar items para ${row.id}:`, itemsError);
+                  console.warn(`ÔÜá´©Å [SYNC] Erro ao carregar items para ${row.id}:`, itemsError);
                 } else {
-                  console.log(`✅ [SYNC] Carregados ${items?.length || 0} items para ${row.id}`);
+                  console.log(`Ô£à [SYNC] Carregados ${items?.length || 0} items para ${row.id}`);
                 }
 
                 // Parse createdAt - manter o ISO string original do banco
-                // A conversão de horário já é feita implicitamente pelo JavaScript
+                // A convers├úo de hor├írio j├í ├® feita implicitamente pelo JavaScript
                 const createdAtDate = new Date(row.created_at);
                 
                 // Extrair payment_method da metadata do address
@@ -691,12 +691,12 @@ export const useOrdersStore = create<OrdersStore>()(
                   deliveryFee: row.delivery_fee,
                   paymentMethod: paymentMethodFromMetadata as any,
                   items: items?.map((item: any) => {
-                    // 🔧 PARSER ROBUSTO: Extrair dados do item_data (JSONB do banco)
+                    // ­ƒöº PARSER ROBUSTO: Extrair dados do item_data (JSONB do banco)
                     let itemData: any = {};
                     
                     try {
                       if (item.item_data) {
-                        // item_data pode vir como string ou já como objeto (depende da BD)
+                        // item_data pode vir como string ou j├í como objeto (depende da BD)
                         if (typeof item.item_data === 'string') {
                           itemData = JSON.parse(item.item_data);
                         } else if (typeof item.item_data === 'object') {
@@ -704,11 +704,11 @@ export const useOrdersStore = create<OrdersStore>()(
                         }
                       }
                     } catch (parseError) {
-                      console.warn(`⚠️ [SYNC] Erro ao parsear item_data para ${item.product_name}:`, parseError);
+                      console.warn(`ÔÜá´©Å [SYNC] Erro ao parsear item_data para ${item.product_name}:`, parseError);
                       itemData = {}; // Continuar com objeto vazio
                     }
 
-                    // ✅ INTELIGENTE: Reconstruir item com TODOS os dados, com fallbacks
+                    // Ô£à INTELIGENTE: Reconstruir item com TODOS os dados, com fallbacks
                     const reconstructedItem = {
                       id: item.id || `item-${Date.now()}`,
                       product: { 
@@ -788,11 +788,11 @@ export const useOrdersStore = create<OrdersStore>()(
                         ? itemData.comboPizzas 
                         : [],
                       
-                      // Observações
+                      // Observa├º├Áes
                       notes: itemData.notes || undefined,
                     };
                     
-                    console.log(`✅ [SYNC-ITEM] "${item.product_name}" reconstruído com sucesso:`, {
+                    console.log(`Ô£à [SYNC-ITEM] "${item.product_name}" reconstru├¡do com sucesso:`, {
                       quantity: reconstructedItem.quantity,
                       size: reconstructedItem.size,
                       isHalfHalf: reconstructedItem.isHalfHalf,
@@ -810,13 +810,13 @@ export const useOrdersStore = create<OrdersStore>()(
                   status: row.status as any,
                   observations: '',
                   createdAt: createdAtDate,
-                  // ✅ Sincronizar printed_at: só setá se realmente houver um valor (não null, não vazio)
+                  // Ô£à Sincronizar printed_at: s├│ set├í se realmente houver um valor (n├úo null, n├úo vazio)
                   printedAt: row.printed_at && row.printed_at !== null && row.printed_at !== '' 
                     ? new Date(row.printed_at).toISOString() 
                     : undefined,
-                  // 🤖 Indicador de auto-confirmação via PIX
+                  // ­ƒñû Indicador de auto-confirma├º├úo via PIX
                   autoConfirmedByPix: row.auto_confirmed_by_pix === true,
-                  // 📅 NOVO: Agendamento de pedido
+                  // ­ƒôà NOVO: Agendamento de pedido
                   isScheduled: row.is_scheduled === true,
                   scheduledFor: row.scheduled_for ? row.scheduled_for : undefined,
                 };
@@ -829,17 +829,17 @@ export const useOrdersStore = create<OrdersStore>()(
               orders: ordersWithItems as Order[],
             }));
             
-            // 📊 Log final bastante detalhado
+            // ­ƒôè Log final bastante detalhado
             const totalItems = ordersWithItems.reduce((sum, order) => sum + (order.items?.length || 0), 0);
-            console.log(`✅ [SYNC] SINCRONIZAÇÃO COMPLETA: ${ordersWithItems.length} pedidos, ${totalItems} items`);
+            console.log(`Ô£à [SYNC] SINCRONIZA├ç├âO COMPLETA: ${ordersWithItems.length} pedidos, ${totalItems} items`);
             ordersWithItems.slice(0, 3).forEach(o => {
-              console.log(`   📦 ${o.id}: ${o.items?.length || 0} items`);
+              console.log(`   ­ƒôª ${o.id}: ${o.items?.length || 0} items`);
             });
           } else {
-            console.warn('⚠️ [SYNC] Nenhum pedido retornado do banco');
+            console.warn('ÔÜá´©Å [SYNC] Nenhum pedido retornado do banco');
           }
         } catch (error) {
-          console.error('❌ [SYNC] Erro ao sincronizar pedidos do Supabase:', error);
+          console.error('ÔØî [SYNC] Erro ao sincronizar pedidos do Supabase:', error);
         }
       },
 

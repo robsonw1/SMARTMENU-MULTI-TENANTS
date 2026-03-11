@@ -1,4 +1,4 @@
-import { create } from 'zustand';
+﻿import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 export interface DaySchedule {
   isOpen: boolean;
@@ -36,13 +36,13 @@ interface StoreSettings {
   orderAlertEnabled?: boolean; // Ativar/desativar som de alerta para novos pedidos
   sendOrderSummaryToWhatsApp?: boolean; // Ativar/desativar envio de resumo para WhatsApp
   enableScheduling?: boolean; // Ativar/desativar agendamento de pedidos
-  minScheduleMinutes?: number; // Mínimo de minutos que cliente precisa esperar
-  maxScheduleDays?: number; // Máximo de dias que pode agendar
-  allowSchedulingOnClosedDays?: boolean; // Permite agendar em dias que loja está fechada
-  allowSchedulingOutsideBusinessHours?: boolean; // Permite agendar fora do horário de atendimento
-  respectBusinessHoursForScheduling?: boolean; // Se TRUE, só exibe slots dentro do horário
-  allowSameDaySchedulingOutsideHours?: boolean; // Se TRUE, permite agendar para HOJE fora do horário
-  timezone?: string; // Fuso horário do tenant (ex: America/Sao_Paulo)
+  minScheduleMinutes?: number; // M├¡nimo de minutos que cliente precisa esperar
+  maxScheduleDays?: number; // M├íximo de dias que pode agendar
+  allowSchedulingOnClosedDays?: boolean; // Permite agendar em dias que loja est├í fechada
+  allowSchedulingOutsideBusinessHours?: boolean; // Permite agendar fora do hor├írio de atendimento
+  respectBusinessHoursForScheduling?: boolean; // Se TRUE, s├│ exibe slots dentro do hor├írio
+  allowSameDaySchedulingOutsideHours?: boolean; // Se TRUE, permite agendar para HOJE fora do hor├írio
+  timezone?: string; // Fuso hor├írio do tenant (ex: America/Sao_Paulo)
 }
 
 interface SettingsStore {
@@ -75,10 +75,10 @@ const defaultWeekSchedule: WeekSchedule = {
 };
 
 const defaultSettings: StoreSettings = {
-  name: 'Forneiro Éden',
+  name: 'Forneiro ├ëden',
   phone: '(11) 99999-9999',
   address: 'Rua das Pizzas, 123 - Centro',
-  slogan: 'A Pizza mais recheada da cidade 🇮🇹',
+  slogan: 'A Pizza mais recheada da cidade ­ƒç«­ƒç╣',
   schedule: defaultWeekSchedule,
   isManuallyOpen: true,
   deliveryTimeMin: 60,
@@ -105,8 +105,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   loadSettingsFromSupabase: async () => {
     try {
-      console.log('📥 [LOAD-SUPABASE] ════════════════════════════════════════');
-      console.log('📥 [LOAD-SUPABASE] Carregando TODAS as settings do Supabase...');
+      console.log('­ƒôÑ [LOAD-SUPABASE] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
+      console.log('­ƒôÑ [LOAD-SUPABASE] Carregando TODAS as settings do Supabase...');
       
       const { data, error } = await supabase
         .from('settings')
@@ -115,7 +115,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         .single();
 
       if (error) {
-        console.error('❌ [LOAD-SUPABASE] Erro ao carregar settings:', error);
+        console.error('ÔØî [LOAD-SUPABASE] Erro ao carregar settings:', error);
         return;
       }
 
@@ -123,10 +123,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         const settingsData = data as any;
         const valueJson = settingsData.value || {};
         
-        console.log('📥 [LOAD-SUPABASE] Dados brutos do banco:');
-        console.log('📥 [LOAD-SUPABASE] value.schedule:', valueJson.schedule);
+        console.log('­ƒôÑ [LOAD-SUPABASE] Dados brutos do banco:');
+        console.log('­ƒôÑ [LOAD-SUPABASE] value.schedule:', valueJson.schedule);
         
-        // ✅ CARREGAR SCHEDULE COM DEFAULTS SE NÃO TIVER
+        // Ô£à CARREGAR SCHEDULE COM DEFAULTS SE N├âO TIVER
         const loadedSchedule = valueJson.schedule || {
           monday: { isOpen: false, openTime: '18:00', closeTime: '23:00' },
           tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
@@ -137,24 +137,24 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
         };
 
-        console.log('📥 [LOAD-SUPABASE] Schedule que será usado:', loadedSchedule);
+        console.log('­ƒôÑ [LOAD-SUPABASE] Schedule que ser├í usado:', loadedSchedule);
 
-        // ✅ MAPEAR TODOS OS CAMPOS DO BANCO PARA O ESTADO
+        // Ô£à MAPEAR TODOS OS CAMPOS DO BANCO PARA O ESTADO
         set({
           settings: {
-            name: valueJson.name || 'Forneiro Éden',
+            name: valueJson.name || 'Forneiro ├ëden',
             phone: valueJson.phone || '(11) 99999-9999',
             address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
-            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade 🇮🇹',
+            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade ­ƒç«­ƒç╣',
             schedule: loadedSchedule,
-            // 🔓 CARREGAR DA COLUNA NORMALIZADA PRIMEIRO, depois do JSON como fallback
+            // ­ƒöô CARREGAR DA COLUNA NORMALIZADA PRIMEIRO, depois do JSON como fallback
             isManuallyOpen: settingsData.is_manually_open !== null ? settingsData.is_manually_open : (valueJson.isManuallyOpen ?? true),
             deliveryTimeMin: valueJson.deliveryTimeMin ?? 60,
             deliveryTimeMax: valueJson.deliveryTimeMax ?? 70,
             pickupTimeMin: valueJson.pickupTimeMin ?? 40,
             pickupTimeMax: valueJson.pickupTimeMax ?? 50,
             adminPassword: valueJson.adminPassword || 'admin123',
-            // 🖨️  PRINTNODE: Tentar carregar da coluna normalizada PRIMEIRO, depois do JSON como fallback
+            // ­ƒû¿´©Å  PRINTNODE: Tentar carregar da coluna normalizada PRIMEIRO, depois do JSON como fallback
             printnode_printer_id: settingsData.printnode_printer_id || valueJson.printnode_printer_id || null,
             print_mode: settingsData.print_mode || valueJson.print_mode || 'auto',
             auto_print_pix: settingsData.auto_print_pix ?? (valueJson.auto_print_pix ?? false),
@@ -173,37 +173,37 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           }
         });
 
-        console.log('✅ [LOAD-SUPABASE] Store atualizado com SUCESSO');
-        console.log('🖨️  [LOAD-SUPABASE] PrintNode carregado: ID=', settingsData.printnode_printer_id, ', Mode=', settingsData.print_mode);
-        console.log('� [LOAD-SUPABASE] ════════════════════════════════════════');
+        console.log('Ô£à [LOAD-SUPABASE] Store atualizado com SUCESSO');
+        console.log('­ƒû¿´©Å  [LOAD-SUPABASE] PrintNode carregado: ID=', settingsData.printnode_printer_id, ', Mode=', settingsData.print_mode);
+        console.log('´┐¢ [LOAD-SUPABASE] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
       }
     } catch (error) {
-      console.error('❌ [LOAD-SUPABASE] Exceção ao carregar settings:', error);
+      console.error('ÔØî [LOAD-SUPABASE] Exce├º├úo ao carregar settings:', error);
     }
   },
 
   updateSettings: async (newSettings) => {
     try {
-      // 1️⃣ ATUALIZAR ESTADO LOCAL PRIMEIRO
+      // 1´©ÅÔâú ATUALIZAR ESTADO LOCAL PRIMEIRO
       set((state) => ({
         settings: { ...state.settings, ...newSettings },
       }));
       
-      // 2️⃣ PEGAR ESTADO ATUALIZADO
+      // 2´©ÅÔâú PEGAR ESTADO ATUALIZADO
       const { settings: currentSettings } = get();
       
-      console.log('💾 [UPDATE-SETTINGS] ════════════════════════════════════════');
-      console.log('💾 [UPDATE-SETTINGS] INICIANDO SALVAMENTO NO SUPABASE');
-      console.log('💾 [UPDATE-SETTINGS] Schedule que será salvo:', currentSettings.schedule);
+      console.log('­ƒÆ¥ [UPDATE-SETTINGS] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
+      console.log('­ƒÆ¥ [UPDATE-SETTINGS] INICIANDO SALVAMENTO NO SUPABASE');
+      console.log('­ƒÆ¥ [UPDATE-SETTINGS] Schedule que ser├í salvo:', currentSettings.schedule);
 
-      // 3️⃣ PREPARAR DADOS - SEPARAR COLUNAS NORMALIZADAS do JSONB
-      // ✅ CRÍTICO: Salvar JSONB em uma coluna separada para garantir persistência
+      // 3´©ÅÔâú PREPARAR DADOS - SEPARAR COLUNAS NORMALIZADAS do JSONB
+      // Ô£à CR├ìTICO: Salvar JSONB em uma coluna separada para garantir persist├¬ncia
       const jsonbValue = {
         name: currentSettings.name,
         phone: currentSettings.phone,
         address: currentSettings.address,
         slogan: currentSettings.slogan,
-        schedule: currentSettings.schedule, // ✅ SCHEDULE COMPLETO NO JSONB
+        schedule: currentSettings.schedule, // Ô£à SCHEDULE COMPLETO NO JSONB
         isManuallyOpen: currentSettings.isManuallyOpen,
         deliveryTimeMin: currentSettings.deliveryTimeMin,
         deliveryTimeMax: currentSettings.deliveryTimeMax,
@@ -214,9 +214,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       const updateData: any = {
-        // ✅ JSONB completo com todos os dados complexos
+        // Ô£à JSONB completo com todos os dados complexos
         value: jsonbValue,
-        // 🖨️  COLUNAS NORMALIZADAS PARA BUSCA/PERFORMANCE
+        // ­ƒû¿´©Å  COLUNAS NORMALIZADAS PARA BUSCA/PERFORMANCE
         printnode_printer_id: currentSettings.printnode_printer_id || null,
         print_mode: currentSettings.print_mode || 'auto',
         auto_print_pix: currentSettings.auto_print_pix ?? false,
@@ -233,11 +233,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         updated_at: new Date().toISOString(),
       };
 
-      console.log('📤 [UPDATE-SETTINGS] JSONB value.schedule:', jsonbValue.schedule);
-      console.log('🖨️  [UPDATE-SETTINGS] PrintNode Printer ID:', updateData.printnode_printer_id);
+      console.log('­ƒôñ [UPDATE-SETTINGS] JSONB value.schedule:', jsonbValue.schedule);
+      console.log('­ƒû¿´©Å  [UPDATE-SETTINGS] PrintNode Printer ID:', updateData.printnode_printer_id);
 
-      // 4️⃣ FAZER UPDATE COM MERGE EXPLÍCITO PARA GARANTIR JSONB SALVA
-      // ⚠️  IMPORTANTE: Usar || null em campos opcionais para evitar undefined
+      // 4´©ÅÔâú FAZER UPDATE COM MERGE EXPL├ìCITO PARA GARANTIR JSONB SALVA
+      // ÔÜá´©Å  IMPORTANTE: Usar || null em campos opcionais para evitar undefined
       const { data: updateResult, error: updateError } = await supabase
         .from('settings')
         .update({
@@ -261,14 +261,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         .select();
 
       if (updateError) {
-        console.error('❌ [UPDATE-SETTINGS] ERRO NO UPDATE:', updateError);
+        console.error('ÔØî [UPDATE-SETTINGS] ERRO NO UPDATE:', updateError);
         throw updateError;
       }
 
-      // 5️⃣ VERIFICAR RESULTADO - MAS FAZER SELECT FRESH PARA GARANTIR
-      // ⚠️  IMPORTANTE: O data do UPDATE pode ter valores antigos em cache
+      // 5´©ÅÔâú VERIFICAR RESULTADO - MAS FAZER SELECT FRESH PARA GARANTIR
+      // ÔÜá´©Å  IMPORTANTE: O data do UPDATE pode ter valores antigos em cache
       // Fazer um SELECT simples para garantir que foi realmente salvo
-      console.log('🔍 [UPDATE-SETTINGS] Fazendo SELECT fresh para GARANTIR persistência...');
+      console.log('­ƒöì [UPDATE-SETTINGS] Fazendo SELECT fresh para GARANTIR persist├¬ncia...');
       const { data: freshData, error: selectError } = await supabase
         .from('settings')
         .select('*')
@@ -276,23 +276,23 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         .single();
 
       if (selectError || !freshData) {
-        console.error('❌ [UPDATE-SETTINGS] ERRO no SELECT fresh:', selectError);
+        console.error('ÔØî [UPDATE-SETTINGS] ERRO no SELECT fresh:', selectError);
         throw selectError;
       }
 
-      // 5️⃣ VERIFICAR RESULTADO COM DADOS FRESCOS
+      // 5´©ÅÔâú VERIFICAR RESULTADO COM DADOS FRESCOS
       const savedData = freshData as any;
       const savedValue = savedData.value || {};
       const savedSchedule = savedValue.schedule;
       
-      console.log('✅ [UPDATE-SETTINGS] CONFIRMADO! Dados salvos (FRESH):');
-      console.log('✅ [UPDATE-SETTINGS] Schedule.monday:', savedSchedule?.monday);
-      console.log('✅ [UPDATE-SETTINGS] Schedule.thursday:', savedSchedule?.thursday);
-      console.log('✅ [UPDATE-SETTINGS] is_manually_open:', savedData.is_manually_open);
+      console.log('Ô£à [UPDATE-SETTINGS] CONFIRMADO! Dados salvos (FRESH):');
+      console.log('Ô£à [UPDATE-SETTINGS] Schedule.monday:', savedSchedule?.monday);
+      console.log('Ô£à [UPDATE-SETTINGS] Schedule.thursday:', savedSchedule?.thursday);
+      console.log('Ô£à [UPDATE-SETTINGS] is_manually_open:', savedData.is_manually_open);
 
-      console.log('💾 [UPDATE-SETTINGS] ════════════════════════════════════════');
+      console.log('­ƒÆ¥ [UPDATE-SETTINGS] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
     } catch (error) {
-      console.error('❌ [UPDATE-SETTINGS] EXCEÇÃO FATAL:', error);
+      console.error('ÔØî [UPDATE-SETTINGS] EXCE├ç├âO FATAL:', error);
       throw error;
     }
   },
@@ -302,7 +302,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       settings: { ...state.settings, [key]: value },
     })),
 
-  // ✅ NOVO: Carrega settings SÓ em memória, SEM resalvar no Supabase
+  // Ô£à NOVO: Carrega settings S├ô em mem├│ria, SEM resalvar no Supabase
   loadSettingsLocally: (newSettings) => {
     set((state) => ({
       settings: { ...state.settings, ...newSettings },
@@ -310,8 +310,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   },
 
   updateDaySchedule: (day, schedule) => {
-    // ✅ CORREÇÃO: updateDaySchedule() SÓ atualiza estado local, NÃO salva no Supabase
-    // O saveamento completo acontece em updateSettings() quando o admin clica "Salvar Alterações"
+    // Ô£à CORRE├ç├âO: updateDaySchedule() S├ô atualiza estado local, N├âO salva no Supabase
+    // O saveamento completo acontece em updateSettings() quando o admin clica "Salvar Altera├º├Áes"
     // Assim evitamos race condition onde updateDaySchedule() sobrescreve dados recentes
     set((state) => ({
       settings: {
@@ -354,51 +354,51 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       diaAtual: new Date().toLocaleDateString('pt-BR', { weekday: 'long' }),
     };
     
-    console.log('🔍 [IS-STORE-OPEN] Iniciando verificação:', debugInfo);
+    console.log('­ƒöì [IS-STORE-OPEN] Iniciando verifica├º├úo:', debugInfo);
     
-    // ❌ Se manual close button foi clicado: SEMPRE fechado (sem exceções)
+    // ÔØî Se manual close button foi clicado: SEMPRE fechado (sem exce├º├Áes)
     if (settings.isManuallyOpen === false) {
-      console.log('❌ LOJA FECHADA - Botão manual FECHADO pelo gerente');
+      console.log('ÔØî LOJA FECHADA - Bot├úo manual FECHADO pelo gerente');
       return false;
     }
 
-    // ✅ Se manual open button foi clicado: AINDA RESPEITA OS HORÁRIOS CONFIGURADOS
-    // O gerente pode abrir manualmente, mas os horários do menu (Seg-Dom) SEMPRE são respeitados
-    // Isso garante que nenhum pedido seja feito fora do horário configurado
+    // Ô£à Se manual open button foi clicado: AINDA RESPEITA OS HOR├üRIOS CONFIGURADOS
+    // O gerente pode abrir manualmente, mas os hor├írios do menu (Seg-Dom) SEMPRE s├úo respeitados
+    // Isso garante que nenhum pedido seja feito fora do hor├írio configurado
     
     const now = new Date();
     const currentDay = dayNames[now.getDay()];
     
-    console.log('🔍 [IS-STORE-OPEN] Dia atual do sistema:', currentDay);
+    console.log('­ƒöì [IS-STORE-OPEN] Dia atual do sistema:', currentDay);
 
     const daySchedule = settings.schedule ? settings.schedule[currentDay] : null;
 
-    // Se não tem schedule configurado para hoje
+    // Se n├úo tem schedule configurado para hoje
     if (!daySchedule) {
-      console.log('❌ LOJA FECHADA - Schedule do dia', currentDay, 'não encontrado no settings.schedule:', {
+      console.log('ÔØî LOJA FECHADA - Schedule do dia', currentDay, 'n├úo encontrado no settings.schedule:', {
         schedule: settings.schedule,
         diaRequisitado: currentDay,
       });
       return false;
     }
 
-    console.log(`📅 [IS-STORE-OPEN] Schedule carregado para ${currentDay}:`, daySchedule);
+    console.log(`­ƒôà [IS-STORE-OPEN] Schedule carregado para ${currentDay}:`, daySchedule);
 
-    // ⚠️ CRÍTICO: Verificar se o dia está marcado como FECHADO
+    // ÔÜá´©Å CR├ìTICO: Verificar se o dia est├í marcado como FECHADO
     if (daySchedule.isOpen === false) {
-      console.log('❌ LOJA FECHADA - Dia', currentDay, 'está marcado como FECHADO (isOpen=false)');
+      console.log('ÔØî LOJA FECHADA - Dia', currentDay, 'est├í marcado como FECHADO (isOpen=false)');
       return false;
     }
 
     if (!daySchedule.openTime || !daySchedule.closeTime) {
-      console.log('❌ LOJA FECHADA - Horários não configurados para hoje:', {
+      console.log('ÔØî LOJA FECHADA - Hor├írios n├úo configurados para hoje:', {
         openTime: daySchedule.openTime,
         closeTime: daySchedule.closeTime,
       });
       return false;
     }
 
-    // ⏰ Calcular hora atual em minutos
+    // ÔÅ░ Calcular hora atual em minutos
     const currentHour = now.getHours();
     const currentMinute = now.getMinutes();
     const currentTime = currentHour * 60 + currentMinute;
@@ -410,7 +410,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const openTime = openHour * 60 + openMinute;
       let closeTime = closeHour * 60 + closeMinute;
       
-      console.log('⏰ [IS-STORE-OPEN] Verificando horário:', {
+      console.log('ÔÅ░ [IS-STORE-OPEN] Verificando hor├írio:', {
         horaAtual: `${currentHour}:${String(currentMinute).padStart(2, '0')} (${currentTime} min)`,
         horaAbertura: `${daySchedule.openTime} (${openTime} min)`,
         horaFechamento: `${daySchedule.closeTime} (${closeTime} min)`,
@@ -421,16 +421,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         closeTime += 24 * 60; // Add 24 hours
         const adjustedCurrentTime = currentTime < openTime ? currentTime + 24 * 60 : currentTime;
         const isOpen = adjustedCurrentTime >= openTime && adjustedCurrentTime < closeTime;
-        console.log('⏰ [IS-STORE-OPEN] Horário com midnight:', isOpen ? `✅ ABERTA (${daySchedule.openTime}-${daySchedule.closeTime})` : `❌ FECHADA (${daySchedule.openTime}-${daySchedule.closeTime}) - Hora atual: ${now.toLocaleTimeString('pt-BR')}`);
+        console.log('ÔÅ░ [IS-STORE-OPEN] Hor├írio com midnight:', isOpen ? `Ô£à ABERTA (${daySchedule.openTime}-${daySchedule.closeTime})` : `ÔØî FECHADA (${daySchedule.openTime}-${daySchedule.closeTime}) - Hora atual: ${now.toLocaleTimeString('pt-BR')}`);
         return isOpen;
       }
 
       const isOpen = currentTime >= openTime && currentTime < closeTime;
-      const status = isOpen ? `✅ ABERTA (${daySchedule.openTime}-${daySchedule.closeTime})` : `❌ FECHADA (${daySchedule.openTime}-${daySchedule.closeTime})`;
-      console.log('⏰ [IS-STORE-OPEN]', status, '- Hora atual:', now.toLocaleTimeString('pt-BR'));
+      const status = isOpen ? `Ô£à ABERTA (${daySchedule.openTime}-${daySchedule.closeTime})` : `ÔØî FECHADA (${daySchedule.openTime}-${daySchedule.closeTime})`;
+      console.log('ÔÅ░ [IS-STORE-OPEN]', status, '- Hora atual:', now.toLocaleTimeString('pt-BR'));
       return isOpen;
     } catch (error) {
-      console.error('Erro ao calcular horário de funcionamento:', error);
+      console.error('Erro ao calcular hor├írio de funcionamento:', error);
       return false;
     }
   },
@@ -438,8 +438,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   syncSettingsToSupabase: async () => {
     try {
       const { settings } = get();
-      
-      const updateData = {
+
+      const updateData: any = {
         value: {
           name: settings.name,
           phone: settings.phone,
@@ -451,7 +451,6 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           deliveryTimeMax: settings.deliveryTimeMax,
           pickupTimeMin: settings.pickupTimeMin,
           pickupTimeMax: settings.pickupTimeMax,
-          adminPassword: settings.adminPassword,
           orderAlertEnabled: settings.orderAlertEnabled,
           sendOrderSummaryToWhatsApp: settings.sendOrderSummaryToWhatsApp,
         },
@@ -471,15 +470,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         .eq('id', 'store-settings');
 
       if (error) {
-        console.error('❌ Erro ao sincronizar settings:', error);
-        return { success: false, message: 'Erro ao sincronizar configurações' };
+        console.error('ÔØî Erro ao sincronizar settings com Supabase:', error);
+        return { success: false, message: 'Erro ao sincronizar configura├º├Áes' };
       }
 
-      console.log('✅ Settings sincronizados com sucesso');
-      return { success: true, message: 'Configurações sincronizadas com sucesso!' };
+      console.log('Ô£à Settings sincronizados com Supabase com TODOS os dados');
+      return { success: true, message: 'Configura├º├Áes sincronizadas com sucesso!' };
     } catch (error) {
-      console.error('❌ Erro ao sincronizar settings:', error);
-      return { success: false, message: 'Erro ao sincronizar configurações' };
+      console.error('ÔØî Erro ao sincronizar settings:', error);
+      return { success: false, message: 'Erro ao sincronizar configura├º├Áes' };
     }
   },
 }));
+
