@@ -1,0 +1,76 @@
+import { Header } from '@/components/Header';
+import { ProductCatalog } from '@/components/ProductCatalog';
+import { ProductModal } from '@/components/ProductModal';
+import { CartDrawer } from '@/components/CartDrawer';
+import { CheckoutModal } from '@/components/CheckoutModal';
+import { SchedulingCheckoutModal } from '@/components/SchedulingCheckoutModal';
+import { Footer } from '@/components/Footer';
+import { CustomerLoginModal } from '@/components/CustomerLoginModal';
+import { DeliveryAddressDialog } from '@/components/DeliveryAddressDialog';
+import { useLoyaltyStore } from '@/store/useLoyaltyStore';
+import { useLoyaltyRealtimeSync } from '@/hooks/use-loyalty-realtime-sync';
+import { useRealtimeSync } from '@/hooks/use-realtime-sync';
+import { useSettingsRealtimeSync } from '@/hooks/use-settings-realtime-sync';
+import { useState, useEffect } from 'react';
+
+const Index = () => {
+  const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isDeliveryAddressOpen, setIsDeliveryAddressOpen] = useState(false);
+  const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
+  const restoreRememberedLogin = useLoyaltyStore((s) => s.restoreRememberedLogin);
+
+  // ✅ Sincronizar dados em tempo real (produtos, pedidos, configurações)
+  useRealtimeSync();
+  useLoyaltyRealtimeSync();
+  useSettingsRealtimeSync();
+
+  // Restaurar login lembrado ao inicializar
+  useEffect(() => {
+    const restoreLogin = async () => {
+      const restored = await restoreRememberedLogin();
+      if (restored) {
+        console.log('✅ Login automático restaurado');
+      }
+    };
+
+    restoreLogin();
+  }, [restoreRememberedLogin]);
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      <Header onLoginClick={() => setIsLoginModalOpen(true)} />
+
+      <main className="flex-1">
+        <ProductCatalog />
+      </main>
+
+      {/* Footer */}
+      <Footer
+        onLoginClick={() => setIsLoginModalOpen(true)}
+        onAdminClick={() => {}}
+      />
+
+      {/* Modals & Drawers */}
+      <CustomerLoginModal
+        isOpen={isLoginModalOpen}
+        onClose={() => setIsLoginModalOpen(false)}
+        onSuccess={() => setIsLoginModalOpen(false)}
+        onSignupSuccess={() => {
+          setIsLoginModalOpen(false);
+          // Toast com ação será mostrado pelo componente
+        }}
+        onOpenAddressDialog={() => setIsDeliveryAddressOpen(true)}
+      />
+      <DeliveryAddressDialog
+        isOpen={isDeliveryAddressOpen}
+        onClose={() => setIsDeliveryAddressOpen(false)}
+      />
+      <ProductModal />
+      <CartDrawer />
+      <CheckoutModal />
+      <SchedulingCheckoutModal />
+    </div>
+  );
+};
+
+export default Index;
