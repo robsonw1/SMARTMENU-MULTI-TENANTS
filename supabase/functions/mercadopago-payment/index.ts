@@ -40,10 +40,16 @@ serve(async (req) => {
   }
 
   try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL') || '',
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || ''
-    );
+    const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
+    const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
+    
+    // 🔍 DEBUG LOGS - Removidas após issue resolvida
+    console.log('🔧 [DEBUG] Inicializando Supabase:', {
+      url: supabaseUrl?.substring(0, 30) + '...',
+      keyLength: supabaseKey?.length || 0
+    });
+
+    const supabase = createClient(supabaseUrl, supabaseKey);
 
     let accessToken;
     try {
