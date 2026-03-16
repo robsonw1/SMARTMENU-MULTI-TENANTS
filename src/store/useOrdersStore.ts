@@ -2,6 +2,7 @@
 import { persist } from 'zustand/middleware';
 import { Order } from '@/data/products';
 import { supabase } from '@/integrations/supabase/client';
+import { useLoyaltySettingsStore } from './useLoyaltySettingsStore';
 
 type OrderStatus = 'pending' | 'agendado' | 'confirmed' | 'preparing' | 'delivering' | 'delivered' | 'cancelled';
 
@@ -584,12 +585,16 @@ export const useOrdersStore = create<OrdersStore>()(
 
       updateOrderPointsRedeemed: async (id, pointsRedeemed) => {
         try {
+          // ✅ CORRETO: Calcular desconto real baseado na configuração
+          const discountPer100Points = useLoyaltySettingsStore.getState().settings?.discountPer100Points ?? 5;
+          const calculatedDiscount = (pointsRedeemed / 100) * discountPer100Points;
+
           // ­ƒöÆ CR├ìTICO: Atualizar points_redeemed no Supabase IMEDIATAMENTE
           // Isso registra que esses pontos foram "reservados" para esta compra
           const { error } = await (supabase as any).from('orders')
             .update({ 
               points_redeemed: pointsRedeemed,
-              points_discount: pointsRedeemed // Atualizar desconto tamb├®m
+              points_discount: calculatedDiscount // ✅ Usar desconto calculado corretamente
             })
             .eq('id', id);
 
@@ -598,23 +603,28 @@ export const useOrdersStore = create<OrdersStore>()(
             throw error;
           }
 
-          console.log(`Ô£à Points redeemed registrados: ${pointsRedeemed} pontos para ordem ${id}`);
+          console.log(`Ô£à Points redeemed registrados: ${pointsRedeemed} pontos = R$ ${calculatedDiscount.toFixed(2)} de desconto para ordem ${id}`);
         } catch (error) {
           console.error('Erro ao atualizar points_redeemed no Supabase:', error);
         }
 
-        // Atualizar store localmente
-        set((state) => ({
-          orders: state.orders.map((order) =>
-            order.id === id 
-              ? { 
-                  ...order, 
-                  pointsRedeemed,
-                  pointsDiscount: pointsRedeemed 
-                } 
-              : order
-          ),
-        }));
+        // ✅ CORRETO: Atualizar store localmente com desconto calculado
+        set((state) => {
+          const discountPer100Points = useLoyaltySettingsStore.getState().settings?.discountPer100Points ?? 5;
+          const calculatedDiscount = (pointsRedeemed / 100) * discountPer100Points;
+          
+          return {
+            orders: state.orders.map((order) =>
+              order.id === id 
+                ? { 
+                    ...order, 
+                    pointsRedeemed,
+                    pointsDiscount: calculatedDiscount 
+                  } 
+                : order
+            ),
+          };
+        });
       },
 
       removeOrder: async (id) => {
