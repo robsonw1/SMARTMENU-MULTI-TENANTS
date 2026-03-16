@@ -1,0 +1,81 @@
+{
+  "name": "Pizzaria Forneiro Eden",
+  "short_name": "Forneiro Eden",
+  "description": "Cardápio digital e pedidos online da Pizzaria Forneiro Eden",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#000000",
+  "theme_color": "#ff9500",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/logo-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ],
+  "categories": ["food", "shopping"],
+  "screenshots": [
+    {
+      "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 540 720'><rect fill='%23000' width='540' height='720'/><text x='50%' y='50%' font-size='200' fill='%23ff9500' text-anchor='middle' dominant-baseline='middle' font-family='serif' font-weight='bold'>🍕</text><text x='50%' y='80%' font-size='40' fill='%23fff' text-anchor='middle'>Forneiro Eden</text></svg>",
+      "sizes": "540x720",
+      "type": "image/svg+xml",
+      "form_factor": "narrow"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Novo Pedido",
+      "short_name": "Novo Pedido",
+      "description": "Fazer um novo pedido rapidamente",
+      "url": "/?order=new",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%23ff9500' width='96' height='96'/><text x='50%' y='50%' font-size='60' text-anchor='middle' dominant-baseline='middle'>+</text></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    },
+    {
+      "name": "Meus Pedidos",
+      "short_name": "Pedidos",
+      "description": "Ver status dos meus pedidos",
+      "url": "/?view=orders",
+      "icons": [
+        {
+          "src": "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 96 96'><rect fill='%23ff9500' width='96' height='96'/><text x='50%' y='50%' font-size='60' text-anchor='middle' dominant-baseline='middle'>📦</text></svg>",
+          "sizes": "96x96",
+          "type": "image/svg+xml"
+        }
+      ]
+    }
+  ],
+  "share_target": {
+    "action": "/share",
+    "method": "POST",
+    "enctype": "multipart/form-data",
+    "params": {
+      "files": [
+        {
+          "name": "image",
+          "accept": ["image/png", "image/jpeg"]
+        }
+      ]
+    }
+  }
+}
