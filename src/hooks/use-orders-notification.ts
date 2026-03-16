@@ -1,4 +1,4 @@
-﻿import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
 import { supabase } from '@/integrations/supabase/client';
 
