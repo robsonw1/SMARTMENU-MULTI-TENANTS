@@ -51,6 +51,7 @@ import {
   BarChart3,
   Clock,
   Power,
+  QrCode,
 } from 'lucide-react';
 import {
   Product,
@@ -75,6 +76,7 @@ import { FaithfulCustomersAdmin } from '@/components/admin/FaithfulCustomersAdmi
 import { CouponManagementPanel } from '@/components/admin/CouponManagementPanel';
 import { PaymentSettingsPanel } from '@/components/admin/PaymentSettingsPanel';
 import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
+import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { toast } from 'sonner';
 import { format, startOfDay, endOfDay } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
@@ -1137,6 +1139,10 @@ const AdminDashboard = () => {
               <Clock className="w-4 h-4" />
               Agendamento
             </TabsTrigger>
+            <TabsTrigger value="qrcode" className="gap-2">
+              <QrCode className="w-4 h-4" />
+              QR Code
+            </TabsTrigger>
           </TabsList>
 
           {/* Overview Tab */}
@@ -1963,6 +1969,48 @@ const AdminDashboard = () => {
           {/* Scheduling Tab */}
           <TabsContent value="scheduling">
             <SchedulingSettings />
+          </TabsContent>
+
+          {/* QR Code Tab */}
+          <TabsContent value="qrcode">
+            <div className="space-y-6">
+              <div>
+                <h2 className="text-xl font-semibold mb-2">Gerenciar QR Code do App</h2>
+                <p className="text-sm text-muted-foreground mb-6">
+                  Baixe o QR Code do seu app para usar em panfletos, telas e materiais de marketing.
+                </p>
+              </div>
+
+              {/* Size Selection */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="text-lg">Tamanhos Disponíveis</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[100, 300, 500, 1000].map((sizeOption) => (
+                      <div key={sizeOption} className="border rounded-lg p-4">
+                        <p className="font-medium text-center mb-3">{sizeOption}x{sizeOption}px</p>
+                        <div className="flex justify-center mb-3">
+                          <div className="bg-secondary p-2 rounded">
+                            <QRCodeDisplay size={sizeOption as 100 | 200 | 300 | 500 | 1000} showControls={false} />
+                          </div>
+                        </div>
+                        <p className="text-xs text-muted-foreground text-center">
+                          {sizeOption === 100 && 'Para redes sociais'}
+                          {sizeOption === 300 && 'Para panfletos'}
+                          {sizeOption === 500 && 'Para telas de loja'}
+                          {sizeOption === 1000 && 'Para banners grandes'}
+                        </p>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Download Section */}
+              <QRCodeDisplay size={300} showControls={true} />
+            </div>
           </TabsContent>
         </Tabs>
       </div>
