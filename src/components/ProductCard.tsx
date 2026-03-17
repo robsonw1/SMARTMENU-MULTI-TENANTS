@@ -56,11 +56,11 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
     >
       {/* Overlay para produtos inativos */}
       {isUnavailable && (
-        <div className="absolute inset-0 bg-black/30 backdrop-blur-sm rounded-xl flex flex-col items-center justify-center z-10 group-hover:bg-black/35 transition-all duration-300">
-          <AlertCircle className="w-12 h-12 text-red-500 mb-2" />
+        <div className="absolute inset-0 bg-black/15 rounded-xl flex flex-col items-center justify-center z-10 group-hover:bg-black/20 transition-all duration-300">
+          <AlertCircle className="w-10 h-10 text-red-500 mb-1.5" />
           <div className="text-center">
-            <p className="text-white font-bold text-lg">Produto</p>
-            <p className="text-white font-bold text-lg">esgotado</p>
+            <p className="text-white font-bold text-sm">Produto</p>
+            <p className="text-white font-bold text-sm">esgotado</p>
           </div>
         </div>
       )}
