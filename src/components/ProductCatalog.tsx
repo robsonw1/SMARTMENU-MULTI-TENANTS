@@ -1,5 +1,4 @@
 import { useMemo, useState } from 'react';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/ProductCard';
 import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Truck, Store, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -81,28 +80,33 @@ export function ProductCatalog() {
         </div>
 
         {/* Category Tabs */}
-        <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
+        <div className="w-full">
           {/* Desktop: Horizontal Scroll Tabs */}
           <div className="hidden md:block overflow-x-auto scrollbar-hide -mx-4 px-4 mb-8">
-            <TabsList className="inline-flex h-auto p-1 bg-secondary/50 rounded-xl gap-1 min-w-max">
+            <div className="inline-flex h-auto p-1 bg-secondary/50 rounded-xl gap-1 min-w-max">
               {categories.map((category) => {
                 const Icon = category.icon;
                 const products = getByCategory(category.id as any);
+                const isActive = activeTab === category.id;
                 return (
-                  <TabsTrigger
+                  <button
                     key={category.id}
-                    value={category.id}
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-lg data-[state=active]:bg-primary data-[state=active]:text-primary-foreground whitespace-nowrap"
+                    onClick={() => setActiveTab(category.id)}
+                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg whitespace-nowrap transition-all ${
+                      isActive
+                        ? 'bg-primary text-primary-foreground'
+                        : 'bg-secondary/50 text-foreground hover:bg-secondary'
+                    }`}
                   >
                     <Icon className="w-4 h-4" />
                     <span className="font-medium">{category.label}</span>
                     <span className="ml-1 text-xs opacity-70">
                       ({products.filter(p => p.isActive).length})
                     </span>
-                  </TabsTrigger>
+                  </button>
                 );
               })}
-            </TabsList>
+            </div>
           </div>
 
           {/* Mobile: Carousel with Navigation */}
@@ -187,11 +191,11 @@ export function ProductCatalog() {
           </div>
 
           {/* Products Grid */}
-          {categories.map((category) => {
-            const products = getByCategory(category.id as any);
-            console.log(`📦 Categoria "${category.label}" (${category.id}): ${products.length} produtos totais`);
+          {(() => {
+            const products = getByCategory(activeTab);
+            console.log(`📦 Categoria ativa: "${activeTab}" | ${products.length} produtos totais`);
             return (
-              <TabsContent key={category.id} value={category.id} className="mt-0">
+              <div className="mt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                   {products.map((product, index) => (
                     <ProductCard key={product.id} product={product} index={index} />
@@ -205,12 +209,13 @@ export function ProductCatalog() {
                     </p>
                   </div>
                 )}
-              </TabsContent>
+              </div>
             );
-          })}
-        </Tabs>
+          })()}
+        </div>
       </div>
     </section>
   );
 }
+
 
