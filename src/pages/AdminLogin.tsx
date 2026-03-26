@@ -23,7 +23,7 @@ const AdminLogin = () => {
       // Simple demo auth - in production, use proper backend
       await new Promise(resolve => setTimeout(resolve, 1000));
 
-      if (username === 'admin' && password === 'admin123') {
+      if (username === 'Forneiroeden' && password === 'mudar123') {
         localStorage.setItem('admin-token', 'demo-token');
         
         // Buscar o primeiro tenant para associar ao admin demo
@@ -99,7 +99,7 @@ const AdminLogin = () => {
           </form>
 
           <p className="text-xs text-muted-foreground text-center mt-4">
-            Demo: admin / admin123
+            Acesse sua conta: admin
           </p>
         </CardContent>
       </Card>

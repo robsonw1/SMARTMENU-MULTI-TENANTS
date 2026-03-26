@@ -1,4 +1,4 @@
-import { Phone, MapPin, Clock, LogIn, Lock, Share2 } from 'lucide-react';
+import { Phone, MapPin, Clock, LogIn, Lock, Share2, Plus } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useSettingsStore, WeekSchedule } from '@/store/useSettingsStore';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
@@ -170,7 +170,6 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
               </Button>
             )}
             <Button
-              onClick={onAdminClick}
               variant="outline"
               className="flex items-center gap-2 w-full sm:w-auto"
               asChild
@@ -178,6 +177,16 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
               <Link to="/admin" className="flex items-center gap-2">
                 <Lock className="w-4 h-4" />
                 Área Admin
+              </Link>
+            </Button>
+            <Button
+              variant="secondary"
+              className="flex items-center gap-2 w-full sm:w-auto font-semibold"
+              asChild
+            >
+              <Link to="/cadastro" className="flex items-center gap-2">
+                <Plus className="w-4 h-4" />
+                Cadastrar Sua Loja
               </Link>
             </Button>
           </div>

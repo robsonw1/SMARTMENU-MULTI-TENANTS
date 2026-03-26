@@ -73,7 +73,7 @@ export function ProductModal() {
   const [size, setSize] = useState<'broto' | 'grande'>('grande');
   const [isHalfHalf, setIsHalfHalf] = useState(false);
   const [secondHalfId, setSecondHalfId] = useState<string>('');
-  const [selectedBorder, setSelectedBorder] = useState<string>('borda-requeijao');
+  const [selectedBorder, setSelectedBorder] = useState<string>('');
   const [selectedExtras, setSelectedExtras] = useState<string[]>([]);
   const [quantity, setQuantity] = useState(1);
   const [selectedDrinkId, setSelectedDrinkId] = useState<string>('');
@@ -99,7 +99,7 @@ export function ProductModal() {
     setSize('grande');
     setIsHalfHalf(false);
     setSecondHalfId('');
-    setSelectedBorder('borda-requeijao');
+    setSelectedBorder('');
     setSelectedExtras([]);
     setQuantity(1);
     setSelectedDrinkId('');
@@ -211,6 +211,12 @@ export function ProductModal() {
 
     if (!selectedProduct.isActive) {
       toast.error('Este produto está indisponível no momento');
+      return;
+    }
+
+    // Validate border selection (mandatory for pizzas)
+    if (isPizza && !selectedBorder) {
+      toast.error('Selecione sua borda (ou clique em "Não quero borda")');
       return;
     }
 
@@ -665,13 +671,15 @@ export function ProductModal() {
                 <>
                   <Separator />
                   <div>
-                    <Label className="text-base font-semibold mb-3 block">Borda</Label>
+                    <Label className="text-base font-semibold mb-3 block">
+                      Borda <span className="text-red-500">*</span>
+                    </Label>
                     <Select value={selectedBorder} onValueChange={setSelectedBorder}>
-                      <SelectTrigger>
-                        <SelectValue />
+                      <SelectTrigger className={!selectedBorder ? 'text-muted-foreground' : ''}>
+                        <SelectValue placeholder="Selecione sua Borda..." />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="sem-borda">Sem borda recheada</SelectItem>
+                        <SelectItem value="sem-borda">❌ Não quero borda</SelectItem>
                         {availableBordas.map(border => (
                           <SelectItem key={border.id} value={border.id}>
                             {border.name} (+{formatPrice(border.price!)})

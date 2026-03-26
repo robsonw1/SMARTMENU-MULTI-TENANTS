@@ -85,7 +85,7 @@ const defaultSettings: StoreSettings = {
   deliveryTimeMax: 70,
   pickupTimeMin: 40,
   pickupTimeMax: 50,
-  adminPassword: 'admin123',
+  adminPassword: 'forneiroeden123',
   orderAlertEnabled: true,
   sendOrderSummaryToWhatsApp: false,
   enableScheduling: false,
@@ -153,7 +153,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             deliveryTimeMax: valueJson.deliveryTimeMax ?? 70,
             pickupTimeMin: valueJson.pickupTimeMin ?? 40,
             pickupTimeMax: valueJson.pickupTimeMax ?? 50,
-            adminPassword: valueJson.adminPassword || 'admin123',
+            adminPassword: valueJson.adminPassword || 'forneiroeden123',
             // ­ƒû¿´©Å  PRINTNODE: Tentar carregar da coluna normalizada PRIMEIRO, depois do JSON como fallback
             printnode_printer_id: settingsData.printnode_printer_id || valueJson.printnode_printer_id || null,
             print_mode: settingsData.print_mode || valueJson.print_mode || 'auto',

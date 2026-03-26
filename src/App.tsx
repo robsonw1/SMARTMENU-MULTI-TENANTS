@@ -5,6 +5,7 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { useRealtimeSync } from "@/hooks/use-realtime-sync";
+import { useAdminRealtimeSync } from "@/hooks/use-admin-realtime-sync";
 import { useSettingsRealtimeSync } from "@/hooks/use-settings-realtime-sync";
 import { useSettingsInitialLoad } from "@/hooks/use-settings-initial-load";
 import { useScheduleSync } from "@/hooks/use-schedule-sync";
@@ -15,13 +16,21 @@ import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import Index from "./pages/Index.tsx";
 import AdminLogin from "./pages/AdminLogin.tsx";
 import AdminDashboard from "./pages/AdminDashboard.tsx";
+import CadastroPage from "./pages/CadastroPage.tsx";
 import NotFound from "./pages/NotFound.tsx";
 
 const queryClient = new QueryClient();
 
 // Componente wrapper para usar hooks
 const AppContent = () => {
+  // ✅ Sincronização global de dados (produtos, bairros, etc)
   useRealtimeSync();
+  
+  // ✅ NOVO: Sincronização específica para admins (pedidos em tempo real)
+  // Garante que TODOS os admins vejam pedidos novos/alterados
+  useAdminRealtimeSync();
+  
+  // Demais sincronizações
   useSettingsInitialLoad();
   useSettingsRealtimeSync();
   useScheduleSync();
@@ -36,6 +45,7 @@ const AppContent = () => {
   return (
     <Routes>
       <Route path="/" element={<Index />} />
+      <Route path="/cadastro" element={<CadastroPage />} />
       <Route path="/admin" element={<AdminLogin />} />
       <Route path="/admin/dashboard" element={<AdminDashboard />} />
       {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

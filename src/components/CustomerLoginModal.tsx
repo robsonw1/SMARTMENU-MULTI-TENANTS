@@ -99,7 +99,15 @@ export function CustomerLoginModal({
 
     setIsLoading(true);
     try {
-      const success = await loginCustomer(loginEmail, loginCpf.replace(/\D/g, ''), rememberMe);
+      // ✅ SEMPRE salvar login (rememberMe = true por padrão)
+      console.log('🔐 [CUSTOMER-LOGIN] Iniciando login com rememberMe=true');
+      const success = await loginCustomer(
+        loginEmail, 
+        loginCpf.replace(/\D/g, ''), 
+        true  // ← SEMPRE true, para manter conectado por padrão
+      );
+
+      console.log('🔐 [CUSTOMER-LOGIN] Login result:', success);
 
       if (success) {
         toast.success('✅ Bem-vindo! Dados carregados com sucesso');
@@ -109,10 +117,11 @@ export function CustomerLoginModal({
         onClose();
         onSuccess?.();
       } else {
+        console.warn('⚠️  [CUSTOMER-LOGIN] Login falhou');
         toast.error('❌ Email ou CPF inválidos. Dados não encontrados.');
       }
     } catch (error) {
-      console.error('Erro de login:', error);
+      console.error('❌ [CUSTOMER-LOGIN] Erro:', error);
       toast.error('Erro ao fazer login');
     } finally {
       setIsLoading(false);
@@ -151,6 +160,33 @@ export function CustomerLoginModal({
       );
 
       if (success) {
+        // ✅ NOVO: Fazer login automático com retry logic
+        // Supabase pode levar 200-500ms para replicar, então fazemos retries
+        console.log('✅ [SIGNUP] Conta criada com sucesso, tentando fazer login automático...');
+        
+        let loginSuccess = false;
+        const maxRetries = 3;
+        const retryDelayMs = 300;
+        
+        // Tentar fazer login com retry (Supabase pode levar tempo para replicar)
+        for (let attempt = 1; attempt <= maxRetries; attempt++) {
+          if (attempt > 1) {
+            console.log(`🔄 [SIGNUP] Tentativa ${attempt}/${maxRetries} de auto-login...`);
+            await new Promise(resolve => setTimeout(resolve, retryDelayMs));
+          }
+          
+          loginSuccess = await loginCustomer(
+            signupEmail,
+            signupCpf.replace(/\D/g, ''),
+            true  // rememberMe = true ← Salva em localStorage
+          );
+          
+          if (loginSuccess) {
+            console.log(`✅ [SIGNUP] Auto-login bem-sucedido na tentativa ${attempt}`);
+            break;
+          }
+        }
+
         setSignupEmail('');
         setSignupName('');
         setSignupCpf('');
@@ -159,16 +195,31 @@ export function CustomerLoginModal({
         onSignupSuccess?.();
         
         // ✨ Toast com ação: Sim (abrir dialog de endereço) ou Depois (apenas fechar)
-        toast.success('✅ Conta criada com sucesso!', {
-          description: 'Deseja preencher seu endereço de entrega padrão agora?',
-          action: {
-            label: 'Preencher Agora',
-            onClick: () => {
-              onOpenAddressDialog?.();
+        if (loginSuccess) {
+          console.log('✅ [SIGNUP] Cliente logado e será lembrado no próximo acesso');
+          toast.success('✅ Conta criada com sucesso e você está logado!', {
+            description: 'Deseja preencher seu endereço de entrega padrão agora?',
+            action: {
+              label: 'Preencher Agora',
+              onClick: () => {
+                onOpenAddressDialog?.();
+              },
             },
-          },
-          duration: 8000, // 8 segundos para o usuário decidir
-        });
+            duration: 8000,
+          });
+        } else {
+          console.warn('⚠️  [SIGNUP] Conta criada mas auto-login falhou após retries');
+          toast.success('✅ Conta criada com sucesso!', {
+            description: 'Deseja preencher seu endereço de entrega padrão agora?',
+            action: {
+              label: 'Preencher Agora',
+              onClick: () => {
+                onOpenAddressDialog?.();
+              },
+            },
+            duration: 8000,
+          });
+        }
       } else {
         toast.error('Erro ao criar conta. Verifique seus dados e tente novamente.');
       }

@@ -27,9 +27,15 @@ const Index = () => {
   // Restaurar login lembrado ao inicializar
   useEffect(() => {
     const restoreLogin = async () => {
+      console.log('🔄 [PAGE-INIT] Tentando restaurar login lembrado...');
+      const remembered = localStorage.getItem('loyalty_remembered_login');
+      console.log('🔄 [PAGE-INIT] localStorage.getItem resultado:', remembered);
+      
       const restored = await restoreRememberedLogin();
       if (restored) {
-        console.log('✅ Login automático restaurado');
+        console.log('✅ [PAGE-INIT] Login automático restaurado com sucesso!');
+      } else {
+        console.log('❌ [PAGE-INIT] Falha ao restaurar login');
       }
     };
 

@@ -67,10 +67,12 @@ const parseNeighborhoodFromSupabase = (supabaseData: any): Neighborhood => {
  * Hook que sincroniza os dados da aplicação com o Supabase em tempo real
  * Carrega os dados iniciais e escuta mudanças em produtos, pedidos, bairros e configurações
  * 
- * ESTRATÉGIA PRODUTOS:
- * - Webhook Realtime: Primeira opção (ideal)
- * - Polling (10s): Fallback se webhook falhar
- * - Ambos usam parseProductFromSupabase() para converter dados corretamente
+ * ✅ MELHORIAS (19/03/2026):
+ * 1. Canal realtime ÚNICO e centralizado para Orders (sem duplicação)
+ * 2. Polling AUTOMÁTICO como fallback se realtime falhar
+ * 3. Sincronização garantida a cada 5s para pedidos (críticos)
+ * 4. Sem conflitos de canais realtime
+ * 5. Todos os admins recebem atualizações em tempo real
  */
 export const useRealtimeSync = () => {
   useEffect(() => {
@@ -267,7 +269,19 @@ export const useRealtimeSync = () => {
       }
     }, 10000); // 10 segundos
 
-    // Sincronizar Pedidos
+    // 🔄 Função para sincronizar pedidos (webhook + polling fallback)
+    const syncOrdersFromSupabaseWrapper = async () => {
+      if (!isMounted) return;
+      try {
+        const ordersStore = useOrdersStore.getState();
+        await ordersStore.syncOrdersFromSupabase();
+      } catch (error) {
+        console.error('❌ [ORDERS-SYNC] Erro ao sincronizar pedidos:', error);
+      }
+    };
+
+    // ✅ WEBHOOK REALTIME: Canal único consolidado para orders
+    // Nome consistente: 'realtime:orders' (usado em um único lugar)
     const ordersChannel = supabase
       .channel('realtime:orders')
       .on(
@@ -275,21 +289,41 @@ export const useRealtimeSync = () => {
         { event: '*', schema: 'public', table: 'orders' },
         (payload: any) => {
           if (!isMounted) return;
-          const ordersStore = useOrdersStore.getState();
+          console.log('🔔 [ORDERS] Webhook Realtime recebido:', payload.eventType, payload.new?.id || payload.old?.id);
           
-          if (payload.eventType === 'INSERT') {
-            // Novo pedido foi criado - sincronizar para pegar todos os dados
-            // Não chamar addOrder aqui pois causariam duplicação (já foi inserido no BD)
-            ordersStore.syncOrdersFromSupabase();
-          } else if (payload.eventType === 'UPDATE') {
-            // Pedido foi atualizado - sincronizar para pegar dados atualizados (status, printed_at, etc)
-            ordersStore.syncOrdersFromSupabase();
-          } else if (payload.eventType === 'DELETE') {
-            ordersStore.removeOrder((payload.old as Order).id);
-          }
+          // Sincronizar para pegar dados completos (com items, etc)
+          syncOrdersFromSupabaseWrapper();
         }
       )
-      .subscribe();
+      .subscribe((status, error) => {
+        if (status === 'SUBSCRIBED') {
+          console.log('✅ [REALTIME-ORDERS] Canal Realtime ATIVO - ouvindo mudanças');
+        } else if (error) {
+          console.error('❌ [REALTIME-ORDERS] Erro ao conectar:', error?.message);
+          console.log('🔄 [REALTIME-ORDERS] Ativando polling fallback para pedidos...');
+        }
+      });
+
+    // ⏰ POLLING FALLBACK: Se webhook de pedidos falhar, faz sync a cada 5 segundos
+    // Intervalo maior que produtos (10s → 5s) pois pedidos são críticos
+    let ordersPollInterval: NodeJS.Timeout | null = null;
+    
+    // Delay inicial: esperar um pouco pra realtime tentar conectar primeiro
+    const ordersPollingStartDelay = setTimeout(() => {
+      if (!isMounted) return;
+      console.log('🔄 [ORDERS-POLLING] Iniciando polling de pedidos como fallback...');
+      
+      ordersPollInterval = setInterval(async () => {
+        if (!isMounted) return;
+        
+        try {
+          console.log('🔄 [ORDERS-POLLING] Verificando atualizações de pedidos...');
+          await syncOrdersFromSupabaseWrapper();
+        } catch (err) {
+          console.error('❌ [ORDERS-POLLING] Erro no polling:', err);
+        }
+      }, 5000); // 5 segundos - crítico para pedidos
+    }, 2000); // Inicia após 2s para dar chance ao realtime
 
     // Sincronizar Bairros
     const neighborhoodsChannel = supabase
@@ -328,6 +362,16 @@ export const useRealtimeSync = () => {
     // Cleanup: Desinscrever de todos os canais ao desmontar e limpar polling
     return () => {
       isMounted = false;
+      
+      // Limpar timeouts e intervals
+      if (ordersPollingStartDelay) {
+        clearTimeout(ordersPollingStartDelay);
+        console.log('🛑 [ORDERS-POLLING] Timeout inicial de pedidos cancelado');
+      }
+      if (ordersPollInterval) {
+        clearInterval(ordersPollInterval);
+        console.log('🛑 [ORDERS-POLLING] Polling de pedidos finalizado');
+      }
       if (productsPollInterval) {
         clearInterval(productsPollInterval);
         console.log('🛑 [PRODUCTS-POLLING] Polling de produtos finalizado');
@@ -336,6 +380,8 @@ export const useRealtimeSync = () => {
         clearInterval(neighborhoodsPollInterval);
         console.log('🛑 [NEIGHBORHOODS-POLLING] Polling de bairros finalizado');
       }
+      
+      // Desinscrever de todos os canais realtime
       productsChannel.unsubscribe();
       ordersChannel.unsubscribe();
       neighborhoodsChannel.unsubscribe();

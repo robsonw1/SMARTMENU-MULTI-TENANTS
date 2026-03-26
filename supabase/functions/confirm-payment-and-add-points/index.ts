@@ -391,6 +391,21 @@ Deno.serve(async (req) => {
 
           console.log('[CONFIRM-PAYMENT] ✅ Cliente atualizado com sucesso', updateData);
 
+          // 🔧 FIX: Guardar o quanto de pontos foi movido para poder reverter no cancelamento
+          const { error: orderUpdateError } = await supabase
+            .from('orders')
+            .update({
+              points_earned_from_this_order: pendingPoints,
+            })
+            .eq('id', orderId);
+          
+          if (orderUpdateError) {
+            console.warn('[CONFIRM-PAYMENT] ⚠️ Aviso: Não conseguiu registrar pontos_ganhos no pedido', orderUpdateError);
+            // Não falhar - transação importante foi feita (cliente atualizado)
+          } else {
+            console.log('[CONFIRM-PAYMENT] ✅ Registrado points_earned_from_this_order:', pendingPoints);
+          }
+
           // Registrar transação com os pending_points
           const { error: transactionError, data: transactionData } = await supabase.from('loyalty_transactions').insert([{
             customer_id: resolvedCustomerId,

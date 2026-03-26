@@ -59,6 +59,59 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [localOrder, setLocalOrder] = useState<Order | null>(order);
 
+  // 🔄 Carregar pedido FRESCO do banco quando o dialog abre (para garantir campos como change_amount)
+  useEffect(() => {
+    if (!open || !order?.id) return;
+
+    const loadFreshOrder = async () => {
+      try {
+        const response = await supabase
+          .from('orders')
+          .select('*')
+          .eq('id', order.id)
+          .single() as any;
+
+        const { data: freshOrderRaw, error } = response;
+
+        if (error) {
+          console.error('[ADMIN] Erro ao carregar pedido fresco:', error);
+          return;
+        }
+
+        if (!freshOrderRaw) {
+          console.warn('[ADMIN] Pedido não encontrado no banco:', order.id);
+          return;
+        }
+
+        // Reconstruir o address exatamente como o syncOrdersFromSupabase faz
+        const addressFromBank = freshOrderRaw.address || {};
+        
+        const reconstructedAddress = {
+          city: addressFromBank.city || order.address?.city || '',
+          neighborhood: addressFromBank.neighborhood || order.address?.neighborhood || '',
+          street: addressFromBank.street || order.address?.street || '',
+          number: addressFromBank.number || order.address?.number || '',
+          complement: addressFromBank.complement || order.address?.complement || '',
+          reference: addressFromBank.reference || order.address?.reference || '',
+          change_amount: addressFromBank.change_amount || undefined,
+        };
+
+        // Atualizar localOrder com dados frescos
+        setLocalOrder((prev) => {
+          if (!prev) return prev;
+          return {
+            ...prev,
+            address: reconstructedAddress,
+          };
+        });
+      } catch (err) {
+        console.error('[ADMIN] Erro ao carregar pedido fresco:', err);
+      }
+    };
+
+    loadFreshOrder();
+  }, [open, order?.id]);
+
   // 🔴 REALTIME: Monitorar mudanças no status da ordem para refrescar UI
   useEffect(() => {
     if (!open || !order?.id) return;
@@ -81,17 +134,27 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
             status: updatedOrder.status,
             pointsRedeemed: updatedOrder.points_redeemed,
             pendingPoints: updatedOrder.pending_points,
+            addressChangeAmount: updatedOrder.address?.change_amount,
             timestamp: new Date().toISOString()
           });
 
           // ✨ ATUALIZAR O ESTADO LOCAL DO ORDER
           setLocalOrder((prev) => {
             if (!prev) return prev;
+            
+            // 🔨 Reconstruir address com segurança (não perder change_amount)
+            const newAddress = updatedOrder.address ? {
+              ...prev.address, // Manter campos existentes
+              ...updatedOrder.address, // Sobrescrever apenas o que veio do realtime
+              change_amount: updatedOrder.address.change_amount ?? prev.address?.change_amount, // Garantir change_amount
+            } : prev.address;
+            
             return {
               ...prev,
               status: updatedOrder.status,
               pointsRedeemed: updatedOrder.points_redeemed || 0,
               pendingPoints: updatedOrder.pending_points || 0,
+              address: newAddress,
             };
           });
 
@@ -111,6 +174,24 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
             toast.info(message || 'Pedido foi cancelado.', {
               duration: 5000
             });
+            
+            // ✅ NOVO: Sincronizar pontos do cliente IMEDIATAMENTE após cancelamento
+            if (localOrder.customer?.email) {
+              const findOrCreateCustomer = useLoyaltyStore.getState().findOrCreateCustomer;
+              const refreshCurrentCustomer = useLoyaltyStore.getState().refreshCurrentCustomer;
+              
+              findOrCreateCustomer(localOrder.customer.email).then((customer) => {
+                if (customer?.id) {
+                  refreshCurrentCustomer(customer.id).then(() => {
+                    console.log('[ORDER-CANCEL] ✅ Pontos do cliente sincronizados após cancelamento');
+
+                  }).catch((error) => {
+                    console.error('[ORDER-CANCEL] ⚠️ Erro ao sincronizar pontos:', error);
+                  });
+                }
+              });
+            }
+            
             // Fechar o diálogo após 2 segundos
             setTimeout(() => onOpenChange(false), 2000);
           }
@@ -498,6 +579,21 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
                 {localOrder.paymentMethod === 'pix' ? 'PIX' : localOrder.paymentMethod === 'card' ? 'Cartao' : 'Dinheiro'}
               </Badge>
             </div>
+            {/* 🔍 DEBUG: Mostrar change_amount se existir */}
+            {localOrder.address?.change_amount ? (
+              <div>
+                <span className="text-muted-foreground">Troco para:</span>
+                <Badge variant="secondary" className="bg-green-100 text-green-800 border-green-300">
+                  R$ {typeof localOrder.address.change_amount === 'number' 
+                    ? localOrder.address.change_amount.toFixed(2)
+                    : Number(localOrder.address.change_amount).toFixed(2)}
+                </Badge>
+              </div>
+            ) : (
+              <div className="text-muted-foreground text-xs">
+                {localOrder.paymentMethod === 'cash' ? 'Sem troco' : ''}
+              </div>
+            )}
             <div>
               <span className="text-muted-foreground">Data:</span>
               {format(new Date(localOrder.createdAt), "dd/MM/yyyy 'as' HH:mm", { locale: ptBR })}

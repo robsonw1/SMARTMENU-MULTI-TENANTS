@@ -76,6 +76,7 @@ import { FaithfulCustomersAdmin } from '@/components/admin/FaithfulCustomersAdmi
 import { CouponManagementPanel } from '@/components/admin/CouponManagementPanel';
 import { PaymentSettingsPanel } from '@/components/admin/PaymentSettingsPanel';
 import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
+import { TenantSettingsPanel } from '@/components/admin/TenantSettingsPanel';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { toast } from 'sonner';
 import { format, startOfDay, endOfDay } from 'date-fns';
@@ -116,6 +117,7 @@ const AdminDashboard = () => {
   const [search, setSearch] = useState('');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'inactive'>('all');
+  const [sidebarOpen, setSidebarOpen] = useState(true); // ✅ Controlar sidebar
 
   // Product store
   const productsById = useCatalogStore((s) => s.productsById);
@@ -238,33 +240,24 @@ const AdminDashboard = () => {
     }
   }, [navigate]);
 
-  // Sincronizar "pedidos do Supabase quando o painel carrega
+  // Sincronizar pedidos do Supabase quando o painel carrega
   useEffect(() => {
     const token = localStorage.getItem('admin-token');
     if (!token) return;
 
-    // Sincronizar imediatamente
+    // ✅ CENTRALIZADO: Sincronização realtime agora é feita GLOBALMENTE em use-realtime-sync.ts
+    // AdminDashboard apenas chama uma sincronização inicial ao montar
+    console.log('📡 [ADMIN] Iniciando sincronização de pedidos ao carregar...');
     syncOrdersFromSupabase();
 
-    // Configurar intervalo para sincronizar a cada 3 segundos
+    // ⏰ ADICIONAL: Polling local a cada 5 segundos como backup
+    // Se realtime falhar, este polling garante que dados sempre atualizados
     const syncInterval = setInterval(() => {
       syncOrdersFromSupabase();
-    }, 3000);
-
-    // Configurar real-time subscription para novos pedidos
-    const subscription = supabase
-      .channel('public:orders')
-      .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, (payload) => {
-        console.log('🔄 Mudança em orders detectada:', payload.eventType);
-        syncOrdersFromSupabase();
-      })
-      .subscribe((status) => {
-        console.log('📡 Subscription status:', status);
-      });
+    }, 5000);
 
     return () => {
       clearInterval(syncInterval);
-      subscription.unsubscribe();
     };
   }, [syncOrdersFromSupabase]);
 
@@ -1088,65 +1081,158 @@ const AdminDashboard = () => {
         </div>
       </header>
 
+      {/* ✅ NOVO: Botão de toggle sidebar para mobile */}
+      <div className="lg:hidden fixed bottom-6 right-6 z-50">
+        <Button
+          variant="default"
+          size="icon"
+          onClick={() => setSidebarOpen(!sidebarOpen)}
+          className="rounded-full shadow-lg h-14 w-14"
+        >
+          {sidebarOpen ? <Power className="w-5 h-5" /> : <Power className="w-5 h-5" />}
+        </Button>
+      </div>
+
+      {/* ✅ OVERLAY: Fechar sidebar ao clicar fora em mobile */}
+      {sidebarOpen && (
+        <div
+          className="lg:hidden fixed inset-0 bg-black/50 z-40"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
+
       <div className="container mx-auto px-4 py-8">
         <h1 className="font-heading text-2xl md:text-3xl font-bold mb-8">
           Painel Administrativo
         </h1>
 
+        {/* ✅ NOVO: Layout com Sidebar Esquerdo */}
         <Tabs value={activeTab} onValueChange={setActiveTab}>
-          <TabsList className="mb-8 flex-wrap">
-            <TabsTrigger value="overview" className="gap-2">
-              <TrendingUp className="w-4 h-4" />
-              Visão Geral
-            </TabsTrigger>
-            <TabsTrigger value="products" className="gap-2">
-              <Pizza className="w-4 h-4" />
-              Cardápio
-            </TabsTrigger>
-            <TabsTrigger value="orders" className="gap-2">
-              <ShoppingBag className="w-4 h-4" />
-              Pedidos
-            </TabsTrigger>
-            <TabsTrigger value="neighborhoods" className="gap-2">
-              <MapPin className="w-4 h-4" />
-              Bairros
-            </TabsTrigger>
-            <TabsTrigger value="settings" className="gap-2">
-              <Settings className="w-4 h-4" />
-              Configurações
-            </TabsTrigger>
-            <TabsTrigger value="customers" className="gap-2">
-              <Users className="w-4 h-4" />
-              Clientes Fiéis
-            </TabsTrigger>
-            <TabsTrigger value="coupons" className="gap-2">
-              <Gift className="w-4 h-4" />
-              Cupons
-            </TabsTrigger>
-            <TabsTrigger value="payments" className="gap-2">
-              <CreditCard className="w-4 h-4" />
-              Pagamentos
-            </TabsTrigger>
-            <TabsTrigger value="notifications" className="gap-2">
-              <Bell className="w-4 h-4" />
-              Notificações
-            </TabsTrigger>
-            <TabsTrigger value="analytics" className="gap-2">
-              <BarChart3 className="w-4 h-4" />
-              Relatórios
-            </TabsTrigger>
-            <TabsTrigger value="scheduling" className="gap-2">
-              <Clock className="w-4 h-4" />
-              Agendamento
-            </TabsTrigger>
-            <TabsTrigger value="qrcode" className="gap-2">
-              <QrCode className="w-4 h-4" />
-              QR Code
-            </TabsTrigger>
-          </TabsList>
+          <div className="flex gap-6 lg:gap-8">
+            {/* SIDEBAR ESQUERDO - Menu Vertical */}
+            <aside
+              className={`${
+                sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+              } lg:translate-x-0 transition-transform duration-300 fixed lg:relative left-0 top-[120px] lg:top-auto h-[calc(100vh-120px)] lg:h-auto w-64 lg:w-56 xl:w-64 bg-card border-r overflow-y-auto z-40
+              `}
+            >
+              <nav className="p-4">
+                <TabsList className="flex flex-col h-auto gap-2 w-full bg-transparent p-0 border-0">
+                  <TabsTrigger
+                    value="overview"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <TrendingUp className="w-4 h-4" />
+                    <span className="text-sm font-medium">Visão Geral</span>
+                  </TabsTrigger>
 
-          {/* Overview Tab */}
-          <TabsContent value="overview">
+                  <TabsTrigger
+                    value="orders"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <ShoppingBag className="w-4 h-4" />
+                    <span className="text-sm font-medium">Pedidos</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="products"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <Pizza className="w-4 h-4" />
+                    <span className="text-sm font-medium">Cardápio</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="neighborhoods"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <MapPin className="w-4 h-4" />
+                    <span className="text-sm font-medium">Bairros</span>
+                  </TabsTrigger>
+
+                  <Separator className="my-1" />
+
+                  <TabsTrigger
+                    value="customers"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <Users className="w-4 h-4" />
+                    <span className="text-sm font-medium">Clientes Fiéis</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="coupons"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <Gift className="w-4 h-4" />
+                    <span className="text-sm font-medium">Cupons</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="scheduling"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <Clock className="w-4 h-4" />
+                    <span className="text-sm font-medium">Agendamento</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="payments"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <CreditCard className="w-4 h-4" />
+                    <span className="text-sm font-medium">Pagamentos</span>
+                  </TabsTrigger>
+
+                  <Separator className="my-1" />
+
+                  <TabsTrigger
+                    value="settings"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm font-medium">Configurações</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="tenant-settings"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <Settings className="w-4 h-4" />
+                    <span className="text-sm font-medium">Loja</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="notifications"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <Bell className="w-4 h-4" />
+                    <span className="text-sm font-medium">Notificações</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="analytics"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <BarChart3 className="w-4 h-4" />
+                    <span className="text-sm font-medium">Relatórios</span>
+                  </TabsTrigger>
+
+                  <TabsTrigger
+                    value="qrcode"
+                    className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                  >
+                    <QrCode className="w-4 h-4" />
+                    <span className="text-sm font-medium">QR Code</span>
+                  </TabsTrigger>
+                </TabsList>
+              </nav>
+            </aside>
+
+            {/* CONTEÚDO PRINCIPAL DIREITO */}
+            <main className="flex-1 w-full min-w-0">
+              {/* Overview Tab */}
+              <TabsContent value="overview">
             <div className="space-y-6">
               <DateRangeFilter onRangeChange={(start, end) => setDateRange({ start, end })} />
 
@@ -2045,6 +2131,13 @@ const AdminDashboard = () => {
               </Card>
             </div>
           </TabsContent>
+
+          {/* Tenant Settings Tab */}
+          <TabsContent value="tenant-settings">
+            <TenantSettingsPanel />
+          </TabsContent>
+            </main>
+          </div>
         </Tabs>
       </div>
 

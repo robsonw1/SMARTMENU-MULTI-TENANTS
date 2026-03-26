@@ -139,6 +139,7 @@ export function CheckoutModal() {
   const validateAndUseCoupon = useCouponManagementStore((s) => s.validateAndUseCoupon);
   const markCouponAsUsed = useCouponManagementStore((s) => s.markCouponAsUsed);
   const findOrCreateCustomer = useLoyaltyStore((s) => s.findOrCreateCustomer);
+  const getCustomerByEmail = useLoyaltyStore((s) => s.getCustomerByEmail);
   const addPointsFromPurchase = useLoyaltyStore((s) => s.addPointsFromPurchase);
   const refreshCurrentCustomer = useLoyaltyStore((s) => s.refreshCurrentCustomer);
   const saveDefaultAddress = useLoyaltyStore((s) => s.saveDefaultAddress);
@@ -469,46 +470,48 @@ export function CheckoutModal() {
 
     // Subscrever para mudanças na ordem
     const subscription = supabase
-      .from('orders')
-      // @ts-ignore - Supabase Realtime type compatibility
-      .on('*', async (payload: any) => {
-        console.log('📡 Realtime update received:', payload);
+      .channel('orders-pix-confirm')
+      .on('postgres_changes',
+        { event: '*', schema: 'public', table: 'orders' },
+        async (payload: any) => {
+          console.log('📡 Realtime update received:', payload);
 
-        if (payload.new?.id === lastOrderId && payload.new?.status === 'confirmed') {
-          console.log('✅ Payment confirmed automatically via webhook!');
-          
-          // Atualizar state com informações do pedido criado
-          const finalTotal = payload.new?.totals?.total || currentTotal;
-          const pointsRedeemed = payload.new?.totals?.pointsRedeemed || 0;
-          const appliedCoupon = payload.new?.totals?.appliedCoupon || null;
-          
-          setLastFinalTotal(finalTotal);
-          if (payload.new?.totals?.pointsDiscount) {
-            setLastPointsDiscount(payload.new.totals.pointsDiscount);
-          }
-          if (pointsRedeemed) {
-            setLastPointsRedeemed(pointsRedeemed);
-          }
-          if (payload.new?.totals?.couponDiscount) {
-            setLastCouponDiscount(payload.new.totals.couponDiscount);
-          }
-          if (appliedCoupon) {
-            setLastAppliedCoupon(appliedCoupon);
-          }
+          if (payload.new?.id === lastOrderId && payload.new?.status === 'confirmed') {
+            console.log('✅ Payment confirmed automatically via webhook!');
+            
+            // Atualizar state com informações do pedido criado
+            const finalTotal = payload.new?.totals?.total || currentTotal;
+            const pointsRedeemed = payload.new?.totals?.pointsRedeemed || 0;
+            const appliedCoupon = payload.new?.totals?.appliedCoupon || null;
+            
+            setLastFinalTotal(finalTotal);
+            if (payload.new?.totals?.pointsDiscount) {
+              setLastPointsDiscount(payload.new.totals.pointsDiscount);
+            }
+            if (pointsRedeemed) {
+              setLastPointsRedeemed(pointsRedeemed);
+            }
+            if (payload.new?.totals?.couponDiscount) {
+              setLastCouponDiscount(payload.new.totals.couponDiscount);
+            }
+            if (appliedCoupon) {
+              setLastAppliedCoupon(appliedCoupon);
+            }
 
-          // 💰 Processar pontos IMEDIATAMENTE após confirmação automática
-          console.log('🔄 Disparando processamento de pontos no fluxo automático...');
-          await processPointsAndCoupons(pointsRedeemed, finalTotal, appliedCoupon);
+            // 💰 Processar pontos IMEDIATAMENTE após confirmação automática
+            console.log('🔄 Disparando processamento de pontos no fluxo automático...');
+            await processPointsAndCoupons(pointsRedeemed, finalTotal, appliedCoupon);
 
-          // Mostrar confirmação automaticamente
-          toast.success('✅ Pedido confirmado com sucesso!');
-          setStep('confirmation');
-          setTimeout(() => setIsLoyaltyModalOpen(true), 500);
+            // Mostrar confirmação automaticamente
+            toast.success('✅ Pedido confirmado com sucesso!');
+            setStep('confirmation');
+            setTimeout(() => setIsLoyaltyModalOpen(true), 500);
 
-          // Unsubscribe
-          subscription.unsubscribe();
+            // Unsubscribe
+            subscription.unsubscribe();
+          }
         }
-      })
+      )
       .subscribe();
 
     return () => {
@@ -1200,30 +1203,28 @@ export function CheckoutModal() {
     }
 
     try {
-      // 🔒 CRÍTICO: SEMPRE tentar encontrar/criar cliente com email fornecido no checkout
-      // Seja logado ou anônimo, se tem email, processa pontos
+      // 🔒 NOVO FLUXO: Cliente anônimo NÃO cria conta automaticamente
+      // Apenas email será passado para PostCheckoutLoyaltyModal para eventual criação de conta
       let loyaltyCustomer = null;
+      
+      // Se cliente está logado, usar sua conta
+      if (isRemembered && currentCustomer?.id) {
+        loyaltyCustomer = currentCustomer;
+        console.log('✅ [CHECKOUT] Cliente logado encontrado:', {
+          id: loyaltyCustomer.id,
+          email: loyaltyCustomer.email,
+          isRegistered: loyaltyCustomer.isRegistered
+        });
+      } else {
+        console.log('ℹ️ [CHECKOUT] Cliente anônimo - nenhuma conta será criada aqui');
+        console.log('ℹ️ [CHECKOUT] Conta será criada apenas se aceitar popup de fidelização');
+      }
+      
       const emailForLoyalty = isRemembered && currentCustomer?.email 
         ? currentCustomer.email 
         : customer.email; // Usar email do formulário se não logado
       
-      if (emailForLoyalty) {
-        console.log('🔍 [LOYALTY] Buscando/criando cliente com email:', emailForLoyalty);
-        loyaltyCustomer = await findOrCreateCustomer(emailForLoyalty);
-        setLastOrderEmail(emailForLoyalty);
-        
-        if (loyaltyCustomer) {
-          console.log('✅ [LOYALTY] Cliente encontrado/criado:', {
-            id: loyaltyCustomer.id,
-            email: loyaltyCustomer.email,
-            totalPoints: loyaltyCustomer.totalPoints
-          });
-        } else {
-          console.warn('⚠️ [LOYALTY] Falha ao encontrar/criar cliente com email:', emailForLoyalty);
-        }
-      } else {
-        console.warn('⚠️ [LOYALTY] Nenhum email encontrado para processar pontos');
-      }
+      setLastOrderEmail(emailForLoyalty);
       
       // Save address as default if requested
       if (saveAsDefault && deliveryType === 'delivery') {
@@ -1391,17 +1392,34 @@ export function CheckoutModal() {
   // 💰 Processar pontos e cupons após confirmação de pagamento
   const processPointsAndCoupons = async (pointsRedeemed: number, finalTotal: number, appliedCoupon: string | null) => {
     try {
-      // 🔑 USAR CURRENTCUSTOMER COMO FALLBACK se lastLoyaltyCustomer não estiver disponível
-      const loyaltyCustomer = lastLoyaltyCustomer || currentCustomer;
+      // 🔑 BUSCAR CUSTOMER: prioridade (1) lastLoyaltyCustomer (2) currentCustomer (3) nenhum (anônimo)
+      let loyaltyCustomer = lastLoyaltyCustomer || currentCustomer;
       
-      if (!loyaltyCustomer || !loyaltyCustomer.id) {
-        console.error('❌ [POINTS] Cliente de lealdade não encontrado! Dados:', {
-          lastLoyaltyCustomer,
-          currentCustomer,
-          pointsRedeemed
+      // Se não tem cliente, significa que era anônimo e pode ter criado conta no popup
+      // Tentar buscar por email caso tenha se registrado
+      if (!loyaltyCustomer && lastOrderEmail) {
+        console.log('🔍 [POINTS] Cliente não localizado em memory, tentando buscar por email:', lastOrderEmail);
+        try {
+          const customerByEmail = await getCustomerByEmail(lastOrderEmail);
+          if (customerByEmail && customerByEmail.isRegistered) {
+            loyaltyCustomer = customerByEmail;
+            console.log('✅ [POINTS] Cliente encontrado por email e está registrado:', customerByEmail.email);
+          } else if (customerByEmail && !customerByEmail.isRegistered) {
+            console.log('ℹ️ [POINTS] Cliente encontrado por email mas NÃO está registrado (anônimo) - sem pontos');
+            return; // Cliente anônimo, não processa pontos
+          }
+        } catch (error) {
+          console.warn('⚠️ [POINTS] Erro ao buscar cliente por email:', error);
+        }
+      }
+      
+      // Se ainda não achou cliente registrado, significa que é anônimo
+      if (!loyaltyCustomer || !loyaltyCustomer.id || !loyaltyCustomer.isRegistered) {
+        console.log('ℹ️ [POINTS] Cliente anônimo ou não-registrado - sem pontos de compra (normal)', {
+          reason: !loyaltyCustomer ? 'sem_customer' : 'not_registered',
+          email: lastOrderEmail
         });
-        toast.error('Erro: Cliente não encontrado. Pedido criado, mas pontos não foram processados.');
-        return;
+        return; // Cliente anônimo não recebe pontos
       }
 
       // 🔑 REGRA: Se cliente usou pontos na compra, NÃO adiciona novos pontos

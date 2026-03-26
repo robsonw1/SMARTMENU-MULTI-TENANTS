@@ -1,5 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
+import { useLoyaltySettingsStore } from '@/store/useLoyaltySettingsStore';
 import { Button } from '@/components/ui/button';
 import {
   Popover,
@@ -21,12 +22,21 @@ import { usePWAInstall } from '@/hooks/use-pwa-install';
 
 export function CustomerProfileDropdown() {
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
+  const refreshCurrentCustomer = useLoyaltyStore((s) => s.refreshCurrentCustomer);
   const logout = useLoyaltyStore((s) => s.logoutCustomer);
   const coupons = useLoyaltyStore((s) => s.coupons);
+  const { settings, loadSettings } = useLoyaltySettingsStore();
   const [isOpen, setIsOpen] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [ordersOpen, setOrdersOpen] = useState(false);
   const [addressOpen, setAddressOpen] = useState(false);
+
+  // ✅ NOVO: Carregar settings ao montar
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+
 
   // Hook para gerenciar PWA install
   const { canInstall, isInstalled, isInstalling, triggerInstall } = usePWAInstall();
@@ -88,7 +98,8 @@ export function CustomerProfileDropdown() {
   };
 
   const tierInfo = getTierInfo(currentCustomer.totalPoints);
-  const pointsValue = (currentCustomer.totalPoints / 100) * 5;
+  // ✅ CORRIGIDO: Usar setting dinâmico em vez de hardcoded 5
+  const pointsValue = (currentCustomer.totalPoints / 100) * (settings?.discountPer100Points ?? 5);
 
   const handleLogout = async () => {
     await logout();

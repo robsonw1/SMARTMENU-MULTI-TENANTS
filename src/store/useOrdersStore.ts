@@ -111,6 +111,11 @@ export const useOrdersStore = create<OrdersStore>()(
             paymentMethod: newOrder.paymentMethod, // Store internally for later retrieval
           };
           
+          // Adicionar change_amount se cliente escolheu troco em dinheiro
+          if (newOrder.paymentMethod === 'cash' && newOrder.needsChange && newOrder.changeAmount) {
+            addressWithMetadata.change_amount = newOrder.changeAmount;
+          }
+          
           // ­ƒöæ CR├ìTICO: Calcular pending_points baseado em se cliente usou pontos
           // Se cliente resgatou pontos: N├âO ganhou novos pontos nesta compra
           // Se cliente N├âO resgatou pontos: Ganha pontos normalmente (1 real = 1 ponto)
@@ -697,6 +702,7 @@ export const useOrdersStore = create<OrdersStore>()(
                   number: row.address.number || '',
                   complement: row.address.complement || '',
                   reference: row.address.reference || '',
+                  change_amount: row.address.change_amount, // ✅ Incluir troco aqui!
                 } : {
                   city: '',
                   neighborhood: '',

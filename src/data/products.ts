@@ -93,6 +93,8 @@ export interface Order {
     number: string;
     complement?: string;
     reference?: string;
+    change_amount?: string | number; // Valor do troco para dinheiro
+    paymentMethod?: string; // Metadata interna para payment tracking
   };
   deliveryType: 'delivery' | 'pickup';
   deliveryFee: number;

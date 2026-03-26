@@ -410,6 +410,119 @@ export type Database = {
         }
         Relationships: []
       }
+      tenant_settings: {
+        Row: {
+          id: string
+          tenant_id: string
+          meia_meia_enabled: boolean
+          imagens_enabled: boolean
+          adicionais_enabled: boolean
+          bebidas_enabled: boolean
+          bordas_enabled: boolean
+          free_ingredients_enabled: boolean
+          free_ingredients_max: number
+          store_name: string | null
+          store_description: string | null
+          store_logo_url: string | null
+          primary_color: string
+          secondary_color: string
+          timezone: string
+          store_opens_at: string
+          store_closes_at: string
+          average_delivery_minutes: number
+          mercadopago_enabled: boolean
+          pix_enabled: boolean
+          credit_card_enabled: boolean
+          whatsapp_notifications_enabled: boolean
+          whatsapp_phone_number: string | null
+          email_notifications_enabled: boolean
+          loyalty_enabled: boolean
+          loyalty_points_percentage: number
+          loyalty_minimum_order: number
+          is_active: boolean
+          is_maintenance: boolean
+          maintenance_message: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          id?: string
+          tenant_id: string
+          meia_meia_enabled?: boolean
+          imagens_enabled?: boolean
+          adicionais_enabled?: boolean
+          bebidas_enabled?: boolean
+          bordas_enabled?: boolean
+          free_ingredients_enabled?: boolean
+          free_ingredients_max?: number
+          store_name?: string | null
+          store_description?: string | null
+          store_logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          timezone?: string
+          store_opens_at?: string
+          store_closes_at?: string
+          average_delivery_minutes?: number
+          mercadopago_enabled?: boolean
+          pix_enabled?: boolean
+          credit_card_enabled?: boolean
+          whatsapp_notifications_enabled?: boolean
+          whatsapp_phone_number?: string | null
+          email_notifications_enabled?: boolean
+          loyalty_enabled?: boolean
+          loyalty_points_percentage?: number
+          loyalty_minimum_order?: number
+          is_active?: boolean
+          is_maintenance?: boolean
+          maintenance_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          id?: string
+          tenant_id?: string
+          meia_meia_enabled?: boolean
+          imagens_enabled?: boolean
+          adicionais_enabled?: boolean
+          bebidas_enabled?: boolean
+          bordas_enabled?: boolean
+          free_ingredients_enabled?: boolean
+          free_ingredients_max?: number
+          store_name?: string | null
+          store_description?: string | null
+          store_logo_url?: string | null
+          primary_color?: string
+          secondary_color?: string
+          timezone?: string
+          store_opens_at?: string
+          store_closes_at?: string
+          average_delivery_minutes?: number
+          mercadopago_enabled?: boolean
+          pix_enabled?: boolean
+          credit_card_enabled?: boolean
+          whatsapp_notifications_enabled?: boolean
+          whatsapp_phone_number?: string | null
+          email_notifications_enabled?: boolean
+          loyalty_enabled?: boolean
+          loyalty_points_percentage?: number
+          loyalty_minimum_order?: number
+          is_active?: boolean
+          is_maintenance?: boolean
+          maintenance_message?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "tenant_settings_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: true
+            referencedRelation: "tenants"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       printnode_config: {
         Row: {
           id: string
