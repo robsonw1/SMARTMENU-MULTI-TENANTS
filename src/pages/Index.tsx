@@ -11,6 +11,7 @@ import { useLoyaltyStore } from '@/store/useLoyaltyStore';
 import { useLoyaltyRealtimeSync } from '@/hooks/use-loyalty-realtime-sync';
 import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { useSettingsRealtimeSync } from '@/hooks/use-settings-realtime-sync';
+import { initTenantResolver } from '@/lib/tenant-resolver';
 import { useState, useEffect } from 'react';
 
 const Index = () => {
@@ -23,6 +24,19 @@ const Index = () => {
   useRealtimeSync();
   useLoyaltyRealtimeSync();
   useSettingsRealtimeSync();
+
+  // ✅ NOVO (30/03/2026): Inicializar resolver de tenant_id
+  // Aqui é seguro - cliente público, sem conflito de auth
+  useEffect(() => {
+    console.log('🚀 [INDEX-INIT] Inicializando tenant resolver para cliente...');
+    initTenantResolver().then((tenantId) => {
+      if (tenantId) {
+        console.log(`✅ [INDEX-INIT] Tenant resolver inicializado: ${tenantId}`);
+      } else {
+        console.warn('⚠️ [INDEX-INIT] Não foi possível resolver tenant_id');
+      }
+    });
+  }, []);
 
   // Restaurar login lembrado ao inicializar
   useEffect(() => {
