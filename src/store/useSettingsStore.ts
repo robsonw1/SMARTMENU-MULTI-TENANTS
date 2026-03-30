@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 export interface DaySchedule {
   isOpen: boolean;
@@ -159,8 +159,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       console.log('[LOAD-SUPABASE] Usando tenant_id:', tenantId);
       
-      // ✅ Buscar APENAS as settings deste tenant na tabela 'settings'
-      // Agora usando ID padrão: settings_${tenant_id} criado pela edge function
+      // ✅ CORRIGIDO (30/03/2026): Usar ID tenant-specific (antes era hardcoded 'store-settings')
       const settingsId = `settings_${tenantId}`;
       
       const { data, error } = await (supabase as any)
@@ -243,26 +242,45 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   updateSettings: async (newSettings) => {
     try {
-      // 1´©ÅÔâú ATUALIZAR ESTADO LOCAL PRIMEIRO
+      // ✅ CORRIGIDO (30/03/2026): Chamar Edge Function em vez de fazer UPDATE direto
+      // Isso garante que RLS service_role seja respeitada
+      
+      // 1. ATUALIZAR ESTADO LOCAL PRIMEIRO
       set((state) => ({
         settings: { ...state.settings, ...newSettings },
       }));
       
-      // 2´©ÅÔâú PEGAR ESTADO ATUALIZADO
+      // 2. PEGAR ESTADO ATUALIZADO
       const { settings: currentSettings } = get();
       
-      console.log('­ƒÆ¥ [UPDATE-SETTINGS] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
-      console.log('­ƒÆ¥ [UPDATE-SETTINGS] INICIANDO SALVAMENTO NO SUPABASE');
-      console.log('­ƒÆ¥ [UPDATE-SETTINGS] Schedule que ser├í salvo:', currentSettings.schedule);
+      // 3. OBTER tenant_id
+      const { data: authData } = await supabase.auth.getSession();
+      const userSession = authData?.session;
+      
+      if (!userSession?.user?.id) {
+        throw new Error('User not authenticated');
+      }
 
-      // 3´©ÅÔâú PREPARAR DADOS - SEPARAR COLUNAS NORMALIZADAS do JSONB
-      // Ô£à CR├ìTICO: Salvar JSONB em uma coluna separada para garantir persist├¬ncia
+      const { data: adminUser } = await (supabase as any)
+        .from('admin_users')
+        .select('tenant_id')
+        .eq('id', userSession.user.id)
+        .single();
+
+      if (!adminUser?.tenant_id) {
+        throw new Error('Tenant ID not found for user');
+      }
+
+      const tenantId = adminUser.tenant_id;
+      console.log('🔐 [UPDATE-SETTINGS] Usando Edge Function com tenant_id:', tenantId);
+
+      // 4. PREPARAR DADOS
       const jsonbValue = {
         name: currentSettings.name,
         phone: currentSettings.phone,
         address: currentSettings.address,
         slogan: currentSettings.slogan,
-        schedule: currentSettings.schedule, // Ô£à SCHEDULE COMPLETO NO JSONB
+        schedule: currentSettings.schedule,
         isManuallyOpen: currentSettings.isManuallyOpen,
         deliveryTimeMin: currentSettings.deliveryTimeMin,
         deliveryTimeMax: currentSettings.deliveryTimeMax,
@@ -272,86 +290,61 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp,
       };
 
-      const updateData: any = {
-        // Ô£à JSONB completo com todos os dados complexos
-        value: jsonbValue,
-        // ­ƒû¿´©Å  COLUNAS NORMALIZADAS PARA BUSCA/PERFORMANCE
-        printnode_printer_id: currentSettings.printnode_printer_id || null,
-        print_mode: currentSettings.print_mode || 'auto',
-        auto_print_pix: currentSettings.auto_print_pix ?? false,
-        auto_print_card: currentSettings.auto_print_card ?? false,
-        auto_print_cash: currentSettings.auto_print_cash ?? false,
-        is_manually_open: currentSettings.isManuallyOpen,
-        enable_scheduling: currentSettings.enableScheduling,
-        min_schedule_minutes: currentSettings.minScheduleMinutes,
-        max_schedule_days: currentSettings.maxScheduleDays,
-        allow_scheduling_on_closed_days: currentSettings.allowSchedulingOnClosedDays,
-        allow_scheduling_outside_business_hours: currentSettings.allowSchedulingOutsideBusinessHours,
-        respect_business_hours_for_scheduling: currentSettings.respectBusinessHoursForScheduling,
-        allow_same_day_scheduling_outside_hours: currentSettings.allowSameDaySchedulingOutsideHours,
-        updated_at: new Date().toISOString(),
+      const updatePayload = {
+        tenantId,
+        updates: {
+          value: jsonbValue,
+          printnode_printer_id: currentSettings.printnode_printer_id || null,
+          print_mode: currentSettings.print_mode || 'auto',
+          auto_print_pix: currentSettings.auto_print_pix ?? false,
+          auto_print_card: currentSettings.auto_print_card ?? false,
+          auto_print_cash: currentSettings.auto_print_cash ?? false,
+          is_manually_open: currentSettings.isManuallyOpen,
+          enable_scheduling: currentSettings.enableScheduling,
+          min_schedule_minutes: currentSettings.minScheduleMinutes,
+          max_schedule_days: currentSettings.maxScheduleDays,
+          allow_scheduling_on_closed_days: currentSettings.allowSchedulingOnClosedDays,
+          allow_scheduling_outside_business_hours: currentSettings.allowSchedulingOutsideBusinessHours,
+          respect_business_hours_for_scheduling: currentSettings.respectBusinessHoursForScheduling,
+          allow_same_day_scheduling_outside_hours: currentSettings.allowSameDaySchedulingOutsideHours,
+        },
       };
 
-      console.log('­ƒôñ [UPDATE-SETTINGS] JSONB value.schedule:', jsonbValue.schedule);
-      console.log('­ƒû¿´©Å  [UPDATE-SETTINGS] PrintNode Printer ID:', updateData.printnode_printer_id);
+      console.log('📤 [UPDATE-SETTINGS] Chamando Edge Function com payload:', updatePayload);
 
-      // 4´©ÅÔâú FAZER UPDATE COM MERGE EXPL├ìCITO PARA GARANTIR JSONB SALVA
-      // ÔÜá´©Å  IMPORTANTE: Usar || null em campos opcionais para evitar undefined
-      const { data: updateResult, error: updateError } = await supabase
-        .from('settings')
-        .update({
-          value: JSON.stringify(jsonbValue) !== '{}' ? jsonbValue : updateData.value,
-          printnode_printer_id: updateData.printnode_printer_id,
-          print_mode: updateData.print_mode,
-          auto_print_pix: updateData.auto_print_pix,
-          auto_print_card: updateData.auto_print_card,
-          auto_print_cash: updateData.auto_print_cash,
-          is_manually_open: updateData.is_manually_open,
-          enable_scheduling: updateData.enable_scheduling,
-          min_schedule_minutes: updateData.min_schedule_minutes,
-          max_schedule_days: updateData.max_schedule_days,
-          allow_scheduling_on_closed_days: updateData.allow_scheduling_on_closed_days,
-          allow_scheduling_outside_business_hours: updateData.allow_scheduling_outside_business_hours,
-          respect_business_hours_for_scheduling: updateData.respect_business_hours_for_scheduling,
-          allow_same_day_scheduling_outside_hours: updateData.allow_same_day_scheduling_outside_hours,
-          updated_at: updateData.updated_at,
-        })
-        .eq('id', 'store-settings')
-        .select();
-
-      if (updateError) {
-        console.error('ÔØî [UPDATE-SETTINGS] ERRO NO UPDATE:', updateError);
-        throw updateError;
+      // 5. CHAMAR EDGE FUNCTION (que executa como service_role)
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('VITE_SUPABASE_URL not configured');
       }
 
-      // 5´©ÅÔâú VERIFICAR RESULTADO - MAS FAZER SELECT FRESH PARA GARANTIR
-      // ÔÜá´©Å  IMPORTANTE: O data do UPDATE pode ter valores antigos em cache
-      // Fazer um SELECT simples para garantir que foi realmente salvo
-      console.log('­ƒöì [UPDATE-SETTINGS] Fazendo SELECT fresh para GARANTIR persist├¬ncia...');
-      const { data: freshData, error: selectError } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('id', 'store-settings')
-        .single();
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
 
-      if (selectError || !freshData) {
-        console.error('ÔØî [UPDATE-SETTINGS] ERRO no SELECT fresh:', selectError);
-        throw selectError;
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/update-admin-settings`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${accessToken || ''}`,
+          },
+          body: JSON.stringify(updatePayload),
+        }
+      );
+
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ [UPDATE-SETTINGS] Edge Function erro:', responseData);
+        throw new Error(responseData.error || 'Failed to update settings via Edge Function');
       }
 
-      // 5´©ÅÔâú VERIFICAR RESULTADO COM DADOS FRESCOS
-      const savedData = freshData as any;
-      const savedValue = savedData.value || {};
-      const savedSchedule = savedValue.schedule;
-      
-      console.log('Ô£à [UPDATE-SETTINGS] CONFIRMADO! Dados salvos (FRESH):');
-      console.log('Ô£à [UPDATE-SETTINGS] Schedule.monday:', savedSchedule?.monday);
-      console.log('Ô£à [UPDATE-SETTINGS] Schedule.thursday:', savedSchedule?.thursday);
-      console.log('Ô£à [UPDATE-SETTINGS] is_manually_open:', savedData.is_manually_open);
-
-      console.log('­ƒÆ¥ [UPDATE-SETTINGS] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
+      console.log('✅ [UPDATE-SETTINGS] Edge Function retornou sucesso:', responseData.data);
+      console.log('✅ [UPDATE-SETTINGS] Schedule.monday:', responseData.data?.value?.schedule?.monday);
+      console.log('✅ [UPDATE-SETTINGS] is_manually_open:', responseData.data?.is_manually_open);
     } catch (error) {
-      console.error('ÔØî [UPDATE-SETTINGS] EXCE├ç├âO FATAL:', error);
+      console.error('❌ [UPDATE-SETTINGS] EXCEÇÃO FATAL:', error);
       throw error;
     }
   },
