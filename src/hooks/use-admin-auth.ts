@@ -158,42 +158,20 @@ export const useAdminAuth = () => {
         }
 
         if (data.user) {
-          // Buscar tenant_id - adicionar retry graceful
-          let retryCount = 0;
-          const MAX_RETRIES = 3;
-          let adminUser = null;
-          let adminError = null;
-
-          while (retryCount < MAX_RETRIES) {
-            retryCount++;
-            const result = await (supabase as any)
-              .from('admin_users')
-              .select('tenant_id, id, email')
-              .eq('id', data.user.id)
-              .single();
-
-            if (!result.error) {
-              adminUser = result.data;
-              break;
-            }
-
-            adminError = result.error;
-            console.warn(`[LOGIN] Tentativa ${retryCount}/${MAX_RETRIES} falhou:`, adminError?.message);
-
-            if (retryCount < MAX_RETRIES) {
-              // Esperar 300ms antes de retry
-              await new Promise(resolve => setTimeout(resolve, 300));
-            }
-          }
+          // Buscar tenant_id - UMA TENTATIVA (não fazer retry)
+          const { data: adminUser, error: adminError } = await (supabase as any)
+            .from('admin_users')
+            .select('tenant_id, id, email')
+            .eq('id', data.user.id)
+            .single();
 
           if (adminError || !adminUser?.tenant_id) {
             const errorMsg = adminError?.message || 'Tenant não encontrado';
-            console.error('[LOGIN] ❌ Erro final ao buscar admin_users:', {
+            console.error('[LOGIN] ❌ Admin user not found:', {
               userId: data.user.id,
               error: errorMsg,
-              adminUser,
             });
-            throw new Error(`Acesso negado: ${errorMsg}. Por favor, contacte suporte.`);
+            throw new Error(`Acesso negado: usuário não é admin. ${errorMsg}`);
           }
 
           setAuthState({
@@ -203,7 +181,7 @@ export const useAdminAuth = () => {
             error: null,
           });
           
-          // ✅ Salvar em sessionStorage para usos posteriores
+          // ✅ Salvar em sessionStorage
           sessionStorage.setItem('sb-auth-user-id', data.user.id);
           sessionStorage.setItem('sb-auth-tenant-id', adminUser.tenant_id);
 
