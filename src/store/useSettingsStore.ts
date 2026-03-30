@@ -52,7 +52,7 @@ interface SettingsStore {
   _lastLoadTime?: number;
   _isLoadingInProgress?: boolean;
   updateSettings: (settings: Partial<StoreSettings>) => Promise<void>;
-  loadSettingsFromSupabase: () => Promise<void>;
+  loadSettingsFromSupabase: (forceRefresh?: boolean) => Promise<void>;
   loadSettingsLocally: (settings: Partial<StoreSettings>) => void;
   setSetting: (key: keyof StoreSettings, value: any) => void;
   updateDaySchedule: (day: keyof WeekSchedule, schedule: Partial<DaySchedule>) => void;
@@ -110,7 +110,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   _lastLoadTime: undefined,
   _isLoadingInProgress: false,
 
-  loadSettingsFromSupabase: async () => {
+  loadSettingsFromSupabase: async (forceRefresh = false) => {
     try {
       // ✅ NOVO (30/03/2026): Obter tenant_id de sessionStorage ÚNICAMENTE
       // SEM fallback getUser() - evita contention no auth
@@ -128,13 +128,19 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       // 🔐 NOVO: Verificar cache isolado por tenant
       // Se já foi carregado para este tenant_id E está dentro de 5min, retornar
+      // EXCETO se forceRefresh = true (chamado pelo webhook Realtime)
       if (
+        !forceRefresh && // ✅ NOVO: Bypassar cache se forceRefresh = true
         currentState._loadedTenantId === tenantId &&
         currentState._lastLoadTime &&
         Date.now() - currentState._lastLoadTime < 5 * 60 * 1000 // 5 minutos
       ) {
         console.log(`✅ [LOAD-SUPABASE] Cache válido para tenant ${tenantId} - pulando fetch`);
         return;
+      }
+      
+      if (forceRefresh) {
+        console.log(`🔄 [LOAD-SUPABASE] forceRefresh = true - ignorando cache (webhook Realtime)`);
       }
 
       // 🔐 Evitar múltiplas requisições simultâneas
