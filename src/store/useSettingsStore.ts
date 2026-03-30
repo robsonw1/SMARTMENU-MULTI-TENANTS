@@ -295,26 +295,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         throw new Error('VITE_SUPABASE_URL not configured');
       }
 
-      // ✅ NOVO (30/03/2026): Tentar getSession() uma ÚNICA vez com timeout
-      // Necessário para obter token de acesso à Edge Function
-      let accessToken: string | undefined;
-      try {
-        const { data: sessionData } = await Promise.race([
-          supabase.auth.getSession(),
-          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1000))
-        ]) as any;
-        accessToken = sessionData?.session?.access_token;
-      } catch (err) {
-        console.warn('[SYNC-SETTINGS] getSession() timeout - continuando anyway', err);
-      }
-
+      // ✅ Edge Function pode ser chamada SEM token (RLS vai validar)
+      // Não chamar getSession() para evitar lock stealing
       const response = await fetch(
         `${supabaseUrl}/functions/v1/update-admin-settings`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${accessToken || ''}`,
           },
           body: JSON.stringify(updatePayload),
         }
@@ -478,34 +466,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     try {
       const { settings } = get();
 
-      // ✅ NOVO (30/03/2026): Obter tenant_id de sessionStorage PRIMEIRO (0ms)
-      // Fallback: getUser() + lookup se sessionStorage vazio
+      // ✅ OBTER tenant_id de sessionStorage APENAS (NUNCA chamar getUser()!)
+      // Evita lock stealing com useAdminAuth
       let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
       
       if (!tenantId) {
-        console.log('[SYNC-SUPABASE] tenant_id não em sessionStorage. Tentando getUser()...');
-        
-        // Fallback: getUser() - mais leve que getSession()
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-        
-        if (userError || !userData?.user?.id) {
-          console.warn('[SYNC-SUPABASE] Sessão não encontrada');
-          return { success: false, message: 'Sessão expirada' };
-        }
-
-        const { data: adminUser } = await (supabase as any)
-          .from('admin_users')
-          .select('tenant_id')
-          .eq('id', userData.user.id)
-          .single();
-
-        if (!adminUser?.tenant_id) {
-          console.warn('[SYNC-SUPABASE] tenant_id não encontrado');
-          return { success: false, message: 'Erro ao identificar estabelecimento' };
-        }
-        
-        tenantId = adminUser.tenant_id;
-        sessionStorage.setItem('sb-auth-tenant-id', tenantId);
+        console.warn('[SYNC-SUPABASE] ❌ Sessão não autenticada em sessionStorage');
+        return { success: false, message: 'Sessão expirada - faça login novamente' };
       }
 
       const settingsId = `settings_${tenantId}`;
