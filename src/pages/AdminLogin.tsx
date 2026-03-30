@@ -10,7 +10,10 @@ import logoForneiro from '@/assets/logo-forneiro.jpg';
 
 const AdminLogin = () => {
   const navigate = useNavigate();
-  const { login, isLoading, error: authError } = useAdminAuth();
+  // 🔒 CRÍTICO: Desabilitar auto-restore aqui
+  // AdminLogin não precisa restaurar, apenas fazer login
+  // Restauração acontece em AdminDashboard
+  const { login, isLoading, error: authError } = useAdminAuth({ enableAutoRestore: false });
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
