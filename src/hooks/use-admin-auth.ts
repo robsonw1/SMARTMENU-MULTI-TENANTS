@@ -23,7 +23,9 @@ export const useAdminAuth = () => {
       try {
         setAuthState(prev => ({ ...prev, isLoading: true }));
 
-        // ✅ NOVO (30/03/2026): Tentar restaurar de sessionStorage PRIMEIRO (0ms)
+        // ✅ NOVO (30/03/2026): Verificar sessionStorage PRIMEIRO
+        // Se vazio, NÃO tentar chamar getUser() pois causa contention
+        // Deixar que useSecureTenantId faça o bootstrap
         const cachedUserId = sessionStorage.getItem('sb-auth-user-id');
         const cachedTenantId = sessionStorage.getItem('sb-auth-tenant-id');
         
@@ -38,54 +40,16 @@ export const useAdminAuth = () => {
           return;
         }
 
-        // ✅ FALLBACK: Usar getUser() em vez de getSession() (não causa lock)
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-
-        if (userError || !userData?.user) {
-          console.log('[useAdminAuth] Não autenticado (normal ao primeiro acesso)');
-          setAuthState(prev => ({
-            ...prev,
-            user: null,
-            tenantId: null,
-            isLoading: false,
-            error: null,
-          }));
-          return;
-        }
-
-        if (userData.user) {
-          // Buscar tenant_id do admin_users
-          const { data: adminUser, error: adminError } = await (supabase as any)
-            .from('admin_users')
-            .select('tenant_id')
-            .eq('id', userData.user.id)
-            .single();
-
-          if (adminError) {
-            console.error('Error fetching admin user:', adminError);
-            setAuthState(prev => ({
-              ...prev,
-              user: userData.user,
-              tenantId: null,
-              error: 'Usuário não é admin',
-            }));
-            return;
-          }
-
-          const tenantId = (adminUser as any)?.tenant_id;
-          setAuthState({
-            user: userData.user,
-            tenantId,
-            isLoading: false,
-            error: null,
-          });
-          
-          // ✅ NOVO (30/03/2026): Salvar em sessionStorage para próxima restauração
-          if (tenantId) {
-            sessionStorage.setItem('sb-auth-user-id', userData.user.id);
-            sessionStorage.setItem('sb-auth-tenant-id', tenantId);
-          }
-        }
+        // ✅ Se sessionStorage vazio, aguardar que useSecureTenantId faça o trabalho
+        // Não tentar chamar getUser() aqui pois causa contention no auth client
+        console.log('[useAdminAuth] sessionStorage vazio - aguardando bootstrap de useSecureTenantId...');
+        setAuthState(prev => ({
+          ...prev,
+          user: null,
+          tenantId: null,
+          isLoading: false,
+          error: null,
+        }));
       } catch (err) {
         console.error('Session restore error:', err);
         setAuthState(prev => ({
