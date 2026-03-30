@@ -48,21 +48,23 @@ const fetchSessionOnce = async (): Promise<{ userId: string | null; error: Error
         retryCount++;
         console.log(`[useSecureTenantId] Fetching session - tentativa ${retryCount}/${MAX_RETRIES}`);
 
-        const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+        // ✅ Usar getUser() em vez de getSession() - não requer lock do token
+        // getUser() é mais leve e não sofre de "lock stealing"
+        const { data: userData, error: userError } = await supabase.auth.getUser();
 
-        if (sessionError) {
-          throw new Error(`Auth error: ${sessionError.message}`);
+        if (userError) {
+          throw new Error(`Auth error: ${userError.message}`);
         }
 
-        if (!sessionData.session?.user.id) {
-          console.log('[useSecureTenantId] User not authenticated (unauthenticated session)');
+        if (!userData?.user?.id) {
+          console.log('[useSecureTenantId] User not authenticated');
           return { userId: null, error: null };
         }
 
         // ✅ SUCESSO! Guardar em sessionStorage para fallback
-        const userId = sessionData.session.user.id;
+        const userId = userData.user.id;
         sessionStorage.setItem(CACHED_USER_ID_KEY, userId);
-        console.log(`✅ [useSecureTenantId] Session obtained: ${userId}`);
+        console.log(`✅ [useSecureTenantId] User obtained: ${userId}`);
         return { userId, error: null };
       } catch (err) {
         lastError = err instanceof Error ? err : new Error(String(err));
@@ -70,14 +72,14 @@ const fetchSessionOnce = async (): Promise<{ userId: string | null; error: Error
 
         // ✅ Se é lock stealing error E temos retry restante, esperar e tentar UMA VEZ mais
         if (errorMsg.includes('Lock') && retryCount < MAX_RETRIES) {
-          const waitTime = 500 + Math.random() * 200; // Apenas 500-700ms, não exponencial
-          console.warn(`⚠️ [useSecureTenantId] Lock stealing. Retry em ${waitTime.toFixed(0)}ms...`);
+          const waitTime = 200 + Math.random() * 100; // Apenas 200-300ms - rápido
+          console.warn(`⚠️ [useSecureTenantId] Lock error. Retry em ${waitTime.toFixed(0)}ms...`);
           await new Promise(resolve => setTimeout(resolve, waitTime));
           continue;
         }
 
         // ❌ Falhou após retries
-        console.error(`❌ [useSecureTenantId] getSession() falhou após ${retryCount} tentativas. Tentando fallback...`);
+        console.error(`❌ [useSecureTenantId] getUser() falhou após ${retryCount} tentativas. Tentando fallback...`);
         break;
       }
     }
