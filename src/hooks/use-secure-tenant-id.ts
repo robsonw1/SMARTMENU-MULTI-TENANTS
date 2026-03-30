@@ -19,6 +19,7 @@ const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
 // ✅ NOVO: Singleton - todos os hooks compartilham a mesma Promise
 // Garante que getSession() é chamado apenas UMA VEZ
 let sessionPromise: Promise<{ userId: string | null; error: Error | null }> | null = null;
+let sessionPromiseTimeout: NodeJS.Timeout | null = null;
 
 const fetchSessionOnce = async (): Promise<{ userId: string | null; error: Error | null }> => {
   // Se já tem uma Promise em andamento, reusar
@@ -29,8 +30,19 @@ const fetchSessionOnce = async (): Promise<{ userId: string | null; error: Error
   // Criar nova Promise que todos vão compartilhar
   sessionPromise = (async () => {
     let retryCount = 0;
-    const MAX_RETRIES = 5;
+    const MAX_RETRIES = 10; // ✅ Aumentado para 10 para melhor recuperação
     let lastError: Error | null = null;
+    
+    // ✅ Pequeno delay inicial para evitar race condition imediata
+    await new Promise(resolve => setTimeout(resolve, 50));
+
+    // ✅ Reset automático após 60 segundos (libera memória e evita travamento)
+    if (sessionPromiseTimeout) clearTimeout(sessionPromiseTimeout);
+    sessionPromiseTimeout = setTimeout(() => {
+      console.log('[useSecureTenantId] Auto-resetting sessionPromise after 60s');
+      sessionPromise = null;
+      sessionPromiseTimeout = null;
+    }, 60000);
 
     while (retryCount < MAX_RETRIES) {
       try {
