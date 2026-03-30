@@ -12,7 +12,6 @@ import { useScheduleSync } from "@/hooks/use-schedule-sync";
 // - useSettingsInitialLoad → AdminDashboard (admin carrega settings)
 // - useSettingsUpdateListener → AdminDashboard (admin monitora updates)
 import { useHostInfo } from "@/hooks/use-host-info";
-import { initTenantResolver } from "@/lib/tenant-resolver";
 import { useLoyaltySettingsStore } from "@/store/useLoyaltySettingsStore";
 import { useSettingsStore } from "@/store/useSettingsStore";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
@@ -31,19 +30,10 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const { type: hostType } = useHostInfo();
   
-  // ✅ NOVO (30/03/2026): Inicializar resolver de tenant_id
-  // Isso resolve tenant_id UMA VEZ ao inicializar o app
-  // Depois todos os hooks/components usam o cache (SEM fetch adicional)
-  useEffect(() => {
-    console.log('🚀 [APP-INIT] Inicializando tenant resolver...');
-    initTenantResolver().then((tenantId) => {
-      if (tenantId) {
-        console.log(`✅ [APP-INIT] Tenant resolver inicializado: ${tenantId}`);
-      } else {
-        console.warn('⚠️ [APP-INIT] Não foi possível resolver tenant_id');
-      }
-    });
-  }, []);
+  // ✅ initTenantResolver() REMOVIDO da raiz (evita lock stealing)
+  // Agora está em:
+  // - Index.tsx (cliente vê catálogo)
+  // - AdminDashboard.tsx (admin dentro do seu context autenticado)
   
   // ✅ useScheduleSync() é seguro aqui (não usa auth)
   useScheduleSync();
