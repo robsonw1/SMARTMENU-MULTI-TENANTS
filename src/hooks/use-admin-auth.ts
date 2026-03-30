@@ -23,52 +23,68 @@ export const useAdminAuth = () => {
       try {
         setAuthState(prev => ({ ...prev, isLoading: true }));
 
-        // Tentar obter sessão atual
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
+        // ✅ NOVO (30/03/2026): Tentar restaurar de sessionStorage PRIMEIRO (0ms)
+        const cachedUserId = sessionStorage.getItem('sb-auth-user-id');
+        const cachedTenantId = sessionStorage.getItem('sb-auth-tenant-id');
+        
+        if (cachedUserId && cachedTenantId) {
+          console.log('[useAdminAuth] Restaurando de sessionStorage:', { cachedUserId, cachedTenantId });
+          setAuthState({
+            user: { id: cachedUserId },
+            tenantId: cachedTenantId,
+            isLoading: false,
+            error: null,
+          });
+          return;
+        }
 
-        if (sessionError) throw sessionError;
+        // ✅ FALLBACK: Usar getUser() em vez de getSession() (não causa lock)
+        const { data: userData, error: userError } = await supabase.auth.getUser();
 
-        if (session?.user) {
+        if (userError || !userData?.user) {
+          console.log('[useAdminAuth] Não autenticado (normal ao primeiro acesso)');
+          setAuthState(prev => ({
+            ...prev,
+            user: null,
+            tenantId: null,
+            isLoading: false,
+            error: null,
+          }));
+          return;
+        }
+
+        if (userData.user) {
           // Buscar tenant_id do admin_users
           const { data: adminUser, error: adminError } = await (supabase as any)
             .from('admin_users')
             .select('tenant_id')
-            .eq('id', session.user.id)
+            .eq('id', userData.user.id)
             .single();
 
           if (adminError) {
             console.error('Error fetching admin user:', adminError);
             setAuthState(prev => ({
               ...prev,
-              user: session.user,
+              user: userData.user,
               tenantId: null,
               error: 'Usuário não é admin',
             }));
             return;
           }
 
+          const tenantId = (adminUser as any)?.tenant_id;
           setAuthState({
-            user: session.user,
-            tenantId: (adminUser as any)?.tenant_id,
+            user: userData.user,
+            tenantId,
             isLoading: false,
             error: null,
           });
           
-          // ✅ NOVO (30/03/2026): Salvar em sessionStorage para usos posteriores (0ms)
-          if ((adminUser as any)?.tenant_id) {
-            sessionStorage.setItem('sb-auth-user-id', session.user.id);
-            sessionStorage.setItem('sb-auth-tenant-id', (adminUser as any).tenant_id);
+          // ✅ NOVO (30/03/2026): Salvar em sessionStorage para próxima restauração
+          if (tenantId) {
+            sessionStorage.setItem('sb-auth-user-id', userData.user.id);
+            sessionStorage.setItem('sb-auth-tenant-id', tenantId);
           }
-        } else {
-          setAuthState(prev => ({
-            ...prev,
-            user: null,
-            tenantId: null,
-            isLoading: false,
-          }));
         }
       } catch (err) {
         console.error('Session restore error:', err);
