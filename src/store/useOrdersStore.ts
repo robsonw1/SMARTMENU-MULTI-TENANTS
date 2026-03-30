@@ -665,9 +665,9 @@ export const useOrdersStore = create<OrdersStore>()(
           console.log('👁️ [SYNC] Iniciando sincronização de pedidos do Supabase...');
           
           // ✅ NOVO (30/03/2026): Obter tenant_id de sessionStorage
-          // 🔍 Procurar em AMBAS as localizações (admin ou cliente)
-          let tenantId = sessionStorage.getItem('sb-auth-tenant-id') || 
-                         sessionStorage.getItem('sb-tenant-id-by-slug');
+          // 🔍 Priorizar slug porque é SEMPRE tenant_id (não user_id)
+          let tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                         sessionStorage.getItem('sb-auth-tenant-id');
           
           if (!tenantId) {
             console.log('[SYNC] tenant_id não em sessionStorage. Tentando getUser()...');
