@@ -11,9 +11,8 @@ import { useScheduleSync } from "@/hooks/use-schedule-sync";
 // - useSettingsRealtimeSync → AdminDashboard (admin edita settings)
 // - useSettingsInitialLoad → AdminDashboard (admin carrega settings)
 // - useSettingsUpdateListener → AdminDashboard (admin monitora updates)
+// - loadSettings (loyaltySettings) → Index (cliente)
 import { useHostInfo } from "@/hooks/use-host-info";
-import { useLoyaltySettingsStore } from "@/store/useLoyaltySettingsStore";
-import { useSettingsStore } from "@/store/useSettingsStore";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import Index from "./pages/Index";
 import AdminLogin from "./pages/AdminLogin";
@@ -37,12 +36,6 @@ const AppContent = () => {
   
   // ✅ useScheduleSync() é seguro aqui (não usa auth)
   useScheduleSync();
-  const { loadSettings } = useLoyaltySettingsStore();
-
-  // Carregar configurações de fidelização ao iniciar
-  useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
 
   // 🎯 Renderização condicional baseada no subdomain
   if (hostType === 'admin') {
