@@ -28,9 +28,15 @@ export const useDomainValidation = () => {
 
     const validateDomain = async () => {
       try {
-        // Obter dados do user autenticado
-        const { data: sessionData } = await supabase.auth.getSession();
-        const userId = sessionData?.session?.user?.id;
+        // ✅ NOVO (30/03/2026): Usar sessionStorage PRIMEIRO (0ms), fallback getUser()
+        let userId = sessionStorage.getItem('sb-auth-user-id');
+        
+        if (!userId) {
+          // Fallback
+          const { data: userData, error: userError } = await supabase.auth.getUser();
+          if (userError || !userData?.user?.id) return;
+          userId = userData.user.id;
+        }
         
         if (!userId) return;
 
