@@ -73,13 +73,13 @@ export function useSettingsRealtimeSync() {
         }
       });
 
-    // Polling fallback (30 segundos)
+    // Polling fallback (5 segundos - atualiza quando mudança não chega por webhook)
     pollInterval = setInterval(async () => {
       if (isSubscribed) {
-        console.log('🔄 [SETTINGS-SYNC] POLLING (fallback)');
+        console.log('🔄 [SETTINGS-SYNC] POLLING (fallback - 5s)');
         await loadSettingsFromSupabase();
       }
-    }, 30000);
+    }, 5000);
 
     return () => {
       isSubscribed = false;
