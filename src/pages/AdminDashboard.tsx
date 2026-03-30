@@ -117,7 +117,8 @@
     const navigate = useNavigate();
     
     // ✅ NOVO: Autenticação multi-tenant segura
-    const { user, tenantId, isLoading: authLoading, logout: authLogout, error: authError } = useAdminAuth();
+    // enableAutoRestore: true porque AdminDashboard PRECISA restaurar sessão
+    const { user, tenantId, isLoading: authLoading, logout: authLogout, error: authError } = useAdminAuth({ enableAutoRestore: true });
 
     // ✅ NOVO (29/03/2026): Validação de domain e tenant_id
     // Redireciona se URL não corresponder ao tenant do usuário
