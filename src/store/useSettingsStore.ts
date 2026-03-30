@@ -112,29 +112,41 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   loadSettingsFromSupabase: async () => {
     try {
-      // ✅ NOVO (29/03/2026): Obter tenant_id do usuário autenticado
-      // Segue o padrão de isolamento multi-tenant
-      const { data: authData } = await supabase.auth.getSession();
-      const userSession = authData?.session;
+      // ✅ NOVO (30/03/2026): Obter tenant_id de sessionStorage PRIMEIRO (0ms)
+      // Fallback: getUser() + lookup admin_users se sessionStorage vazio
+      // Isso elimina lock contention causado por getSession()
       
-      if (!userSession?.user?.id) {
-        console.warn('[LOAD-SUPABASE] Sessão não encontrada, aguardando...');
-        return;
+      let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      
+      if (!tenantId) {
+        console.log('[LOAD-SUPABASE] tenant_id não em sessionStorage. Tentando getUser()...');
+        
+        // Fallback: obter via getUser() (mais leve que getSession())
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !userData?.user?.id) {
+          console.warn('[LOAD-SUPABASE] Não autenticado ou getUser() falhou');
+          return;
+        }
+        
+        // Lookup admin_users para obter tenant_id
+        const { data: adminUser } = await (supabase as any)
+          .from('admin_users')
+          .select('tenant_id')
+          .eq('id', userData.user.id)
+          .single();
+          
+        if (!adminUser?.tenant_id) {
+          console.warn('[LOAD-SUPABASE] tenant_id não encontrado para usuário');
+          return;
+        }
+        
+        tenantId = adminUser.tenant_id;
+        // Guardar em sessionStorage para próximas chamadas
+        sessionStorage.setItem('sb-auth-tenant-id', tenantId);
       }
-
-      // Obter tenant_id do usuario
-      const { data: adminUser } = await (supabase as any)
-        .from('admin_users')
-        .select('tenant_id')
-        .eq('id', userSession.user.id)
-        .single();
-
-      if (!adminUser?.tenant_id) {
-        console.warn('[LOAD-SUPABASE] tenant_id não encontrado para usuário');
-        return;
-      }
-
-      const tenantId = adminUser.tenant_id;
+      
+      console.log('[LOAD-SUPABASE] Usando tenant_id:', tenantId);
       const currentState = get();
 
       // 🔐 NOVO: Verificar cache isolado por tenant
@@ -253,25 +265,32 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       // 2. PEGAR ESTADO ATUALIZADO
       const { settings: currentSettings } = get();
       
-      // 3. OBTER tenant_id
-      const { data: authData } = await supabase.auth.getSession();
-      const userSession = authData?.session;
+      // 3. OBTER tenant_id de sessionStorage PRIMEIRO (0ms)
+      let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
       
-      if (!userSession?.user?.id) {
-        throw new Error('User not authenticated');
+      if (!tenantId) {
+        console.log('[UPDATE-SETTINGS] tenant_id não em sessionStorage. Tentando getUser()...');
+        
+        // Fallback: getUser() + lookup
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !userData?.user?.id) {
+          throw new Error('User not authenticated');
+        }
+        
+        const { data: adminUser } = await (supabase as any)
+          .from('admin_users')
+          .select('tenant_id')
+          .eq('id', userData.user.id)
+          .single();
+          
+        if (!adminUser?.tenant_id) {
+          throw new Error('Tenant ID not found for user');
+        }
+        
+        tenantId = adminUser.tenant_id;
+        sessionStorage.setItem('sb-auth-tenant-id', tenantId);
       }
-
-      const { data: adminUser } = await (supabase as any)
-        .from('admin_users')
-        .select('tenant_id')
-        .eq('id', userSession.user.id)
-        .single();
-
-      if (!adminUser?.tenant_id) {
-        throw new Error('Tenant ID not found for user');
-      }
-
-      const tenantId = adminUser.tenant_id;
       console.log('🔐 [UPDATE-SETTINGS] Usando Edge Function com tenant_id:', tenantId);
 
       // 4. PREPARAR DADOS
@@ -318,8 +337,18 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         throw new Error('VITE_SUPABASE_URL not configured');
       }
 
-      const { data: sessionData } = await supabase.auth.getSession();
-      const accessToken = sessionData?.session?.access_token;
+      // ✅ NOVO (30/03/2026): Tentar getSession() uma ÚNICA vez com timeout
+      // Necessário para obter token de acesso à Edge Function
+      let accessToken: string | undefined;
+      try {
+        const { data: sessionData } = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 1000))
+        ]) as any;
+        accessToken = sessionData?.session?.access_token;
+      } catch (err) {
+        console.warn('[SYNC-SETTINGS] getSession() timeout - continuando anyway', err);
+      }
 
       const response = await fetch(
         `${supabaseUrl}/functions/v1/update-admin-settings`,
@@ -491,27 +520,36 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     try {
       const { settings } = get();
 
-      // ✅ Obter tenant_id do usuário autenticado
-      const { data: authData } = await supabase.auth.getSession();
-      const userSession = authData?.session;
+      // ✅ NOVO (30/03/2026): Obter tenant_id de sessionStorage PRIMEIRO (0ms)
+      // Fallback: getUser() + lookup se sessionStorage vazio
+      let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
       
-      if (!userSession?.user?.id) {
-        console.warn('[SYNC-SUPABASE] Sessão não encontrada');
-        return { success: false, message: 'Sessão expirada' };
+      if (!tenantId) {
+        console.log('[SYNC-SUPABASE] tenant_id não em sessionStorage. Tentando getUser()...');
+        
+        // Fallback: getUser() - mais leve que getSession()
+        const { data: userData, error: userError } = await supabase.auth.getUser();
+        
+        if (userError || !userData?.user?.id) {
+          console.warn('[SYNC-SUPABASE] Sessão não encontrada');
+          return { success: false, message: 'Sessão expirada' };
+        }
+
+        const { data: adminUser } = await (supabase as any)
+          .from('admin_users')
+          .select('tenant_id')
+          .eq('id', userData.user.id)
+          .single();
+
+        if (!adminUser?.tenant_id) {
+          console.warn('[SYNC-SUPABASE] tenant_id não encontrado');
+          return { success: false, message: 'Erro ao identificar estabelecimento' };
+        }
+        
+        tenantId = adminUser.tenant_id;
+        sessionStorage.setItem('sb-auth-tenant-id', tenantId);
       }
 
-      const { data: adminUser } = await (supabase as any)
-        .from('admin_users')
-        .select('tenant_id')
-        .eq('id', userSession.user.id)
-        .single();
-
-      if (!adminUser?.tenant_id) {
-        console.warn('[SYNC-SUPABASE] tenant_id não encontrado');
-        return { success: false, message: 'Erro ao identificar estabelecimento' };
-      }
-
-      const tenantId = adminUser.tenant_id;
       const settingsId = `settings_${tenantId}`;
 
       const updateData: any = {
