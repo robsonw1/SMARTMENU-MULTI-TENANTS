@@ -56,6 +56,12 @@ export const useAdminAuth = () => {
             isLoading: false,
             error: null,
           });
+          
+          // ✅ NOVO (30/03/2026): Salvar em sessionStorage para usos posteriores (0ms)
+          if ((adminUser as any)?.tenant_id) {
+            sessionStorage.setItem('sb-auth-user-id', session.user.id);
+            sessionStorage.setItem('sb-auth-tenant-id', (adminUser as any).tenant_id);
+          }
         } else {
           setAuthState(prev => ({
             ...prev,
@@ -93,6 +99,12 @@ export const useAdminAuth = () => {
           isLoading: false,
           error: null,
         });
+        
+        // ✅ NOVO (30/03/2026): Salvar em sessionStorage
+        if ((adminUser as any)?.tenant_id) {
+          sessionStorage.setItem('sb-auth-user-id', session.user.id);
+          sessionStorage.setItem('sb-auth-tenant-id', (adminUser as any).tenant_id);
+        }
       } else if (event === 'SIGNED_OUT') {
         setAuthState({
           user: null,
@@ -144,6 +156,10 @@ export const useAdminAuth = () => {
             isLoading: false,
             error: null,
           });
+          
+          // ✅ NOVO (30/03/2026): Salvar em sessionStorage para usos posteriores
+          sessionStorage.setItem('sb-auth-user-id', data.user.id);
+          sessionStorage.setItem('sb-auth-tenant-id', (adminUser as any).tenant_id);
 
           toast.success('Login realizado com sucesso!');
           return true;
@@ -170,6 +186,10 @@ export const useAdminAuth = () => {
       const { error } = await supabase.auth.signOut();
 
       if (error) throw error;
+      
+      // ✅ NOVO (30/03/2026): Limpar sessionStorage ao logout
+      sessionStorage.removeItem('sb-auth-user-id');
+      sessionStorage.removeItem('sb-auth-tenant-id');
 
       setAuthState({
         user: null,
