@@ -54,6 +54,7 @@ interface SettingsStore {
   updateSettings: (settings: Partial<StoreSettings>) => Promise<void>;
   loadSettingsFromSupabase: (forceRefresh?: boolean) => Promise<void>;
   loadSettingsLocally: (settings: Partial<StoreSettings>) => void;
+  invalidateSettingsCache: () => void; // ✅ NOVO: Invalidar cache para forçar reload
   setSetting: (key: keyof StoreSettings, value: any) => void;
   updateDaySchedule: (day: keyof WeekSchedule, schedule: Partial<DaySchedule>) => void;
   toggleManualOpen: () => void;
@@ -561,6 +562,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       console.error('❌ Erro ao sincronizar settings:', error);
       return { success: false, message: 'Erro ao sincronizar configurações' };
     }
+  },
+
+  // ✅ NOVO (30/03/2026): Invalidar cache para forçar reload na próxima vez que for chamado
+  // Isso é essencial para que o polling/webhook sempre haga fetch e realize updates
+  invalidateSettingsCache: () => {
+    console.log('🔄 [INVALIDATE-CACHE] Limpando cache de settings para forçar reload...');
+    set({
+      _lastLoadTime: undefined,
+      _loadedTenantId: undefined,
+    });
   },
 }));
 
