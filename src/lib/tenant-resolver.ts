@@ -174,6 +174,8 @@ export const initTenantResolver = async (): Promise<string | null> => {
         console.log(`✅ [TENANT-INIT] Resolvido como ADMIN: ${tenantId}`);
         tenantIdCache = tenantId;
         sessionStorage.setItem('tenant_id_cache', tenantId);
+        // ✅ NOVO: Também salvar em sb-tenant-id-by-slug para useSettingsStore encontrar
+        sessionStorage.setItem('sb-tenant-id-by-slug', tenantId);
         return tenantId;
       }
 
@@ -185,6 +187,8 @@ export const initTenantResolver = async (): Promise<string | null> => {
           console.log(`✅ [TENANT-INIT] Resolvido como CLIENTE: ${tenantId}`);
           tenantIdCache = tenantId;
           sessionStorage.setItem('tenant_id_cache', tenantId);
+          // ✅ NOVO: Também salvar em sb-tenant-id-by-slug para useSettingsStore encontrar
+          sessionStorage.setItem('sb-tenant-id-by-slug', tenantId);
           return tenantId;
         }
       }
