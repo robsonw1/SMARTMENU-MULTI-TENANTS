@@ -4,12 +4,13 @@ import { useEffect } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useRealtimeSync } from "@/hooks/use-realtime-sync";
-import { useAdminRealtimeSync } from "@/hooks/use-admin-realtime-sync";
-import { useSettingsRealtimeSync } from "@/hooks/use-settings-realtime-sync";
-import { useSettingsInitialLoad } from "@/hooks/use-settings-initial-load";
 import { useScheduleSync } from "@/hooks/use-schedule-sync";
-import { useSettingsUpdateListener } from "@/hooks/use-settings-update-listener";
+// ✅ Hooks removidos da raiz (evita lock stealing no login):
+// - useRealtimeSync → Index (cliente vê catálogo)
+// - useAdminRealtimeSync → AdminDashboard (admin vê pedidos)
+// - useSettingsRealtimeSync → AdminDashboard (admin edita settings)
+// - useSettingsInitialLoad → AdminDashboard (admin carrega settings)
+// - useSettingsUpdateListener → AdminDashboard (admin monitora updates)
 import { useHostInfo } from "@/hooks/use-host-info";
 import { initTenantResolver } from "@/lib/tenant-resolver";
 import { useLoyaltySettingsStore } from "@/store/useLoyaltySettingsStore";
@@ -44,18 +45,8 @@ const AppContent = () => {
     });
   }, []);
   
-  // ✅ Sincronização global de dados (produtos, bairros, etc)
-  useRealtimeSync();
-  
-  // ✅ NOVO: Sincronização específica para admins (pedidos em tempo real)
-  // Garante que TODOS os admins vejam pedidos novos/alterados
-  useAdminRealtimeSync();
-  
-  // Demais sincronizações
-  useSettingsInitialLoad();
-  useSettingsRealtimeSync();
+  // ✅ useScheduleSync() é seguro aqui (não usa auth)
   useScheduleSync();
-  useSettingsUpdateListener(); // ✅ Monitorar atualizações do admin
   const { loadSettings } = useLoyaltySettingsStore();
 
   // Carregar configurações de fidelização ao iniciar
