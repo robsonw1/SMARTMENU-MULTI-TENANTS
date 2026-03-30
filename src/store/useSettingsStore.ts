@@ -117,11 +117,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       // Se vazio, skip - deixar que useSecureTenantId preencha
       
       // 🔍 Procurar tenant_id em AMBAS as localizações:
+      // - 'sb-tenant-id-by-slug': Cliente via initTenantResolver (URL slug) ← PRIORIDADE
       // - 'sb-auth-tenant-id': Admin autenticado via useAdminAuth
-      // - 'sb-tenant-id-by-slug': Cliente via initTenantResolver (URL slug)
       const authTenantId = sessionStorage.getItem('sb-auth-tenant-id');
       const slugTenantId = sessionStorage.getItem('sb-tenant-id-by-slug');
-      let tenantId = authTenantId || slugTenantId;
+      // ✅ SLUG deve ter PRIORIDADE porque é sempre tenant_id (não user_id)
+      let tenantId = slugTenantId || authTenantId;
       
       // 🔍 DEBUG: Mostrar qual tenant_id está sendo usado
       if (forceRefresh || authTenantId !== slugTenantId) {
@@ -279,9 +280,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const { settings: currentSettings } = get();
       
       // 3. OBTER tenant_id de sessionStorage APENAS
-      // 🔍 Procurar em AMBAS as localizações (admin ou cliente)
-      let tenantId = sessionStorage.getItem('sb-auth-tenant-id') || 
-                     sessionStorage.getItem('sb-tenant-id-by-slug');
+      // 🔍 Priorizar slug porque é SEMPRE tenant_id (admin tem ambos, cliente só tem slug)
+      let tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                     sessionStorage.getItem('sb-auth-tenant-id');
       
       if (!tenantId) {
         console.warn('[UPDATE-SETTINGS] tenant_id vazio - não pode atualizar');
@@ -506,9 +507,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       // ✅ OBTER tenant_id de sessionStorage APENAS (NUNCA chamar getUser()!)
       // Evita lock stealing com useAdminAuth
-      // 🔍 Procurar em AMBAS as localizações (admin ou cliente)
-      let tenantId = sessionStorage.getItem('sb-auth-tenant-id') || 
-                     sessionStorage.getItem('sb-tenant-id-by-slug');
+      // 🔍 Priorizar slug porque é SEMPRE tenant_id
+      let tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                     sessionStorage.getItem('sb-auth-tenant-id');
       
       if (!tenantId) {
         console.warn('[SYNC-SUPABASE] ❌ Sessão não autenticada em sessionStorage');
