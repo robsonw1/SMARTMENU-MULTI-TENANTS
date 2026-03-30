@@ -29,74 +29,17 @@ const fetchSessionOnce = async (): Promise<{ userId: string | null; error: Error
     return sessionPromise;
   }
 
-  // Criar nova Promise que todos vão compartilhar
-  sessionPromise = (async () => {
-    let retryCount = 0;
-    const MAX_RETRIES = 2; // ✅ REDUZIDO para 2 tentativas (falha rápido se Lock error persistir)
-    let lastError: Error | null = null;
-    
-    // ✅ Reset automático após 30 segundos (más rápido que antes)
-    if (sessionPromiseTimeout) clearTimeout(sessionPromiseTimeout);
-    sessionPromiseTimeout = setTimeout(() => {
-      console.log('[useSecureTenantId] Auto-resetting sessionPromise after 30s');
-      sessionPromise = null;
-      sessionPromiseTimeout = null;
-    }, 30000);
+  // ✅ OBTER userId de sessionStorage PRIMEIRO (sem chamar getUser()!)
+  // Evita contention com useAdminAuth que está fazendo getSession()
+  const cachedUserId = sessionStorage.getItem(CACHED_USER_ID_KEY);
+  if (cachedUserId) {
+    console.log(`✅ [useSecureTenantId] userId do sessionStorage: ${cachedUserId}`);
+    return { userId: cachedUserId, error: null };
+  }
 
-    while (retryCount < MAX_RETRIES) {
-      try {
-        retryCount++;
-        console.log(`[useSecureTenantId] Fetching session - tentativa ${retryCount}/${MAX_RETRIES}`);
-
-        // ✅ Usar getUser() em vez de getSession() - não requer lock do token
-        // getUser() é mais leve e não sofre de "lock stealing"
-        const { data: userData, error: userError } = await supabase.auth.getUser();
-
-        if (userError) {
-          throw new Error(`Auth error: ${userError.message}`);
-        }
-
-        if (!userData?.user?.id) {
-          console.log('[useSecureTenantId] User not authenticated');
-          return { userId: null, error: null };
-        }
-
-        // ✅ SUCESSO! Guardar em sessionStorage para fallback
-        const userId = userData.user.id;
-        sessionStorage.setItem(CACHED_USER_ID_KEY, userId);
-        console.log(`✅ [useSecureTenantId] User obtained: ${userId}`);
-        return { userId, error: null };
-      } catch (err) {
-        lastError = err instanceof Error ? err : new Error(String(err));
-        const errorMsg = lastError.message || '';
-
-        // ✅ Se é lock stealing error E temos retry restante, esperar e tentar UMA VEZ mais
-        if (errorMsg.includes('Lock') && retryCount < MAX_RETRIES) {
-          const waitTime = 200 + Math.random() * 100; // Apenas 200-300ms - rápido
-          console.warn(`⚠️ [useSecureTenantId] Lock error. Retry em ${waitTime.toFixed(0)}ms...`);
-          await new Promise(resolve => setTimeout(resolve, waitTime));
-          continue;
-        }
-
-        // ❌ Falhou após retries
-        console.error(`❌ [useSecureTenantId] getUser() falhou após ${retryCount} tentativas. Tentando fallback...`);
-        break;
-      }
-    }
-
-    // ❌ FALLBACK: Tentar recuperar do sessionStorage
-    const cachedUserId = sessionStorage.getItem(CACHED_USER_ID_KEY);
-    if (cachedUserId) {
-      console.log(`⚠️ [useSecureTenantId] Usando fallback userId do sessionStorage: ${cachedUserId}`);
-      return { userId: cachedUserId, error: null };
-    }
-
-    // ❌ Sem fallback: Retornar erro e sugerir logout
-    console.error('[useSecureTenantId] Falhou todos os fallbacks - logout recomendado');
-    return { userId: null, error: new Error('Session recovery failed - please logout and login again') };
-  })();
-
-  return sessionPromise;
+  // ❌ Se sessionStorage vazio e nenhuma sessão, retornar erro
+  console.error('[useSecureTenantId] sessionStorage vazio - usuário não autenticado');
+  return { userId: null, error: new Error('Usuário não autenticado') };
 };
 
 export interface UseTenantResult {
