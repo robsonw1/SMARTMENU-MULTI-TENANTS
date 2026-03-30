@@ -17,7 +17,6 @@ import { supabase } from '@/integrations/supabase/client';
  */
 export function useSettingsRealtimeSync() {
   const loadSettingsFromSupabase = useSettingsStore((s) => s.loadSettingsFromSupabase);
-  const invalidateSettingsCache = useSettingsStore((s) => s.invalidateSettingsCache);
 
   useEffect(() => {
     let isSubscribed = true;
@@ -60,10 +59,6 @@ export function useSettingsRealtimeSync() {
             oldRecord: payload.old,
           });
           
-          // ✅ NOVO (30/03/2026): Invalidar cache ANTES de carregar
-          // Isso garante que loadSettingsFromSupabase() sempre faça fetch
-          invalidateSettingsCache();
-          
           // ✅ CRÍTICO: Chamar com forceRefresh = true para bypassar cache de 5min
           // Webhook Realtime SEMPRE deve trazer dados frescos
           console.log('[SETTINGS-SYNC] 🔄 Chamando loadSettingsFromSupabase(true) com forceRefresh=true');
@@ -78,16 +73,13 @@ export function useSettingsRealtimeSync() {
         }
       });
 
-    // ✅ MELHORADO (30/03/2026): Polling MAIS AGRESSIVO + invalidar cache
-    // Antes: 30 segundos, agora: 10 segundos (mesmo speed que produtos)
-    // + invalidar cache sempre para forçar fetch
+    // Polling fallback (30 segundos)
     pollInterval = setInterval(async () => {
       if (isSubscribed) {
-        console.log('🔄 [SETTINGS-SYNC] POLLING (fallback - 10s)');
-        invalidateSettingsCache(); // ✅ Reset cache para forçar fetch
-        await loadSettingsFromSupabase(true); // ✅ Uso forceRefresh=true
+        console.log('🔄 [SETTINGS-SYNC] POLLING (fallback)');
+        await loadSettingsFromSupabase();
       }
-    }, 10000); // ✅ 10 segundos em vez de 30
+    }, 30000);
 
     return () => {
       isSubscribed = false;
@@ -98,5 +90,5 @@ export function useSettingsRealtimeSync() {
         clearInterval(pollInterval);
       }
     };
-  }, [loadSettingsFromSupabase, invalidateSettingsCache]);
+  }, [loadSettingsFromSupabase]);
 }
