@@ -86,9 +86,11 @@
   import { useTheme } from '@/hooks/use-theme';
   import { useOrderAlertSound } from '@/hooks/use-order-alert-sound';
   import { useSettingsRealtimeSync } from '@/hooks/use-settings-realtime-sync';
+  import { useAdminRealtimeSync } from '@/hooks/use-admin-realtime-sync';
   import { useRealtimeSync } from '@/hooks/use-realtime-sync';
   import { useSettingsInitialLoad } from '@/hooks/use-settings-initial-load';
-  import { useDomainValidation } from '@/hooks/use-domain-validation'; // ✅ Nova validação de domain
+  import { useSettingsUpdateListener } from '@/hooks/use-settings-update-listener';
+  import { useDomainValidation } from '@/hooks/use-domain-validation';
   import logoForneiro from '@/assets/logo-forneiro.jpg';
 
   const dayLabels: Record<keyof any, string> = {
@@ -185,11 +187,18 @@
     // ✅ NOVO (29/03/2026): Passar tenantId como prop para evitar chamadas duplicadas a getSession()
     useRealtimeSync(tenantId || undefined);
 
+    // ✅ Sincronização específica para admins (pedidos em tempo real)
+    // Garante que TODOS os admins vejam pedidos novos/alterados
+    useAdminRealtimeSync();
+
     // Carregamento inicial das settings do Supabase
     useSettingsInitialLoad();
 
     // Sincronização em tempo real de configurações entre abas/navegadores
     useSettingsRealtimeSync();
+
+    // ✅ Monitorar atualizações de settings em tempo real
+    useSettingsUpdateListener();
 
     // Local state for settings form
     const [settingsForm, setSettingsForm] = useState(settings);
