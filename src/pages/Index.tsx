@@ -12,6 +12,7 @@ import { useLoyaltyRealtimeSync } from '@/hooks/use-loyalty-realtime-sync';
 import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { useSettingsRealtimeSync } from '@/hooks/use-settings-realtime-sync';
 import { initTenantResolver } from '@/lib/tenant-resolver';
+import { useLoyaltySettingsStore } from '@/store/useLoyaltySettingsStore';
 import { useState, useEffect } from 'react';
 
 const Index = () => {
@@ -24,6 +25,12 @@ const Index = () => {
   useRealtimeSync();
   useLoyaltyRealtimeSync();
   useSettingsRealtimeSync();
+
+  // ✅ Carregar configurações de fidelização (cliente - seguro aqui)
+  const { loadSettings } = useLoyaltySettingsStore();
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
 
   // ✅ NOVO (30/03/2026): Inicializar resolver de tenant_id
   // Aqui é seguro - cliente público, sem conflito de auth
