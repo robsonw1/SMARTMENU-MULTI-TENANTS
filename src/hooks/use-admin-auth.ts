@@ -23,14 +23,12 @@ export const useAdminAuth = () => {
       try {
         setAuthState(prev => ({ ...prev, isLoading: true }));
 
-        // ✅ NOVO (30/03/2026): Verificar sessionStorage PRIMEIRO
-        // Se vazio, NÃO tentar chamar getUser() pois causa contention
-        // Deixar que useSecureTenantId faça o bootstrap
+        // ✅ STEP 1: Verificar sessionStorage PRIMEIRO (mais rápido)
         const cachedUserId = sessionStorage.getItem('sb-auth-user-id');
         const cachedTenantId = sessionStorage.getItem('sb-auth-tenant-id');
         
         if (cachedUserId && cachedTenantId) {
-          console.log('[useAdminAuth] Restaurando de sessionStorage:', { cachedUserId, cachedTenantId });
+          console.log('[useAdminAuth] ✅ Restaurando de sessionStorage:', { cachedUserId, cachedTenantId });
           setAuthState({
             user: { id: cachedUserId },
             tenantId: cachedTenantId,
@@ -40,18 +38,55 @@ export const useAdminAuth = () => {
           return;
         }
 
-        // ✅ Se sessionStorage vazio, aguardar que useSecureTenantId faça o trabalho
-        // Não tentar chamar getUser() aqui pois causa contention no auth client
-        console.log('[useAdminAuth] sessionStorage vazio - aguardando bootstrap de useSecureTenantId...');
-        setAuthState(prev => ({
-          ...prev,
-          user: null,
-          tenantId: null,
+        // ✅ STEP 2: Se sessionStorage vazio, tentar restaurar do Supabase Auth
+        console.log('[useAdminAuth] ⏳ sessionStorage vazio, tentando restaurar do Supabase Auth...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw new Error(`Session error: ${sessionError.message}`);
+        }
+
+        if (!session?.user?.id) {
+          console.log('[useAdminAuth] ❌ Nenhuma sessão ativa no Supabase Auth');
+          setAuthState({
+            user: null,
+            tenantId: null,
+            isLoading: false,
+            error: null,
+          });
+          return;
+        }
+
+        // ✅ STEP 3: Sessão existe no Supabase! Buscar tenant_id
+        console.log('[useAdminAuth] ✅ Sessão ativa encontrada, buscando tenant_id...');
+        const { data: adminUser, error: adminError } = await (supabase as any)
+          .from('admin_users')
+          .select('tenant_id')
+          .eq('id', session.user.id)
+          .single();
+
+        if (adminError) {
+          throw new Error(`User não é admin: ${adminError.message}`);
+        }
+
+        const tenantId = (adminUser as any)?.tenant_id;
+        if (!tenantId) {
+          throw new Error('Admin user não tem tenant_id atribuído');
+        }
+
+        // ✅ SUCESSO! Salvar em sessionStorage e retornar estado autenticado
+        sessionStorage.setItem('sb-auth-user-id', session.user.id);
+        sessionStorage.setItem('sb-auth-tenant-id', tenantId);
+
+        console.log('[useAdminAuth] ✅ Restaurado do Supabase Auth:', { userId: session.user.id, tenantId });
+        setAuthState({
+          user: session.user,
+          tenantId,
           isLoading: false,
           error: null,
-        }));
+        });
       } catch (err) {
-        console.error('Session restore error:', err);
+        console.error('[useAdminAuth] ❌ Erro ao restaurar sessão:', err);
         setAuthState(prev => ({
           ...prev,
           isLoading: false,
@@ -86,6 +121,10 @@ export const useAdminAuth = () => {
           sessionStorage.setItem('sb-auth-tenant-id', (adminUser as any).tenant_id);
         }
       } else if (event === 'SIGNED_OUT') {
+        // Limpar sessionStorage ao desautenticar
+        sessionStorage.removeItem('sb-auth-user-id');
+        sessionStorage.removeItem('sb-auth-tenant-id');
+        
         setAuthState({
           user: null,
           tenantId: null,
