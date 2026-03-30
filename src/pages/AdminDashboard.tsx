@@ -295,13 +295,13 @@
       console.log('📡 [ADMIN-SUBSCRIBE] Iniciando subscription para mudanças em settings...');
 
       const settingsChannel = supabase
-        .channel('public:settings')
+        .channel(`public:settings:${tenantId}`)
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'settings' },
           async (payload) => {
             // ✅ FILTRO MANUAL: Apenas se for store-settings
-            if (payload.new.id !== 'store-settings') return;
+            if (payload.new.id !== `settings_${tenantId}` || payload.new.tenant_id !== tenantId) return;
             
             console.log('🔔 [ADMIN-SUBSCRIBE] Mudan ça em settings detectada! Outro gerente salvou dados.');
             console.log('🔔 [ADMIN-SUBSCRIBE] Payload:', payload);
@@ -962,10 +962,12 @@
             console.log('🗑️ Deletando produto:', deleteDialog.id);
             removeProduct(deleteDialog.id);
             
+            // ✅ CORRIGIDO: Filtrar por tenant_id para isolamento multi-tenant
             const { error } = await (supabase as any)
               .from('products')
               .delete()
-              .eq('id', deleteDialog.id);
+              .eq('id', deleteDialog.id)
+              .eq('tenant_id', tenantId);  // ✅ Add tenant filter
             
             if (error) {
               console.error('❌ Erro ao deletar produto:', error);
@@ -981,7 +983,8 @@
                 const { data: deletedList, error: selectError } = await (supabase as any)
                   .from('products')
                   .select('*')
-                  .eq('id', deleteDialog.id);
+                  .eq('id', deleteDialog.id)
+                  .eq('tenant_id', tenantId);  // ✅ Add tenant filter
                 
                 if (!selectError && deletedList && deletedList.length > 0) {
                   // Ainda existe - reversão
@@ -1012,10 +1015,12 @@
             console.log('🗑️ Deletando bairro:', deleteDialog.id);
             removeNeighborhood(deleteDialog.id);
             
+            // ✅ CORRIGIDO: Filtrar por tenant_id para isolamento multi-tenant
             const { error } = await (supabase as any)
               .from('neighborhoods')
               .delete()
-              .eq('id', deleteDialog.id);
+              .eq('id', deleteDialog.id)
+              .eq('tenant_id', tenantId);  // ✅ Add tenant filter
             
             if (error) {
               console.error('❌ Erro ao deletar bairro:', error);
@@ -1031,7 +1036,8 @@
                 const { data: deletedList, error: selectError } = await (supabase as any)
                   .from('neighborhoods')
                   .select('*')
-                  .eq('id', deleteDialog.id);
+                  .eq('id', deleteDialog.id)
+                  .eq('tenant_id', tenantId);  // ✅ Add tenant filter
                 
                 if (!selectError && deletedList && deletedList.length > 0) {
                   // Ainda existe - reversão
