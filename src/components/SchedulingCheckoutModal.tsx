@@ -443,7 +443,9 @@ export function SchedulingCheckoutModal() {
         
         // ✅ Usar loadSettingsFromSupabase para carregar TUDO (schedule, horários, etc)
         const settingsStore = useSettingsStore.getState();
-        await settingsStore.loadSettingsFromSupabase();
+        // ✅ NOVO (30/03/2026): Invalidar cache para forçar fetch
+        settingsStore.invalidateSettingsCache();
+        await settingsStore.loadSettingsFromSupabase(true); // ✅ forceRefresh=true
         
         console.log('✅ [CHECKOUT] Settings re-sincronizados do Supabase COMPLETO');
       } catch (error) {
