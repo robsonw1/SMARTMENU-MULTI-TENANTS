@@ -116,10 +116,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       // SEM fallback getUser() - evita contention no auth
       // Se vazio, skip - deixar que useSecureTenantId preencha
       
-      let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      // 🔍 Procurar tenant_id em AMBAS as localizações:
+      // - 'sb-auth-tenant-id': Admin autenticado via useAdminAuth
+      // - 'sb-tenant-id-by-slug': Cliente via initTenantResolver (URL slug)
+      let tenantId = sessionStorage.getItem('sb-auth-tenant-id') || 
+                     sessionStorage.getItem('sb-tenant-id-by-slug');
       
       if (!tenantId) {
-        console.log('[LOAD-SUPABASE] tenant_id vazio - aguardando useSecureTenantId');
+        console.log('[LOAD-SUPABASE] tenant_id vazio (não encontrou em sb-auth-tenant-id nem em sb-tenant-id-by-slug)');
         return;
       }
       
@@ -249,7 +253,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       const { settings: currentSettings } = get();
       
       // 3. OBTER tenant_id de sessionStorage APENAS
-      let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      // 🔍 Procurar em AMBAS as localizações (admin ou cliente)
+      let tenantId = sessionStorage.getItem('sb-auth-tenant-id') || 
+                     sessionStorage.getItem('sb-tenant-id-by-slug');
       
       if (!tenantId) {
         console.warn('[UPDATE-SETTINGS] tenant_id vazio - não pode atualizar');
@@ -474,7 +480,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       // ✅ OBTER tenant_id de sessionStorage APENAS (NUNCA chamar getUser()!)
       // Evita lock stealing com useAdminAuth
-      let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      // 🔍 Procurar em AMBAS as localizações (admin ou cliente)
+      let tenantId = sessionStorage.getItem('sb-auth-tenant-id') || 
+                     sessionStorage.getItem('sb-tenant-id-by-slug');
       
       if (!tenantId) {
         console.warn('[SYNC-SUPABASE] ❌ Sessão não autenticada em sessionStorage');
