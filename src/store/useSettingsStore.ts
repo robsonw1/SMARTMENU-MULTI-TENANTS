@@ -119,8 +119,19 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       // 🔍 Procurar tenant_id em AMBAS as localizações:
       // - 'sb-auth-tenant-id': Admin autenticado via useAdminAuth
       // - 'sb-tenant-id-by-slug': Cliente via initTenantResolver (URL slug)
-      let tenantId = sessionStorage.getItem('sb-auth-tenant-id') || 
-                     sessionStorage.getItem('sb-tenant-id-by-slug');
+      const authTenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      const slugTenantId = sessionStorage.getItem('sb-tenant-id-by-slug');
+      let tenantId = authTenantId || slugTenantId;
+      
+      // 🔍 DEBUG: Mostrar qual tenant_id está sendo usado
+      if (forceRefresh || authTenantId !== slugTenantId) {
+        console.log('[LOAD-SUPABASE] 🔍 DEBUG Tenant IDs:', {
+          authTenantId: authTenantId || '(não encontrado)',
+          slugTenantId: slugTenantId || '(não encontrado)',
+          utilizando: tenantId || '(nenhum!)',
+          forceRefresh,
+        });
+      }
       
       if (!tenantId) {
         console.log('[LOAD-SUPABASE] tenant_id vazio (não encontrou em sb-auth-tenant-id nem em sb-tenant-id-by-slug)');
@@ -161,6 +172,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       // ✅ CORRIGIDO (30/03/2026): Usar ID tenant-specific (antes era hardcoded 'store-settings')
       const settingsId = `settings_${tenantId}`;
       
+      console.log('[LOAD-SUPABASE] 🔍 Query:', { settingsId, tenantId });
+      
       const { data, error } = await (supabase as any)
         .from('settings')
         .select('*')
@@ -169,7 +182,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         .single();
 
       if (error) {
-        console.warn('[LOAD-SUPABASE] Erro ao carregar settings (esperado se nova loja):', error.message);
+        console.error('[LOAD-SUPABASE] ❌ Erro ao carregar settings:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          searchParams: { settingsId, tenantId },
+        });
         // Se não encontrar, usar defaults - é normal para tentant novo
         set({ 
           _loadedTenantId: tenantId,
@@ -183,7 +202,14 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         const settingsData = data as any;
         const valueJson = settingsData.value || {};
         
-        console.log('✅ [LOAD-SUPABASE] Dados do banco carregados com sucesso');
+        console.log('✅ [LOAD-SUPABASE] Dados do banco carregados com sucesso:', {
+          id: settingsData.id,
+          tenant_id: settingsData.tenant_id,
+          name: valueJson.name,
+          phone: valueJson.phone,
+          slogan: valueJson.slogan,
+          forceRefresh,
+        });
         
         // ✅ Carregar schedule com defaults se não tiver
         const loadedSchedule = valueJson.schedule || {
