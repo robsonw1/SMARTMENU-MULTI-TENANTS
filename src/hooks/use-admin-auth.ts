@@ -9,16 +9,31 @@ interface AdminAuthState {
   error: string | null;
 }
 
-export const useAdminAuth = () => {
+interface UseAdminAuthOptions {
+  /**
+   * Se true: Restaura sessão existente ao montar (para AdminDashboard)
+   * Se false: Apenas login, sem restauração (para AdminLogin)
+   */
+  enableAutoRestore?: boolean;
+}
+
+export const useAdminAuth = (options: UseAdminAuthOptions = {}) => {
+  const { enableAutoRestore = false } = options;
+  
   const [authState, setAuthState] = useState<AdminAuthState>({
     user: null,
     tenantId: null,
-    isLoading: true,
+    isLoading: enableAutoRestore ? true : false, // apenas carrega se restauração ativa
     error: null,
   });
 
-  // Restaurar sessão ao montar
+  // Restaurar sessão ao montar (OPCIONAL)
   useEffect(() => {
+    if (!enableAutoRestore) {
+      console.log('[useAdminAuth] ⏭️ Auto-restore desabilitado (página de login)');
+      return; // Skip restauração em AdminLogin
+    }
+
     const restoreSession = async () => {
       try {
         setAuthState(prev => ({ ...prev, isLoading: true }));
