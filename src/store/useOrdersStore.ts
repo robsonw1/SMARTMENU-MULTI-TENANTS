@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Order } from '@/data/products';
 import { supabase } from '@/integrations/supabase/client';
@@ -664,28 +664,36 @@ export const useOrdersStore = create<OrdersStore>()(
         try {
           console.log('👁️ [SYNC] Iniciando sincronização de pedidos do Supabase...');
           
-          // ✅ NOVO (29/03/2026): Filtrar por tenant_id do usuário autenticado
-          const { data: authData } = await supabase.auth.getSession();
-          const userSession = authData?.session;
+          // ✅ NOVO (30/03/2026): Obter tenant_id de sessionStorage PRIMEIRO (0ms)
+          // Fallback: getUser() + lookup se vazio
+          let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
           
-          if (!userSession?.user?.id) {
-            console.warn('[SYNC] Sessão não encontrada');
-            return;
+          if (!tenantId) {
+            console.log('[SYNC] tenant_id não em sessionStorage. Tentando getUser()...');
+            
+            // Fallback: getUser() - mais leve que getSession()
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            
+            if (userError || !userData?.user?.id) {
+              console.warn('[SYNC] Não autenticado');
+              return;
+            }
+            
+            const { data: adminUser } = await (supabase as any)
+              .from('admin_users')
+              .select('tenant_id')
+              .eq('id', userData.user.id)
+              .single();
+              
+            if (!adminUser?.tenant_id) {
+              console.warn('[SYNC] tenant_id não encontrado para usuário');
+              return;
+            }
+            
+            tenantId = adminUser.tenant_id;
+            sessionStorage.setItem('sb-auth-tenant-id', tenantId);
           }
-
-          // Obter tenant_id do usuário
-          const { data: adminUser } = await (supabase as any)
-            .from('admin_users')
-            .select('tenant_id')
-            .eq('id', userSession.user.id)
-            .single();
-
-          if (!adminUser?.tenant_id) {
-            console.warn('[SYNC] tenant_id não encontrado para usuário');
-            return;
-          }
-
-          const tenantId = adminUser.tenant_id;
+          
           console.log('[SYNC] Usando tenant_id:', tenantId);
           
           // ✅ Buscar APENAS os pedidos deste tenant
