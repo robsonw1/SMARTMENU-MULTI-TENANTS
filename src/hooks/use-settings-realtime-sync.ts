@@ -52,8 +52,9 @@ export function useSettingsRealtimeSync() {
           // ✅ CRITICAL: Recarregar apenas se o settings foi atualizado
           console.log('⚡⚡⚡ [SETTINGS-SYNC] MUDANÇA DETECTADA EM TEMPO REAL ⚡⚡⚡');
           
-          // ✅ CRÍTICO: Recarregar FRESH em vez de confiar no payload (pode estar em cache)
-          await loadSettingsFromSupabase();
+          // ✅ CRÍTICO: Chamar com forceRefresh = true para bypassar cache de 5min
+          // Webhook Realtime SEMPRE deve trazer dados frescos
+          await loadSettingsFromSupabase(true);
         }
       )
       .subscribe((status) => {
