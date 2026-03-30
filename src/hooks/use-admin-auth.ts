@@ -102,24 +102,37 @@ export const useAdminAuth = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        const { data: adminUser } = await (supabase as any)
-          .from('admin_users')
-          .select('tenant_id')
-          .eq('id', session.user.id)
-          .single();
+        // 🔒 OTIMIZAÇÃO: Evitar race condition na query admin_users
+        // Verificar se login() já salvou tenant_id em sessionStorage
+        let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
+        
+        // Se sessionStorage ainda vazio (ex: direto da URL após refresh),
+        // fazer query para obter tenant_id
+        if (!tenantId) {
+          console.log('[onAuthStateChange] 🔄 Fetchando tenant_id de admin_users...');
+          const { data: adminUser } = await (supabase as any)
+            .from('admin_users')
+            .select('tenant_id')
+            .eq('id', session.user.id)
+            .single();
+          
+          tenantId = (adminUser as any)?.tenant_id || null;
+          
+          if (tenantId) {
+            sessionStorage.setItem('sb-auth-user-id', session.user.id);
+            sessionStorage.setItem('sb-auth-tenant-id', tenantId);
+          }
+        } else {
+          // ✅ tenant_id já estava em sessionStorage = login() fez a query
+          console.log('[onAuthStateChange] ✅ tenant_id já em sessionStorage, usando cache');
+        }
 
         setAuthState({
           user: session.user,
-          tenantId: (adminUser as any)?.tenant_id || null,
+          tenantId,
           isLoading: false,
           error: null,
         });
-        
-        // ✅ NOVO (30/03/2026): Salvar em sessionStorage
-        if ((adminUser as any)?.tenant_id) {
-          sessionStorage.setItem('sb-auth-user-id', session.user.id);
-          sessionStorage.setItem('sb-auth-tenant-id', (adminUser as any).tenant_id);
-        }
       } else if (event === 'SIGNED_OUT') {
         // Limpar sessionStorage ao desautenticar
         sessionStorage.removeItem('sb-auth-user-id');
