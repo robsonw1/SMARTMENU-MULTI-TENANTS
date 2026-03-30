@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useSecureTenantId } from '@/hooks/use-secure-tenant-id';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -7,18 +8,24 @@ import { supabase } from '@/integrations/supabase/client';
  * E força atualização dos dados no cliente em tempo real
  */
 export function useSettingsUpdateListener() {
+  const { tenantId } = useSecureTenantId();
   const loadSettingsLocally = useSettingsStore((s) => s.loadSettingsLocally);
 
   useEffect(() => {
+    if (!tenantId) return;
+
     const handleSettingsUpdate = async () => {
       console.log('🔔 [CLIENT-LISTENER] Admin atualizou settings! Recarregando dados do Supabase...');
       
       try {
+        const settingsId = `settings_${tenantId}`;
+        
         // Forçar busca dos dados ATUALIZADOS do Supabase (sem cache)
-        const { data, error } = await supabase
+        const { data, error } = await (supabase as any)
           .from('settings')
           .select('*')
-          .eq('id', 'store-settings')
+          .eq('id', settingsId)
+          .eq('tenant_id', tenantId)
           .single();
 
         if (error) {

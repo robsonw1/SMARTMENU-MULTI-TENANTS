@@ -47,6 +47,10 @@ interface StoreSettings {
 
 interface SettingsStore {
   settings: StoreSettings;
+  // 🔐 NOVO: Cache isolado por tenant
+  _loadedTenantId?: string;
+  _lastLoadTime?: number;
+  _isLoadingInProgress?: boolean;
   updateSettings: (settings: Partial<StoreSettings>) => Promise<void>;
   loadSettingsFromSupabase: () => Promise<void>;
   loadSettingsLocally: (settings: Partial<StoreSettings>) => void;
@@ -102,20 +106,78 @@ const dayNames: (keyof WeekSchedule)[] = ['sunday', 'monday', 'tuesday', 'wednes
 
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
   settings: defaultSettings,
+  _loadedTenantId: undefined,
+  _lastLoadTime: undefined,
+  _isLoadingInProgress: false,
 
   loadSettingsFromSupabase: async () => {
     try {
-      console.log('­ƒôÑ [LOAD-SUPABASE] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
-      console.log('­ƒôÑ [LOAD-SUPABASE] Carregando TODAS as settings do Supabase...');
+      // ✅ NOVO (29/03/2026): Obter tenant_id do usuário autenticado
+      // Segue o padrão de isolamento multi-tenant
+      const { data: authData } = await supabase.auth.getSession();
+      const userSession = authData?.session;
       
-      const { data, error } = await supabase
+      if (!userSession?.user?.id) {
+        console.warn('[LOAD-SUPABASE] Sessão não encontrada, aguardando...');
+        return;
+      }
+
+      // Obter tenant_id do usuario
+      const { data: adminUser } = await (supabase as any)
+        .from('admin_users')
+        .select('tenant_id')
+        .eq('id', userSession.user.id)
+        .single();
+
+      if (!adminUser?.tenant_id) {
+        console.warn('[LOAD-SUPABASE] tenant_id não encontrado para usuário');
+        return;
+      }
+
+      const tenantId = adminUser.tenant_id;
+      const currentState = get();
+
+      // 🔐 NOVO: Verificar cache isolado por tenant
+      // Se já foi carregado para este tenant_id E está dentro de 5min, retornar
+      if (
+        currentState._loadedTenantId === tenantId &&
+        currentState._lastLoadTime &&
+        Date.now() - currentState._lastLoadTime < 5 * 60 * 1000 // 5 minutos
+      ) {
+        console.log(`✅ [LOAD-SUPABASE] Cache válido para tenant ${tenantId} - pulando fetch`);
+        return;
+      }
+
+      // 🔐 Evitar múltiplas requisições simultâneas
+      if (currentState._isLoadingInProgress) {
+        console.log(`⏳ [LOAD-SUPABASE] Carregamento já em progresso para ${tenantId}`);
+        return;
+      }
+
+      // Marcar como carregando
+      set({ _isLoadingInProgress: true });
+
+      console.log('[LOAD-SUPABASE] Usando tenant_id:', tenantId);
+      
+      // ✅ Buscar APENAS as settings deste tenant na tabela 'settings'
+      // Agora usando ID padrão: settings_${tenant_id} criado pela edge function
+      const settingsId = `settings_${tenantId}`;
+      
+      const { data, error } = await (supabase as any)
         .from('settings')
         .select('*')
-        .eq('id', 'store-settings')
+        .eq('tenant_id', tenantId)
+        .eq('id', settingsId)
         .single();
 
       if (error) {
-        console.error('ÔØî [LOAD-SUPABASE] Erro ao carregar settings:', error);
+        console.warn('[LOAD-SUPABASE] Erro ao carregar settings (esperado se nova loja):', error.message);
+        // Se não encontrar, usar defaults - é normal para tentant novo
+        set({ 
+          _loadedTenantId: tenantId,
+          _lastLoadTime: Date.now(),
+          _isLoadingInProgress: false,
+        });
         return;
       }
 
@@ -123,10 +185,9 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         const settingsData = data as any;
         const valueJson = settingsData.value || {};
         
-        console.log('­ƒôÑ [LOAD-SUPABASE] Dados brutos do banco:');
-        console.log('­ƒôÑ [LOAD-SUPABASE] value.schedule:', valueJson.schedule);
+        console.log('✅ [LOAD-SUPABASE] Dados do banco carregados com sucesso');
         
-        // Ô£à CARREGAR SCHEDULE COM DEFAULTS SE N├âO TIVER
+        // ✅ Carregar schedule com defaults se não tiver
         const loadedSchedule = valueJson.schedule || {
           monday: { isOpen: false, openTime: '18:00', closeTime: '23:00' },
           tuesday: { isOpen: true, openTime: '18:00', closeTime: '23:00' },
@@ -137,24 +198,19 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
         };
 
-        console.log('­ƒôÑ [LOAD-SUPABASE] Schedule que ser├í usado:', loadedSchedule);
-
-        // Ô£à MAPEAR TODOS OS CAMPOS DO BANCO PARA O ESTADO
         set({
           settings: {
-            name: valueJson.name || 'Forneiro ├ëden',
+            name: valueJson.name || 'Forneiro Éden',
             phone: valueJson.phone || '(11) 99999-9999',
             address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
-            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade ­ƒç«­ƒç╣',
+            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade 🍕',
             schedule: loadedSchedule,
-            // ­ƒöô CARREGAR DA COLUNA NORMALIZADA PRIMEIRO, depois do JSON como fallback
             isManuallyOpen: settingsData.is_manually_open !== null ? settingsData.is_manually_open : (valueJson.isManuallyOpen ?? true),
             deliveryTimeMin: valueJson.deliveryTimeMin ?? 60,
             deliveryTimeMax: valueJson.deliveryTimeMax ?? 70,
             pickupTimeMin: valueJson.pickupTimeMin ?? 40,
             pickupTimeMax: valueJson.pickupTimeMax ?? 50,
             adminPassword: valueJson.adminPassword || 'forneiroeden123',
-            // ­ƒû¿´©Å  PRINTNODE: Tentar carregar da coluna normalizada PRIMEIRO, depois do JSON como fallback
             printnode_printer_id: settingsData.printnode_printer_id || valueJson.printnode_printer_id || null,
             print_mode: settingsData.print_mode || valueJson.print_mode || 'auto',
             auto_print_pix: settingsData.auto_print_pix ?? (valueJson.auto_print_pix ?? false),
@@ -170,15 +226,18 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             respectBusinessHoursForScheduling: settingsData.respect_business_hours_for_scheduling ?? true,
             allowSameDaySchedulingOutsideHours: settingsData.allow_same_day_scheduling_outside_hours ?? false,
             timezone: valueJson.timezone || 'America/Sao_Paulo',
-          }
+          },
+          // 🔐 NOVO: Registrar que este tenant foi carregado com sucesso
+          _loadedTenantId: tenantId,
+          _lastLoadTime: Date.now(),
+          _isLoadingInProgress: false,
         });
 
-        console.log('Ô£à [LOAD-SUPABASE] Store atualizado com SUCESSO');
-        console.log('­ƒû¿´©Å  [LOAD-SUPABASE] PrintNode carregado: ID=', settingsData.printnode_printer_id, ', Mode=', settingsData.print_mode);
-        console.log('´┐¢ [LOAD-SUPABASE] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
+        console.log('✅ [LOAD-SUPABASE] Settings carregados e cached para tenant:', tenantId);
       }
     } catch (error) {
-      console.error('ÔØî [LOAD-SUPABASE] Exce├º├úo ao carregar settings:', error);
+      console.error('❌ [LOAD-SUPABASE] Exceção ao carregar settings:', error);
+      set({ _isLoadingInProgress: false });
     }
   },
 
@@ -439,6 +498,29 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     try {
       const { settings } = get();
 
+      // ✅ Obter tenant_id do usuário autenticado
+      const { data: authData } = await supabase.auth.getSession();
+      const userSession = authData?.session;
+      
+      if (!userSession?.user?.id) {
+        console.warn('[SYNC-SUPABASE] Sessão não encontrada');
+        return { success: false, message: 'Sessão expirada' };
+      }
+
+      const { data: adminUser } = await (supabase as any)
+        .from('admin_users')
+        .select('tenant_id')
+        .eq('id', userSession.user.id)
+        .single();
+
+      if (!adminUser?.tenant_id) {
+        console.warn('[SYNC-SUPABASE] tenant_id não encontrado');
+        return { success: false, message: 'Erro ao identificar estabelecimento' };
+      }
+
+      const tenantId = adminUser.tenant_id;
+      const settingsId = `settings_${tenantId}`;
+
       const updateData: any = {
         value: {
           name: settings.name,
@@ -464,21 +546,23 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase
+      // ✅ Usar o ID dinâmico e filtrar por tenant_id
+      const { error } = await (supabase as any)
         .from('settings')
         .update(updateData)
-        .eq('id', 'store-settings');
+        .eq('id', settingsId)
+        .eq('tenant_id', tenantId);
 
       if (error) {
-        console.error('ÔØî Erro ao sincronizar settings com Supabase:', error);
-        return { success: false, message: 'Erro ao sincronizar configura├º├Áes' };
+        console.error('❌ Erro ao sincronizar settings com Supabase:', error);
+        return { success: false, message: 'Erro ao sincronizar configurações' };
       }
 
-      console.log('Ô£à Settings sincronizados com Supabase com TODOS os dados');
-      return { success: true, message: 'Configura├º├Áes sincronizadas com sucesso!' };
+      console.log('✅ Settings sincronizados com Supabase com TODOS os dados');
+      return { success: true, message: 'Configurações sincronizadas com sucesso!' };
     } catch (error) {
-      console.error('ÔØî Erro ao sincronizar settings:', error);
-      return { success: false, message: 'Erro ao sincronizar configura├º├Áes' };
+      console.error('❌ Erro ao sincronizar settings:', error);
+      return { success: false, message: 'Erro ao sincronizar configurações' };
     }
   },
 }));

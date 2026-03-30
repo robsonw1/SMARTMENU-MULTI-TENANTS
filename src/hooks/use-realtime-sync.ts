@@ -4,6 +4,7 @@ import { useCatalogStore } from '@/store/useCatalogStore';
 import { useOrdersStore } from '@/store/useOrdersStore';
 import { useNeighborhoodsStore } from '@/store/useNeighborhoodsStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { getTenantIdSync } from '@/lib/tenant-resolver';
 import type { Product, Order, Neighborhood } from '@/data/products';
 
 /**
@@ -67,31 +68,47 @@ const parseNeighborhoodFromSupabase = (supabaseData: any): Neighborhood => {
  * Hook que sincroniza os dados da aplicação com o Supabase em tempo real
  * Carrega os dados iniciais e escuta mudanças em produtos, pedidos, bairros e configurações
  * 
- * ✅ MELHORIAS (19/03/2026):
+ * ✅ MELHORIAS (30/03/2026):
  * 1. Canal realtime ÚNICO e centralizado para Orders (sem duplicação)
  * 2. Polling AUTOMÁTICO como fallback se realtime falhar
  * 3. Sincronização garantida a cada 5s para pedidos (críticos)
  * 4. Sem conflitos de canais realtime
  * 5. Todos os admins recebem atualizações em tempo real
+ * 6. ✅ NOVO: Usa tenant-resolver.ts para obter tenantId (SEM fetch)
+ * 7. ✅ NOVO: Webhook filtrado por tenant_id para isolamento multi-tenant
+ * 8. ✅ ZERO lock stealing - nenhuma chamada a getSession() aqui
  */
-export const useRealtimeSync = () => {
+export const useRealtimeSync = (adminTenantIdProp?: string) => {
+  // ✅ NOVO (30/03/2026): Priorizar prop > cache do resolver
+  // Sem chamadas a useSecureTenantId() ou useTenantIdFromSlug()
+  const resolvedTenantId = adminTenantIdProp || getTenantIdSync();
+  
   useEffect(() => {
-    console.log('🚀 Iniciando useRealtimeSync hook...');
+    console.log('🚀 Iniciando useRealtimeSync hook...', { providedTenantId: adminTenantIdProp, cachedTenantId: getTenantIdSync(), resolvedTenantId });
     let isMounted = true;
     let productsPollInterval: NodeJS.Timeout | null = null;
     let neighborhoodsPollInterval: NodeJS.Timeout | null = null;
+    
+    // ✅ Aguardar resolução do tenant_id antes de sincronizar
+    if (!resolvedTenantId) {
+      console.log('⏳ Aguardando resolução do tenant_id...', { adminTenantIdProp, cachedTenantId: getTenantIdSync() });
+      return;
+    }
+    
+    const tenantId = resolvedTenantId;
     
     // Rastrear tempo da última mudança local para cada produto
     const lastLocalProductUpdate = new Map<string, number>();
 
     // Função para sincronizar produtos via SELECT fresh (usado por webhook e polling)
     const syncProductsFromSupabase = async () => {
-      if (!isMounted) return;
+      if (!isMounted || !tenantId) return;
       
       try {
         const { data: products } = await (supabase as any)
           .from('products')
-          .select('*');
+          .select('*')
+          .eq('tenant_id', tenantId);
         
         if (products && isMounted) {
           const catalogStore = useCatalogStore.getState();
@@ -163,16 +180,22 @@ export const useRealtimeSync = () => {
 
     // Função para carregar dados iniciais
     const loadInitialData = async () => {
-      if (!isMounted) return;
+      if (!isMounted || !tenantId) {
+        console.warn('⚠️ [LOAD-INITIAL] Não pode carregar dados: isMounted=', isMounted, 'tenantId=', tenantId);
+        return;
+      }
       
       try {
+        console.log('📦 [LOAD-INITIAL] Iniciando carregamento inicial para tenant:', tenantId);
+        
         // Delay mínimo para garantir que localStorage foi carregado
         await new Promise(resolve => setTimeout(resolve, 100));
 
         // Carregar produtos
         const { data: products } = await (supabase as any)
           .from('products')
-          .select('*');
+          .select('*')
+          .eq('tenant_id', tenantId);
         
         if (products && isMounted) {
           const catalogStore = useCatalogStore.getState();
@@ -214,7 +237,12 @@ export const useRealtimeSync = () => {
       .channel('realtime:products')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'products' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'products',
+          filter: `tenant_id=eq.${tenantId}`  // ✅ Filtro por tenant_id para isolamento multi-tenant
+        },
         (payload: any) => {
           if (!isMounted) return;
           console.log('🔔 Webhook Produtos Realtime recebido:', payload.eventType, payload.new?.id || payload.old?.id, payload.new?.name || payload.old?.name);
@@ -286,7 +314,12 @@ export const useRealtimeSync = () => {
       .channel('realtime:orders')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'orders' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'orders',
+          filter: `tenant_id=eq.${tenantId}`  // ✅ Filtro por tenant_id para isolamento multi-tenant
+        },
         (payload: any) => {
           if (!isMounted) return;
           console.log('🔔 [ORDERS] Webhook Realtime recebido:', payload.eventType, payload.new?.id || payload.old?.id);
@@ -330,7 +363,12 @@ export const useRealtimeSync = () => {
       .channel('realtime:neighborhoods')
       .on(
         'postgres_changes',
-        { event: '*', schema: 'public', table: 'neighborhoods' },
+        { 
+          event: '*', 
+          schema: 'public', 
+          table: 'neighborhoods',
+          filter: `tenant_id=eq.${tenantId}`  // ✅ Filtro por tenant_id para isolamento multi-tenant
+        },
         (payload: any) => {
           if (!isMounted) return;
           console.log('🔔 Webhook Bairros Realtime recebido:', payload.eventType, payload.new?.id || payload.old?.id, payload.new?.name || payload.old?.name);
@@ -386,5 +424,5 @@ export const useRealtimeSync = () => {
       ordersChannel.unsubscribe();
       neighborhoodsChannel.unsubscribe();
     };
-  }, []);
+  }, [resolvedTenantId]);
 };

@@ -8,6 +8,7 @@ import { Badge } from '@/components/ui/badge';
 import { AlertCircle, CheckCircle2, CreditCard, Loader2, Copy, Trash2 } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useSecureTenantId } from '@/hooks/use-secure-tenant-id';
 
 interface TenantData {
   id: string;
@@ -16,58 +17,57 @@ interface TenantData {
 }
 
 export function PaymentSettingsPanel() {
-  const [tenantId, setTenantId] = useState<string | null>(null);
+  const { tenantId: authTenantId, loading: tenantLoading } = useSecureTenantId();
   const [token, setToken] = useState<string>('');
-  const [savedToken, setSavedToken] = useState<string>(''); // Token salvo no DB
+  const [savedToken, setSavedToken] = useState<string>('');
   const [displayToken, setDisplayToken] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showTokenInput, setShowTokenInput] = useState(false);
 
-  // Carregar tenant_id e token existente
+  // Carregar token existente do tenant autenticado
   useEffect(() => {
-    const loadTenantInfo = async () => {
+    const loadTokenInfo = async () => {
       try {
         setIsLoading(true);
         
-        // Buscar primeiro tenant
-        const { data: tenants, error: tenantsError } = await supabase
+        if (!authTenantId) {
+          console.warn('No authenticated tenant');
+          return;
+        }
+        
+        // Buscar token APENAS do tenant autenticado (seguro!)
+        const { data: tenant, error } = await supabase
           .from('tenants')
-          .select('id, mercadopago_access_token')
-          .limit(1);
+          .select('mercadopago_access_token')
+          .eq('id', authTenantId)
+          .single();
 
-        if (tenantsError || !tenants || tenants.length === 0) {
-          console.error('Error loading tenants:', tenantsError);
-          toast.error('Estabelecimento não encontrado');
+        if (error) {
+          console.error('Error loading tenant token:', error);
+          toast.error('Erro ao carregar configurações de pagamento');
           return;
         }
 
-        const tenant = tenants[0] as TenantData;
-        setTenantId(tenant.id);
-        
-        if (tenant.mercadopago_access_token) {
+        if (tenant?.mercadopago_access_token) {
           const fullToken = tenant.mercadopago_access_token;
           setSavedToken(fullToken);
           setToken(fullToken);
-          // Mostrar apenas últimos 20 caracteres
-          const lastChars = fullToken.slice(-20);
-          setDisplayToken(`...${lastChars}`);
-        } else {
-          setSavedToken('');
-          setToken('');
-          setDisplayToken('');
+          setDisplayToken(`...${fullToken.slice(-20)}`);
         }
       } catch (error) {
         console.error('Error loading tenant:', error);
-        toast.error('Erro ao carregar estabelecimento');
+        toast.error('Erro ao carregar dados');
       } finally {
         setIsLoading(false);
       }
     };
 
-    loadTenantInfo();
-  }, []);
+    if (!tenantLoading && authTenantId) {
+      loadTokenInfo();
+    }
+  }, [authTenantId, tenantLoading]);
 
   const isConnected = !!savedToken;
 
@@ -82,17 +82,18 @@ export function PaymentSettingsPanel() {
       return;
     }
 
-    if (!tenantId) {
-      toast.error('Estabelecimento não encontrado');
+    if (!authTenantId) {
+      toast.error('Autenticação perdida. Faça login novamente');
       return;
     }
 
     setIsSaving(true);
     try {
+      // Atualizar APENAS o tenant autenticado (RLS valida)
       const { error } = await supabase
         .from('tenants')
         .update({ mercadopago_access_token: token })
-        .eq('id', tenantId);
+        .eq('id', authTenantId);
 
       if (error) throw error;
 
@@ -100,7 +101,7 @@ export function PaymentSettingsPanel() {
       setDisplayToken(`...${token.slice(-20)}`);
       setShowTokenInput(false);
       toast.success('Token Mercado Pago salvo com sucesso!');
-      console.log('✅ Token salvo:', tenantId);
+      console.log('✅ Token salvo para tenant:', authTenantId);
     } catch (error) {
       console.error('Error saving token:', error);
       toast.error('Erro ao salvar token. Tente novamente.');
@@ -110,8 +111,8 @@ export function PaymentSettingsPanel() {
   };
 
   const handleDeleteToken = async () => {
-    if (!tenantId) {
-      toast.error('Estabelecimento não encontrado');
+    if (!authTenantId) {
+      toast.error('Autenticação perdida');
       return;
     }
 
@@ -121,10 +122,11 @@ export function PaymentSettingsPanel() {
 
     setIsDeleting(true);
     try {
+      // Deletar APENAS do tenant autenticado
       const { error } = await supabase
         .from('tenants')
         .update({ mercadopago_access_token: null })
-        .eq('id', tenantId);
+        .eq('id', authTenantId);
 
       if (error) throw error;
 
@@ -133,7 +135,7 @@ export function PaymentSettingsPanel() {
       setDisplayToken('');
       setShowTokenInput(false);
       toast.success('Token Mercado Pago removido');
-      console.log('✅ Token removido:', tenantId);
+      console.log('✅ Token removido do tenant:', authTenantId);
     } catch (error) {
       console.error('Error deleting token:', error);
       toast.error('Erro ao remover token. Tente novamente.');

@@ -40,6 +40,7 @@ Deno.serve(async (req: Request) => {
         customer_name: "Teste",
         total: 50.00,
         created_at: new Date().toISOString(),
+        tenant_id: null, // TEST-ORDER não tem tenant
       };
     } else {
       const { data: orderData, error: orderError } = await supabase
@@ -59,11 +60,20 @@ Deno.serve(async (req: Request) => {
     }
 
     // 2. Buscar configuração de impressora e métodos de pagamento
-    const { data: settings, error: settingsError } = await supabase
+    // ✅ Usar tenant_id do order ou fallback para store-settings
+    let settingsQuery = supabase
       .from("settings")
-      .select("printnode_printer_id, print_mode, auto_print_pix, auto_print_card, auto_print_cash")
-      .eq("id", "store-settings")
-      .single();
+      .select("printnode_printer_id, print_mode, auto_print_pix, auto_print_card, auto_print_cash");
+
+    if (order.tenant_id) {
+      const settingsId = `settings_${order.tenant_id}`;
+      settingsQuery = settingsQuery.eq("id", settingsId);
+    } else {
+      // Fallback para compatibilidade com TEST-ORDER
+      settingsQuery = settingsQuery.eq("id", "store-settings");
+    }
+
+    const { data: settings, error: settingsError } = await settingsQuery.single();
 
     if (settingsError || !settings?.printnode_printer_id) {
       console.error("Settings error:", settingsError);

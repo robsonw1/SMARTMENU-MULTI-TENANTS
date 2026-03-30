@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/store/useSettingsStore';
+import { useSecureTenantId } from '@/hooks/use-secure-tenant-id';
 import { supabase } from '@/integrations/supabase/client';
 
 /**
@@ -7,22 +8,25 @@ import { supabase } from '@/integrations/supabase/client';
  * CRÍTICO: Sincroniza mudanças de "Abrir/Fechar Loja" instantaneamente
  */
 export function useStoreStatusRealtime(isCheckoutOpen: boolean) {
+  const { tenantId } = useSecureTenantId();
   const updateSettings = useSettingsStore((s) => s.updateSettings);
 
   useEffect(() => {
-    if (!isCheckoutOpen) return;
+    if (!isCheckoutOpen || !tenantId) return;
 
     let isSubscribed = true;
     let channel: any = null;
 
-    console.log('🛍️ [CHECKOUT-REALTIME] ⚡ INICIANDO monitoramento isManuallyOpen');
+    console.log('🛍️ [CHECKOUT-REALTIME] ⚡ INICIANDO monitoramento isManuallyOpen', { tenantId });
 
+    const settingsId = `settings_${tenantId}`;
     const setupRealtimeSync = async () => {
       try {
         const { data, error } = await supabase
           .from('settings')
           .select('value')
-          .eq('id', 'store-settings')
+          .eq('id', settingsId)
+          .eq('tenant_id', tenantId)
           .single();
 
         if (!error && data && isSubscribed) {
@@ -42,14 +46,14 @@ export function useStoreStatusRealtime(isCheckoutOpen: boolean) {
     setupRealtimeSync();
 
     channel = supabase
-      .channel(`checkout-status-${Date.now()}`)
+      .channel(`checkout-status-${tenantId}-${Date.now()}`)
       .on(
         'postgres_changes',
         {
           event: 'UPDATE',
           schema: 'public',
           table: 'settings',
-          filter: 'id=eq.store-settings',
+          filter: `id=eq.${settingsId}`,
         },
         async (payload: any) => {
           if (!isSubscribed) return;
@@ -79,5 +83,5 @@ export function useStoreStatusRealtime(isCheckoutOpen: boolean) {
         supabase.removeChannel(channel);
       }
     };
-  }, [isCheckoutOpen]);
+  }, [isCheckoutOpen, tenantId]);
 }

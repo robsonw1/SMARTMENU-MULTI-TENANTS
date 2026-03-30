@@ -48,6 +48,8 @@
       const supabaseModule = await import('@/integrations/supabase/client');
       const supabase = supabaseModule.supabase;
 
+      // ✅ NOTA: Para diagnóstico, usar ID genérico
+      // Em produção, isso deve usar settings_${tenantId}
       // Testar SELECT
       const { data, error } = await supabase
         .from('settings')

@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
 import { Neighborhood } from '@/data/products';
 import { useNeighborhoodsStore } from '@/store/useNeighborhoodsStore';
+import { useSecureTenantId } from '@/hooks/use-secure-tenant-id';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
 
@@ -27,6 +28,7 @@ export function NeighborhoodFormDialog({
 }: NeighborhoodFormDialogProps) {
   const addNeighborhood = useNeighborhoodsStore((s) => s.addNeighborhood);
   const updateNeighborhood = useNeighborhoodsStore((s) => s.updateNeighborhood);
+  const { tenantId: authTenantId, loading: tenantLoading } = useSecureTenantId();
 
   const isEdit = !!neighborhood;
 
@@ -54,6 +56,11 @@ export function NeighborhoodFormDialog({
       return;
     }
 
+    if (!authTenantId) {
+      toast.error('Tenant ID não encontrado. Por favor, acesse novamente.');
+      return;
+    }
+
     const fee = parseFloat(deliveryFee.replace(',', '.'));
     if (isNaN(fee) || fee < 0) {
       toast.error('Por favor, informe uma taxa válida');
@@ -75,8 +82,10 @@ export function NeighborhoodFormDialog({
             name: trimmedName,
             delivery_fee: fee,
             is_active: isActive,
+            tenant_id: authTenantId,
           })
-          .eq('id', neighborhood.id);
+          .eq('id', neighborhood.id)
+          .eq('tenant_id', authTenantId);
 
         toast.success('Bairro atualizado com sucesso!');
       } else {
@@ -97,6 +106,7 @@ export function NeighborhoodFormDialog({
             name: trimmedName,
             delivery_fee: fee,
             is_active: isActive,
+            tenant_id: authTenantId,
           });
 
         toast.success('Bairro adicionado com sucesso!');

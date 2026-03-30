@@ -64,16 +64,46 @@ const CadastroPage = () => {
 
       console.log('📥 Response:', response);
 
+      // Se houver erro na resposta
       if (response.error) {
         console.error('❌ Erro na edge function:', response.error);
-        toast.error(`Erro ao criar estabelecimento: ${response.error.message}`);
+        
+        // Tentar parsear mensagem de erro mais específica
+        let errorMessage = `Erro ao criar estabelecimento: ${response.error.message}`;
+        let isEmailError = false;
+
+        // Verificar se é erro de email
+        if (response.error.message && response.error.message.toLowerCase().includes('email')) {
+          isEmailError = true;
+          errorMessage = 'Este email já está registrado no sistema!';
+        }
+
+        toast.error(errorMessage);
+        
+        if (isEmailError) {
+          toast.message('Clique em "Recuperar Senha" na página de login para acessar sua conta existente.');
+        }
+        
+        setIsLoading(false);
         return;
       }
 
       const data = response.data as any;
 
-      if (!data.success) {
-        toast.error(data.error || 'Erro desconhecido ao criar estabelecimento');
+      if (!data || !data.success) {
+        // Verificar se é erro de email já existente
+        if (data?.code === 'email_exists') {
+          toast.error('Este email já está registrado!');
+          toast.message(
+            'Clique em "Recuperar Senha" na página de login para acessar sua conta existente.'
+          );
+          setIsLoading(false);
+          return;
+        }
+
+        const errorMsg = data?.message || data?.error || 'Erro desconhecido ao criar estabelecimento';
+        toast.error(errorMsg);
+        setIsLoading(false);
         return;
       }
 

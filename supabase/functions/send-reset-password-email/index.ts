@@ -5,16 +5,12 @@ const corsHeaders = {
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 };
 
-interface SendWelcomeEmailRequest {
-  tenant_id: string;
+interface SendResetPasswordEmailRequest {
   email: string;
-  establishment_name: string;
-  default_password: string;
-  login_url: string;
+  new_password: string;
 }
 
 serve(async (req: Request) => {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -29,20 +25,11 @@ serve(async (req: Request) => {
       );
     }
 
-    const body = await req.json() as SendWelcomeEmailRequest;
-    const { tenant_id, email, establishment_name, default_password, login_url } = body;
+    const body = await req.json() as SendResetPasswordEmailRequest;
+    const { email, new_password } = body;
 
-    console.log(`
-╔════════════════════════════════════════╗
-║  📧 ENVIAR EMAIL BOAS-VINDAS            ║
-╠════════════════════════════════════════╣
-║  Tenant:  ${tenant_id}
-║  Para:    ${email}
-║  Loja:    ${establishment_name}
-╚════════════════════════════════════════╝
-`);
+    console.log(`📧 [RESET-EMAIL] Enviando email de recuperação para: ${email}`);
 
-    // Construir HTML do email
     const emailHtml = `
 <!DOCTYPE html>
 <html>
@@ -60,9 +47,7 @@ serve(async (req: Request) => {
         .credential-value { font-family: monospace; background: white; padding: 10px; border-radius: 4px; margin-top: 5px; font-size: 14px; word-break: break-all; }
         .button { display: inline-block; background: #FF6B35; color: white; padding: 12px 30px; text-decoration: none; border-radius: 6px; margin: 20px 0; font-weight: bold; }
         .footer { text-align: center; color: #999; font-size: 12px; margin-top: 20px; }
-        .feature-list { list-style: none; padding: 0; }
-        .feature-list li { padding: 8px 0; color: #555; }
-        .feature-list li:before { content: "✓ "; color: #FF6B35; font-weight: bold; margin-right: 8px; }
+        .warning { background: #fff3cd; border-left: 4px solid #FFB400; padding: 15px; border-radius: 4px; margin: 20px 0; }
     </style>
 </head>
 <body>
@@ -73,53 +58,29 @@ serve(async (req: Request) => {
         </div>
 
         <div class="content">
-            <h2>Bem-vindo, ${establishment_name}!</h2>
+            <h2>Recuperação de Senha</h2>
             
-            <p>Sua loja online foi criada com sucesso! Aqui estão suas credenciais de acesso:</p>
+            <p>Recebemos uma solicitação para recuperar sua senha. Aqui está sua nova senha de acesso:</p>
 
             <div class="credentials">
                 <div class="credential-label">Email:</div>
                 <div class="credential-value">${email}</div>
 
-                <div class="credential-label">Senha de Acesso:</div>
-                <div class="credential-value">${default_password}</div>
-
-                <div class="credential-label">Link de Acesso:</div>
-                <div class="credential-value">${login_url}</div>
+                <div class="credential-label">Nova Senha:</div>
+                <div class="credential-value">${new_password}</div>
             </div>
 
             <p style="margin: 20px 0; text-align: center;">
-                <a href="${login_url}" class="button">Acessar seu Painel</a>
+                <a href="https://smartmenu.app.aezap.site/admin" class="button">Ir para o Painel</a>
             </p>
 
-            <h3>O que você pode fazer agora:</h3>
-            <ul class="feature-list">
-                <li>Personalizar informações da sua loja</li>
-                <li>Editar cardápio e preços</li>
-                <li>Definir horários de funcionamento</li>
-                <li>Gerenciar áreas de entrega</li>
-                <li>Ativar/desativar recursos (meia-meia, adicionais, etc)</li>
-                <li>Configurar notificações por WhatsApp</li>
-                <li>Ver análise de pedidos e faturamento</li>
-            </ul>
-
-            <h3>Próximos Passos:</h3>
-            <ol>
-                <li>Acesse o link acima com suas credenciais</li>
-                <li>Altere sua senha em "Configurações"</li>
-                <li>Customize as informações da sua loja</li>
-                <li>Ative seu cardápio padrão ou importe o seu</li>
-                <li>Configure WhatsApp para notificações automáticas</li>
-                <li>Ative sua loja e comece a receber pedidos!</li>
-            </ol>
-
-            <div style="background: #fff3cd; border-left: 4px solid #FFB400; padding: 15px; border-radius: 4px; margin: 20px 0;">
-                <strong>💡 Dica:</strong> Você pode alterar sua senha a qualquer momento em "Configurações > Alterar Senha" dentro do painel administrativo.
+            <div class="warning">
+                <strong>🔒 Segurança:</strong> Se você não solicitou a recuperação de senha, ignore este email. Sua conta permanece segura.
             </div>
 
-            <p style="color: #666; font-size: 14px;">
-                Tem dúvidas? Consulte nossa documentação ou entre em contato com nossa equipe de suporte.
-            </p>
+            <div class="warning">
+                <strong>💡 Dica:</strong> Você pode alterar sua senha a qualquer momento em "Configurações > Alterar Senha" dentro do painel administrativo.
+            </div>
         </div>
 
         <div class="footer">
@@ -131,7 +92,6 @@ serve(async (req: Request) => {
 </html>
 `;
 
-    // Enviar com Resend
     console.log(`🚀 Enviando email via Resend...`);
     
     const resendResponse = await fetch('https://api.resend.com/emails', {
@@ -143,7 +103,7 @@ serve(async (req: Request) => {
       body: JSON.stringify({
         from: 'AEZap SmartMenu <noreply@smartmenu.aezap.site>',
         to: email,
-        subject: `Bem-vindo ao AEZap SmartMenu - ${establishment_name}`,
+        subject: 'Recuperação de Senha - AEZap SmartMenu',
         html: emailHtml,
       }),
     });
@@ -162,24 +122,21 @@ serve(async (req: Request) => {
       );
     }
 
-    console.log(`✅ Email enviado com sucesso! Email ID: ${resendData.id}`);
+    console.log(`✅ Email de recuperação enviado com sucesso! Email ID: ${resendData.id}`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Welcome email sent successfully',
-        email_id: resendData.id,
+        message: 'Email de recuperação enviado com sucesso',
       }),
       { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );
-
-  } catch (error: unknown) {
-    console.error('❌ Unexpected error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error) {
+    console.error('Send reset password email error:', error);
     return new Response(
       JSON.stringify({ 
         success: false, 
-        error: message 
+        error: error instanceof Error ? error.message : 'Unknown error' 
       }),
       { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
     );

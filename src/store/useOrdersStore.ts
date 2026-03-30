@@ -159,11 +159,13 @@ export const useOrdersStore = create<OrdersStore>()(
             const selectedDateObj = new Date(`${scheduledDate}T00:00`);
             const daysDifference = Math.floor((selectedDateObj.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
             
-            // Buscar maxScheduleDays da configura├º├úo do tenant
+            // Buscar maxScheduleDays da configuração do tenant
+            const settingsId = `settings_${newOrder.tenantId || finalTenantId}`;
             const { data: settingsData } = await (supabase as any)
               .from('settings')
               .select('max_schedule_days')
-              .eq('id', 'store-settings')
+              .eq('id', settingsId)
+              .eq('tenant_id', newOrder.tenantId || finalTenantId)
               .single();
             
             const maxScheduleDays = settingsData?.max_schedule_days ?? 7;
@@ -660,35 +662,63 @@ export const useOrdersStore = create<OrdersStore>()(
 
       syncOrdersFromSupabase: async () => {
         try {
-          console.log('­ƒöì [SYNC] Iniciando sincroniza├º├úo de pedidos do Supabase...');
-          const { data, error } = await supabase.from('orders')
+          console.log('👁️ [SYNC] Iniciando sincronização de pedidos do Supabase...');
+          
+          // ✅ NOVO (29/03/2026): Filtrar por tenant_id do usuário autenticado
+          const { data: authData } = await supabase.auth.getSession();
+          const userSession = authData?.session;
+          
+          if (!userSession?.user?.id) {
+            console.warn('[SYNC] Sessão não encontrada');
+            return;
+          }
+
+          // Obter tenant_id do usuário
+          const { data: adminUser } = await (supabase as any)
+            .from('admin_users')
+            .select('tenant_id')
+            .eq('id', userSession.user.id)
+            .single();
+
+          if (!adminUser?.tenant_id) {
+            console.warn('[SYNC] tenant_id não encontrado para usuário');
+            return;
+          }
+
+          const tenantId = adminUser.tenant_id;
+          console.log('[SYNC] Usando tenant_id:', tenantId);
+          
+          // ✅ Buscar APENAS os pedidos deste tenant
+          const { data, error } = await (supabase as any)
+            .from('orders')
             .select('*')
+            .eq('tenant_id', tenantId)  // ← Filtro crítico por tenant_id
             .order('created_at', { ascending: false });
 
           if (error) {
-            console.error('ÔØî [SYNC] Erro ao carregar orders:', error);
+            console.error('❌ [SYNC] Erro ao carregar orders:', error);
             throw error;
           }
 
           if (data && data.length > 0) {
-            console.log(`­ƒöä [SYNC] Sincronizando ${data.length} pedidos do Supabase`);
+            console.log(`👍 [SYNC] Sincronizando ${data.length} pedidos do Supabase`);
             
-            // Buscar tamb├®m os itens de cada pedido
+            // Buscar também os itens de cada pedido
             const ordersWithItems = await Promise.all(
               data.map(async (row: any) => {
-                console.log(`­ƒôª [SYNC] Carregando items para ${row.id}...`);
-                const { data: items, error: itemsError } = await supabase.from('order_items')
+                console.log(`📦 [SYNC] Carregando items para ${row.id}...`);
+                const { data: items, error: itemsError } = await (supabase as any)
+                  .from('order_items')
                   .select('*')
                   .eq('order_id', row.id);
                   
                 if (itemsError) {
-                  console.warn(`ÔÜá´©Å [SYNC] Erro ao carregar items para ${row.id}:`, itemsError);
+                  console.warn(`⚠️ [SYNC] Erro ao carregar items para ${row.id}:`, itemsError);
                 } else {
-                  console.log(`Ô£à [SYNC] Carregados ${items?.length || 0} items para ${row.id}`);
+                  console.log(`✅ [SYNC] Carregados ${items?.length || 0} items para ${row.id}`);
                 }
 
-                // Parse createdAt - manter o ISO string original do banco
-                // A convers├úo de hor├írio j├í ├® feita implicitamente pelo JavaScript
+                // Parse createdAt
                 const createdAtDate = new Date(row.created_at);
                 
                 // Extrair payment_method da metadata do address
@@ -702,7 +732,7 @@ export const useOrdersStore = create<OrdersStore>()(
                   number: row.address.number || '',
                   complement: row.address.complement || '',
                   reference: row.address.reference || '',
-                  change_amount: row.address.change_amount, // ✅ Incluir troco aqui!
+                  change_amount: row.address.change_amount,
                 } : {
                   city: '',
                   neighborhood: '',
@@ -723,12 +753,10 @@ export const useOrdersStore = create<OrdersStore>()(
                   deliveryFee: row.delivery_fee,
                   paymentMethod: paymentMethodFromMetadata as any,
                   items: items?.map((item: any) => {
-                    // ­ƒöº PARSER ROBUSTO: Extrair dados do item_data (JSONB do banco)
                     let itemData: any = {};
                     
                     try {
                       if (item.item_data) {
-                        // item_data pode vir como string ou j├í como objeto (depende da BD)
                         if (typeof item.item_data === 'string') {
                           itemData = JSON.parse(item.item_data);
                         } else if (typeof item.item_data === 'object') {
@@ -736,11 +764,10 @@ export const useOrdersStore = create<OrdersStore>()(
                         }
                       }
                     } catch (parseError) {
-                      console.warn(`ÔÜá´©Å [SYNC] Erro ao parsear item_data para ${item.product_name}:`, parseError);
-                      itemData = {}; // Continuar com objeto vazio
+                      console.warn(`⚠️ [SYNC] Erro ao parsear item_data para ${item.product_name}:`, parseError);
+                      itemData = {};
                     }
 
-                    // Ô£à INTELIGENTE: Reconstruir item com TODOS os dados, com fallbacks
                     const reconstructedItem = {
                       id: item.id || `item-${Date.now()}`,
                       product: { 

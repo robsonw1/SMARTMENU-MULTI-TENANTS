@@ -1,6 +1,5 @@
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
-import * as crypto from "https://deno.land/std/crypto/mod.ts";
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -8,21 +7,30 @@ const corsHeaders = {
 };
 
 interface CreateTenantRequest {
-  establishment_name: string;
-  email: string;
-  phone: string;
+  name?: string;
+  slug?: string;
+  establishment_name?: string;
+  email?: string;
+  phone?: string;
 }
 
 interface CreateTenantResponse {
   success: boolean;
-  message: string;
-  tenant_id?: string;
+  tenant?: any;
+  admin_user?: any;
+  default_password?: string;
   login_url?: string;
   error?: string;
 }
 
+// Gerar senha padrão baseada em slug + número aleatório
+// Garante unicidade mesmo com nomes de loja iguais
+function generateDefaultPassword(slug: string): string {
+  const randomNumber = Math.floor(Math.random() * 9999) + 1000; // 1000-9999
+  return `${slug}-${randomNumber}`;
+}
+
 serve(async (req: Request) => {
-  // Handle CORS
   if (req.method === 'OPTIONS') {
     return new Response(null, { headers: corsHeaders });
   }
@@ -30,257 +38,250 @@ serve(async (req: Request) => {
   try {
     const supabaseUrl = Deno.env.get('SUPABASE_URL') || '';
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '';
-    const appUrl = Deno.env.get('VITE_APP_URL') || 'https://app.aezap.site';
 
     const supabase = createClient(supabaseUrl, supabaseKey);
 
     const body = await req.json() as CreateTenantRequest;
-    const { establishment_name, email, phone } = body;
+    
+    let name = body.name || body.establishment_name;
+    let slug = body.slug;
+    const email = body.email;
+    const phone = body.phone;
 
-    console.log(`
-╔════════════════════════════════════════╗
-║  🚀 CREATE TENANT (Multi-tenant SaaS)  ║
-╠════════════════════════════════════════╣
-║  Nome:  ${establishment_name}
-║  Email: ${email}
-║  Phone: ${phone}
-╚════════════════════════════════════════╝
-`);
-
-    // ✅ 1. Validar dados
-    if (!establishment_name || !email || !phone) {
+    if (!name) {
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: 'Missing required fields: establishment_name, email, phone' 
-        } as CreateTenantResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: 'Name or establishment_name is required' } as CreateTenantResponse),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    // ✅ 2. Gerar slug único do tenant
-    const slug = establishment_name
-      .toLowerCase()
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-      .replace(/\s+/g, '-')
-      .replace(/[^\w-]/g, '')
-      .slice(0, 50);
+    if (!slug) {
+      slug = name
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, '-')
+        .replace(/^-+|-+$/g, '');
+    }
 
-    const uniqueSlug = `${slug}-${Date.now().toString(36)}`.slice(0, 100);
-    console.log(`📝 Generated slug: ${uniqueSlug}`);
+    if (!slug) {
+      return new Response(
+        JSON.stringify({ error: 'Could not generate valid slug' } as CreateTenantResponse),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
 
-    // ✅ 3. Gerar senha aleatória (16 caracteres)
-    const passwordBytes = crypto.getRandomValues(new Uint8Array(12));
-    const passwordArray = Array.from(passwordBytes);
-    const password = passwordArray
-      .map(byte => {
-        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%';
-        return chars[byte % chars.length];
-      })
-      .join('')
-      .slice(0, 16);
-
-    console.log(`🔑 Generated temporary password (length: ${password.length})`);
-
-    // ✅ 4. Criar tenant no banco
-    console.log(`💾 Criando tenant no banco...`);
-    const { data: newTenant, error: tenantError } = await supabase
+    // Verificar se slug já existe
+    const { data: existingTenant } = await supabase
       .from('tenants')
-      .insert({
-        name: establishment_name,
-        slug: uniqueSlug,
-        email: email,
-        phone: phone,
-      })
+      .select('id')
+      .eq('slug', slug.toLowerCase().trim())
+      .single();
+
+    if (existingTenant) {
+      return new Response(
+        JSON.stringify({ error: 'Slug already exists' } as CreateTenantResponse),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+      );
+    }
+
+    // ✅ OPÇÃO 1: Verificar se email já existe em auth.users ANTES de criar tenant
+    if (email) {
+      try {
+        const { data: existingUser, error: checkError } = await supabase.auth.admin.listUsers({
+          filters: `email:"${email.toLowerCase().trim()}"`,
+        });
+
+        if (!checkError && existingUser && existingUser.users && existingUser.users.length > 0) {
+          console.log(`⚠️ Email já existe em auth.users: ${email}`);
+          return new Response(
+            JSON.stringify({ 
+              error: 'Email already registered',
+              message: 'Este email já está registrado no sistema. Use outro email ou recupere seu acesso clicando em "Esqueci minha senha".',
+              code: 'email_exists',
+            } as CreateTenantResponse),
+            { status: 409, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+          );
+        }
+      } catch (err) {
+        console.error('Error checking existing user:', err);
+        // Continuar mesmo se check falhar - deixar Supabase validar depois
+      }
+    }
+
+    // Inserir novo tenant
+    const { data: newTenant, error: insertError } = await supabase
+      .from('tenants')
+      .insert([
+        {
+          name: name.trim(),
+          slug: slug.toLowerCase().trim(),
+          timezone: 'America/Sao_Paulo',
+          contact_email: email || null,
+          contact_phone: phone || null,
+        },
+      ])
       .select()
       .single();
 
-    if (tenantError || !newTenant) {
-      console.error(`❌ Erro ao criar tenant:`, tenantError);
+    if (insertError) {
+      console.error('Insert error:', insertError);
       return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Failed to create tenant: ${tenantError?.message}` 
-        } as CreateTenantResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+        JSON.stringify({ error: insertError.message } as CreateTenantResponse),
+        { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
       );
     }
 
-    console.log(`✅ Tenant criado: ID=${newTenant.id}, slug=${newTenant.slug}`);
+    // Se email foi fornecido, criar usuário admin
+    let adminUser = null;
+    let defaultPassword = null;
 
-    // ✅ 5. tenant_settings já será criado automaticamente pelo trigger SQL
+    // 🔐 PRIORIDADE 1: Criar auth.users + admin_users PRIMEIRO (bloqueante)
+    // Isso garante que login funciona IMEDIATAMENTE após cadastro
+    if (email) {
+      defaultPassword = generateDefaultPassword(slug.toLowerCase().trim());
+      console.log(`🔐 [PRIORITY-1] Criando usuário admin com senha: ${defaultPassword}`);
 
-    // ✅ 6. Criar usuário autenticado no Supabase Auth
-    console.log(`👤 Criando usuário no Auth...`);
-    const { data: { user }, error: authError } = await supabase.auth.admin.createUser({
-      email: email,
-      password: password,
-      email_confirm: true, // Auto-confirmar email
-      user_metadata: {
-        tenant_id: newTenant.id,
-        establishment_name: establishment_name,
-      },
-    });
-
-    if (authError || !user) {
-      console.error(`❌ Erro ao criar auth user:`, authError);
-      // Deletar tenant se auth falhar
-      await supabase.from('tenants').delete().eq('id', newTenant.id);
-      return new Response(
-        JSON.stringify({ 
-          success: false, 
-          error: `Failed to create user: ${authError?.message}` 
-        } as CreateTenantResponse),
-        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-      );
-    }
-
-    console.log(`✅ Usuário Auth criado: ${user.id}`);
-
-    // ✅ 7. Atualizar tenant com user_id
-    await supabase
-      .from('tenants')
-      .update({ owner_id: user.id })
-      .eq('id', newTenant.id);
-
-    // ✅ 8. Adicionar admin_users entry
-    console.log(`🔐 Criando admin_users entry...`);
-    const { error: adminError } = await supabase
-      .from('admin_users')
-      .insert({
-        id: user.id,
-        email: email,
-        role: 'owner',
+      // Criar usuário no auth.users
+      const { data: authUser, error: authError } = await supabase.auth.admin.createUser({
+        email: email.toLowerCase().trim(),
+        password: defaultPassword,
+        email_confirm: true, // Auto-confirmar para cliente poder fazer login
       });
 
-    if (adminError) {
-      console.warn(`⚠️  Aviso ao criar admin_users:`, adminError);
-    } else {
-      console.log(`✅ Admin entry criado`);
+      if (authError) {
+        console.error('❌ Auth creation error:', authError);
+        return new Response(
+          JSON.stringify({ 
+            error: `Erro ao criar usuário admin: ${authError.message}`,
+            details: authError 
+          } as CreateTenantResponse),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+
+      if (!authUser?.user) {
+        console.error('❌ Auth user not returned');
+        return new Response(
+          JSON.stringify({ 
+            error: 'Erro ao criar usuário - resposta inválida do Supabase',
+          } as CreateTenantResponse),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+
+      console.log(`✅ [PRIORITY-1] Usuário criado: ${authUser.user.id}`);
+
+      // Inserir em admin_users vinculado ao tenant
+      const { data: createdAdminUser, error: adminUserError } = await supabase
+        .from('admin_users')
+        .insert([
+          {
+            id: authUser.user.id,
+            tenant_id: newTenant.id,
+            email: email.toLowerCase().trim(),
+            role: 'owner',
+            is_active: true,
+          },
+        ])
+        .select()
+        .single();
+
+      if (adminUserError) {
+        console.error('❌ Admin user creation error:', adminUserError);
+        return new Response(
+          JSON.stringify({ 
+            error: `Erro ao vincular admin às lojas: ${adminUserError.message}`,
+          } as CreateTenantResponse),
+          { status: 400, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
+        );
+      }
+
+      adminUser = createdAdminUser;
+      console.log(`✅ [PRIORITY-1] Admin vinculado ao tenant: ${adminUser.id}`);
     }
 
-    // ✅ 9. Popular dados padrão (produtos, bairros, etc)
-    console.log(`📦 Populando dados padrão...`);
-    
-    // Produtos padrão (pizzas genéricas)
-    const defaultProducts = [
-      {
-        name: "Pizza Margherita",
-        data: {
-          description: "Molho de tomate, mussarela e manjericão fresco",
-          price: 35.00,
-          category: "tradicionais",
-          is_active: true,
-        },
-      },
-      {
-        name: "Pizza Pepperoni",
-        data: {
-          description: "Molho de tomate, mussarela e pepperoni",
-          price: 38.00,
-          category: "tradicionais",
-          is_active: true,
-        },
-      },
-      {
-        name: "Pizza Frango com Catupiry",
-        data: {
-          description: "Frango cozido e Catupiry derretido",
-          price: 42.00,
-          category: "premium",
-          is_active: true,
-        },
-      },
-    ];
+    // 🎁 PRIORIDADE 2: Criar settings em PARALELO (fire-and-forget)
+    // Não bloqueia o fluxo - usar Promise.then() sem await
+    // Triggers automáticos também podem criar, isso é fallback
+    const createSettingsAsync = async () => {
+      try {
+        const settingsId = `settings_${newTenant.id}`;
+        console.log(`⏱️ [ASYNC-SETTINGS] Iniciando criação de settings para tenant: ${newTenant.id}`);
+        
+        const { error: settingsError } = await supabase
+          .from('settings')
+          .insert([
+            {
+              id: settingsId,
+              tenant_id: newTenant.id,
+              key: 'tenant_default',
+              value: { initialized: true, initialized_at: new Date().toISOString() },
+              is_manually_open: true,
+              enable_scheduling: false,
+              min_schedule_minutes: 30,
+              max_schedule_days: 7,
+              print_mode: 'auto',
+              auto_print_pix: false,
+              auto_print_card: false,
+              auto_print_cash: false,
+              allow_scheduling_on_closed_days: false,
+              allow_scheduling_outside_business_hours: false,
+              allow_same_day_scheduling_outside_hours: false,
+              respect_business_hours_for_scheduling: true,
+            },
+          ]);
 
-    for (const product of defaultProducts) {
-      await supabase
-        .from('products')
-        .insert({
-          name: product.name,
-          data: product.data,
-          tenant_id: newTenant.id,
+        if (settingsError) {
+          console.warn(`⚠️ [ASYNC-SETTINGS] Settings creation warning (não bloqueante): ${settingsError.message}`);
+        } else {
+          console.log(`✅ [ASYNC-SETTINGS] Registro de settings criado para tenant: ${newTenant.id}`);
+        }
+      } catch (settingsErr) {
+        console.error(`⚠️ [ASYNC-SETTINGS] Erro ao criar settings (não bloqueante):`, settingsErr);
+      }
+    };
+
+    // Iniciar promise em paralelo (NÃO ESPERAR)
+    createSettingsAsync().catch(err => console.error('[ASYNC-SETTINGS] Unhandled error:', err));
+
+    // 📧 PRIORIDADE 3: Enviar email com credenciais
+    // Só após auth estar 100% pronto
+    if (email && defaultPassword) {
+      try {
+        console.log(`📧 [EMAIL] Disparando welcome email para: ${email}`);
+        await supabase.functions.invoke('send-welcome-email', {
+          body: {
+            tenant_id: newTenant.id,
+            email: email,
+            establishment_name: name,
+            default_password: defaultPassword,
+            login_url: `https://${newTenant.slug}.app.aezap.site/admin`,
+          },
         });
+        console.log(`✅ [EMAIL] Welcome email enviado com sucesso`);
+      } catch (emailError) {
+        console.error('⚠️ [EMAIL] Email sending error (não bloqueante):', emailError);
+        // Continuar mesmo se email falhar
+      }
     }
-
-    console.log(`✅ Produtos padrão inseridos`);
-
-    // Bairros padrão
-    const defaultNeighborhoods = [
-      { name: "Centro", delivery_fee: 5.00, distance_km: 2.0, active: true },
-      { name: "Zona Norte", delivery_fee: 7.00, distance_km: 4.0, active: true },
-      { name: "Zona Sul", delivery_fee: 7.00, distance_km: 4.0, active: true },
-    ];
-
-    for (const neighborhood of defaultNeighborhoods) {
-      await supabase
-        .from('neighborhoods')
-        .insert({
-          ...neighborhood,
-          tenant_id: newTenant.id,
-        });
-    }
-
-    console.log(`✅ Bairros padrão inseridos`);
-
-    // ✅ 10. Gerar link de acesso
-    const loginUrl = `${appUrl.replace(/\/$/, '')}/${uniqueSlug}-app.aezap.site`;
-    
-    console.log(`
-╔════════════════════════════════════════╗
-║  ✅ TENANT CRIADO COM SUCESSO!         ║
-╠════════════════════════════════════════╣
-║  Tenant ID: ${newTenant.id}
-║  Slug:      ${uniqueSlug}
-║  URL:       ${loginUrl}
-║  Email:     ${email}
-║  Password:  [gerada automaticamente]
-╚════════════════════════════════════════╝
-`);
-
-    // ✅ 11. Disparar função de envio de email (Resend)
-    console.log(`💌 Disparando envio de email automático...`);
-    
-    // Executar send-welcome-email de forma assíncrona (fire and forget)
-    fetch(`${supabaseUrl}/functions/v1/send-welcome-email`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${supabaseKey}`,
-      },
-      body: JSON.stringify({
-        tenant_id: newTenant.id,
-        email: email,
-        establishment_name: establishment_name,
-        temporary_password: password,
-        login_url: loginUrl,
-      }),
-    }).catch((err) => {
-      console.warn(`⚠️  Falha ao disparar send-welcome-email:`, err);
-    });
-
-    console.log(`📧 Email de boas-vindas será enviado em background`);
 
     return new Response(
       JSON.stringify({
         success: true,
-        message: 'Tenant created successfully! Check your email for login details.',
-        tenant_id: newTenant.id,
-        login_url: loginUrl,
+        tenant: newTenant,
+        admin_user: adminUser,
+        default_password: defaultPassword,
+        login_url: `https://${newTenant.slug}.app.aezap.site/admin`,
       } as CreateTenantResponse),
-      { status: 201, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 201, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
-
-  } catch (error: unknown) {
-    console.error('❌ Unexpected error:', error);
-    const message = error instanceof Error ? error.message : 'Unknown error';
+  } catch (error) {
+    console.error('Error:', error);
     return new Response(
       JSON.stringify({ 
-        success: false, 
-        error: message 
+        error: error instanceof Error ? error.message : 'Unknown error' 
       } as CreateTenantResponse),
-      { status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      { status: 500, headers: { 'Content-Type': 'application/json', ...corsHeaders } }
     );
   }
 });

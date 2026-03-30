@@ -27,6 +27,7 @@ type Props = {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   product?: Product | null;
+  tenantId: string | null; // ✅ NOVO: Receber tenantId como prop
 };
 
 const categoryOptions = [
@@ -41,7 +42,8 @@ const categoryOptions = [
   "bordas",
 ] as const;
 
-export function ProductFormDialog({ open, onOpenChange, product }: Props) {
+// ✅ IMPORTANTE: tenantId agora vem como prop, não precisa mais de useSecureTenantId()
+export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Props) {
   const upsertProduct = useCatalogStore((s) => s.upsertProduct);
 
   const isEdit = !!product;
@@ -99,6 +101,10 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
   const handleSave = async () => {
     const trimmed = name.trim();
     if (!trimmed) return;
+    if (!tenantId) {
+      toast.error('Tenant ID não encontrado. Por favor, acesse novamente.');
+      return;
+    }
 
     // Determinar preços baseado na categoria
     const finalPrice = !isPizzaCategory ? toNumberOrUndefined(price) : undefined;
@@ -154,6 +160,7 @@ export function ProductFormDialog({ open, onOpenChange, product }: Props) {
           id: nextProduct.id,
           name: nextProduct.name,
           data: dataJson,
+          tenant_id: tenantId,
         }, { onConflict: 'id' });
 
       if (error) {

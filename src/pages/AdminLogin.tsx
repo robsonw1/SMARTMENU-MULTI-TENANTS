@@ -4,49 +4,31 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Lock, User } from 'lucide-react';
-import { toast } from 'sonner';
-import { supabase } from '@/integrations/supabase/client';
+import { Lock, User, AlertCircle } from 'lucide-react';
+import { useAdminAuth } from '@/hooks/use-admin-auth';
 import logoForneiro from '@/assets/logo-forneiro.jpg';
 
 const AdminLogin = () => {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
   const navigate = useNavigate();
+  const { login, isLoading, error: authError } = useAdminAuth();
+  
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [error, setError] = useState('');
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
-    setIsLoading(true);
+    setError('');
 
-    try {
-      // Simple demo auth - in production, use proper backend
-      await new Promise(resolve => setTimeout(resolve, 1000));
+    if (!email || !password) {
+      setError('Por favor, preencha email e senha');
+      return;
+    }
 
-      if (username === 'Forneiroeden' && password === 'mudar123') {
-        localStorage.setItem('admin-token', 'demo-token');
-        
-        // Buscar o primeiro tenant para associar ao admin demo
-        const { data: tenants } = await (supabase as any)
-          .from('tenants')
-          .select('id')
-          .limit(1);
-        
-        if (tenants && tenants.length > 0) {
-          localStorage.setItem('admin-tenant-id', tenants[0].id);
-          console.log('✅ Tenant ID armazenado:', tenants[0].id);
-        }
-        
-        toast.success('Login realizado com sucesso!');
-        navigate('/admin/dashboard');
-      } else {
-        toast.error('Usuário ou senha inválidos');
-      }
-    } catch (err) {
-      console.error('Erro no login:', err);
-      toast.error('Erro ao fazer login');
-    } finally {
-      setIsLoading(false);
+    const success = await login(email, password);
+    if (success) {
+      // Pequeno delay para garantir que tenantId foi atualizado
+      setTimeout(() => navigate('/admin/dashboard'), 500);
     }
   };
 
@@ -64,16 +46,25 @@ const AdminLogin = () => {
         </CardHeader>
         <CardContent>
           <form onSubmit={handleLogin} className="space-y-4">
+            {(error || authError) && (
+              <div className="bg-red-50 border border-red-200 rounded-md p-3 flex gap-3">
+                <AlertCircle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                <p className="text-sm text-red-700">{error || authError}</p>
+              </div>
+            )}
+
             <div>
-              <Label htmlFor="username">Usuário</Label>
+              <Label htmlFor="email">Email</Label>
               <div className="relative mt-1">
                 <User className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                 <Input
-                  id="username"
-                  placeholder="admin"
-                  value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  id="email"
+                  type="email"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
                   className="pl-10"
+                  disabled={isLoading}
                 />
               </div>
             </div>
@@ -85,22 +76,39 @@ const AdminLogin = () => {
                 <Input
                   id="password"
                   type="password"
-                  placeholder="••••••••"
+                  placeholder="Sua senha"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   className="pl-10"
+                  disabled={isLoading}
                 />
               </div>
             </div>
 
-            <Button type="submit" className="w-full btn-cta" disabled={isLoading}>
+            <Button 
+              type="submit" 
+              className="w-full bg-orange-600 hover:bg-orange-700"
+              disabled={isLoading}
+            >
               {isLoading ? 'Entrando...' : 'Entrar'}
+            </Button>
+
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full text-orange-600 hover:text-orange-700 hover:bg-orange-50"
+              onClick={() => navigate('/admin/recuperar-senha')}
+              disabled={isLoading}
+            >
+              Esqueci minha senha
             </Button>
           </form>
 
-          <p className="text-xs text-muted-foreground text-center mt-4">
-            Acesse sua conta: admin
-          </p>
+          <div className="mt-6 p-3 bg-blue-50 border border-blue-200 rounded-md">
+            <p className="text-xs text-blue-700">
+              <strong>Demo:</strong> Recebeu o email com suas credenciais? Use o email e senha temporária fornecidos para fazer seu primeiro login.
+            </p>
+          </div>
         </CardContent>
       </Card>
     </div>
@@ -108,3 +116,4 @@ const AdminLogin = () => {
 };
 
 export default AdminLogin;
+

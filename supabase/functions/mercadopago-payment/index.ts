@@ -146,12 +146,12 @@ serve(async (req) => {
       },
       external_reference: orderId,
       back_urls: {
-        success: `${req.headers.get('origin') || 'https://localhost:3000'}/?status=approved&order=${orderId}`,
-        failure: `${req.headers.get('origin') || 'https://localhost:3000'}/?status=rejected&order=${orderId}`,
-        pending: `${req.headers.get('origin') || 'https://localhost:3000'}/?status=pending&order=${orderId}`
+        success: `${req.headers.get('origin') || 'https://localhost:3001'}/?status=approved&order=${orderId}`,
+        failure: `${req.headers.get('origin') || 'https://localhost:3001'}/?status=rejected&order=${orderId}`,
+        pending: `${req.headers.get('origin') || 'https://localhost:3001'}/?status=pending&order=${orderId}`
       },
       auto_return: 'approved',
-      statement_descriptor: 'FORNEIRO EDEN',
+      statement_descriptor: 'SMARTMENU AEZAP',
       notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`
     };
 

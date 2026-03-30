@@ -90,7 +90,7 @@ CREATE POLICY "tenant_settings_read_own" ON tenant_settings
     EXISTS (
       SELECT 1 FROM tenants
       WHERE tenants.id = tenant_settings.tenant_id
-      AND tenants.id = auth.jwt() ->> 'tenant_id'
+      AND tenants.id = (auth.jwt() ->> 'tenant_id')::uuid
     )
   );
 
@@ -102,7 +102,7 @@ CREATE POLICY "tenant_settings_update_own" ON tenant_settings
     OR EXISTS (
       SELECT 1 FROM tenants
       WHERE tenants.id = tenant_settings.tenant_id
-      AND tenants.id = auth.jwt() ->> 'tenant_id'
+      AND tenants.id = (auth.jwt() ->> 'tenant_id')::uuid
     )
   );
 

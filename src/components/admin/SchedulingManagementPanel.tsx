@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { useSecureTenantId } from '@/hooks/use-secure-tenant-id'
 import { supabase } from '@/integrations/supabase/client'
 import { Plus, Trash2, Edit2, Lock, Unlock, AlertCircle, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
@@ -22,7 +23,7 @@ interface SchedulingSlot {
 }
 
 export function SchedulingManagementPanel() {
-  const [tenantId, setTenantId] = useState<string>('')
+  const { tenantId: authTenantId, loading: tenantLoading } = useSecureTenantId()
   const [slots, setSlots] = useState<SchedulingSlot[]>([])
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -35,15 +36,9 @@ export function SchedulingManagementPanel() {
 
   // Initialize
   useEffect(() => {
-    const getTenant = async () => {
-      const stored = localStorage.getItem('admin-tenant-id')
-      if (stored) {
-        setTenantId(stored)
-        await loadSlots(stored)
-      }
-    }
-    getTenant()
-  }, [])
+    if (!authTenantId) return
+    loadSlots(authTenantId)
+  }, [authTenantId])
 
   // Load slots
   const loadSlots = async (tenant: string) => {
@@ -68,8 +63,13 @@ export function SchedulingManagementPanel() {
 
   // Add/Update slot
   const handleSaveSlot = async () => {
-    if (!slotDate || !slotTime || !maxOrders || !tenantId) {
+    if (!slotDate || !slotTime || !maxOrders) {
       toast.error('Preencha todos os campos')
+      return
+    }
+    
+    if (!authTenantId) {
+      toast.error('Tenant ID não encontrado. Por favor, acesse novamente.')
       return
     }
 
@@ -83,6 +83,7 @@ export function SchedulingManagementPanel() {
             max_orders: parseInt(maxOrders),
           })
           .eq('id', editingId)
+          .eq('tenant_id', authTenantId)
 
         if (error) throw error
         toast.success('Slot atualizado com sucesso')
@@ -93,7 +94,7 @@ export function SchedulingManagementPanel() {
           .from('scheduling_slots')
           .insert([
             {
-              tenant_id: tenantId,
+              tenant_id: authTenantId,
               slot_date: slotDate,
               slot_time: slotTime,
               max_orders: parseInt(maxOrders),
@@ -112,7 +113,7 @@ export function SchedulingManagementPanel() {
       setMaxOrders('5')
 
       // Reload
-      await loadSlots(tenantId)
+      await loadSlots(authTenantId)
     } catch (err: any) {
       console.error('Erro:', err)
       if (err.code === '23505') {
@@ -128,16 +129,21 @@ export function SchedulingManagementPanel() {
   // Delete slot
   const handleDeleteSlot = async (id: string) => {
     if (!confirm('Tem certeza que deseja deletar este slot?')) return
+    if (!authTenantId) {
+      toast.error('Tenant ID não encontrado')
+      return
+    }
 
     try {
       const { error } = await (supabase as any)
         .from('scheduling_slots')
         .delete()
         .eq('id', id)
+        .eq('tenant_id', authTenantId)
 
       if (error) throw error
       toast.success('Slot deletado')
-      await loadSlots(tenantId)
+      await loadSlots(authTenantId)
     } catch (err) {
       console.error('Erro:', err)
       toast.error('Erro ao deletar slot')
@@ -146,15 +152,21 @@ export function SchedulingManagementPanel() {
 
   // Toggle block
   const handleBlockSlot = async (id: string, isBlocked: boolean) => {
+    if (!authTenantId) {
+      toast.error('Tenant ID não encontrado')
+      return
+    }
+    
     try {
       const { error } = await (supabase as any)
         .from('scheduling_slots')
         .update({ is_blocked: !isBlocked } as any)
         .eq('id', id)
+        .eq('tenant_id', authTenantId)
 
       if (error) throw error
       toast.success(isBlocked ? 'Slot desbloqueado' : 'Slot bloqueado')
-      await loadSlots(tenantId)
+      await loadSlots(authTenantId)
     } catch (err) {
       console.error('Erro:', err)
       toast.error('Erro ao alterar bloqueio')

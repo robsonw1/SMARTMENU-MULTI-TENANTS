@@ -14,6 +14,7 @@ import {
 } from '@/components/ui/dialog';
 import { Bell, Plus, Trash2, QrCode, CheckCircle, XCircle, Loader, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
+import { useSecureTenantId } from '@/hooks/use-secure-tenant-id';
 import { useWhatsAppInstanceSync } from '@/hooks/use-whatsapp-instance-sync';
 import { WhatsAppStatusTemplates } from '@/components/admin/WhatsAppStatusTemplates';
 
@@ -37,6 +38,7 @@ interface WhatsAppInstance {
 }
 
 export const NotificationsTab = () => {
+  const { tenantId: authTenantId, loading: tenantLoading } = useSecureTenantId();
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [loading, setLoading] = useState(true);
   const [openModal, setOpenModal] = useState(false);
@@ -45,45 +47,31 @@ export const NotificationsTab = () => {
   const [selectedInstanceId, setSelectedInstanceId] = useState<string | null>(null);
   const [generatingQR, setGeneratingQR] = useState<string | null>(null);
   const [qrCodeData, setQrCodeData] = useState<{ [key: string]: string }>({});
-  const [tenantId, setTenantId] = useState<string>('');
-  const [loadingTenant, setLoadingTenant] = useState(true);
   
   // Usar hook de sincronização
   useWhatsAppInstanceSync();
 
-  // ✅ NOVO: Garantir que templates existem na primeira carga
+  // ✅ NOVO: Usar hook seguro para tenant_id validado
   useEffect(() => {
     const initializeTemplates = async () => {
       try {
-        // 1. Obter tenant ID
-        let storedTenantId = localStorage.getItem('admin-tenant-id');
-        
-        if (!storedTenantId) {
-          const { data: tenants } = await (supabase as any)
-            .from('tenants')
-            .select('id')
-            .limit(1);
-          
-          if (tenants && tenants.length > 0) {
-            storedTenantId = tenants[0].id;
-            localStorage.setItem('admin-tenant-id', storedTenantId);
-          }
+        if (!authTenantId) {
+          console.log('⏳ Aguardando autenticação de tenant...');
+          return;
         }
 
-        if (!storedTenantId) return;
-
-        // 2. Verificar se templates existem
+        // Verificar se templates existem para este tenant
         const { data: existingTemplates } = await (supabase as any)
           .from('whatsapp_status_messages')
           .select('status')
-          .eq('tenant_id', storedTenantId);
+          .eq('tenant_id', authTenantId);
 
         if (!existingTemplates || existingTemplates.length === 0) {
           console.log('📝 Criando templates padrão de WhatsApp...');
           
-          // 3. Criar templates padrão
+          // Criar templates padrão
           const messagesToInsert = Object.entries(DEFAULT_WHATSAPP_MESSAGES).map(([status, message]) => ({
-            tenant_id: storedTenantId,
+            tenant_id: authTenantId,
             status,
             message_template: message,
             enabled: true,
@@ -109,60 +97,24 @@ export const NotificationsTab = () => {
 
     // Executar apenas UMA vez ao montar
     initializeTemplates();
-  }, []);
+  }, [authTenantId]);
 
   // Buscar instâncias existentes ao montar
   useEffect(() => {
-    loadInstances();
-  }, []);
-
-  // Carregar tenant_id quando a modal abre (lazy loading)
-  useEffect(() => {
-    if (openModal && !tenantId) {
-      getTenantIdLazy();
+    if (authTenantId) {
+      loadInstances();
     }
-  }, [openModal]);
-
-  const getTenantIdLazy = async () => {
-    try {
-      setLoadingTenant(true);
-      console.log('🔄 Carregando tenant ID (lazy)...');
-      
-      // Tentar obter tenant_id armazenado
-      let storedTenantId = localStorage.getItem('admin-tenant-id');
-      
-      if (storedTenantId) {
-        setTenantId(storedTenantId);
-        console.log('✅ Tenant ID do localStorage:', storedTenantId);
-      } else {
-        // Se não houver, buscar o primeiro tenant padrão
-        console.log('📋 Buscando tenant padrão...');
-        const { data: tenants } = await (supabase as any)
-          .from('tenants')
-          .select('id')
-          .limit(1);
-        
-        if (tenants && tenants.length > 0) {
-          storedTenantId = tenants[0].id;
-          setTenantId(storedTenantId);
-          localStorage.setItem('admin-tenant-id', storedTenantId);
-          console.log('✅ Tenant padrão encontrado:', storedTenantId);
-        }
-      }
-    } catch (err) {
-      console.error('❌ Erro ao carregar tenant:', err);
-      toast.error('Erro ao carregar tenant');
-    } finally {
-      setLoadingTenant(false);
-    }
-  };
+  }, [authTenantId]);
 
   const loadInstances = async () => {
+    if (!authTenantId) return;
+    
     try {
       setLoading(true);
       const { data, error } = await (supabase as any)
         .from('whatsapp_instances')
         .select('*')
+        .eq('tenant_id', authTenantId)  // ✅ Filtrar por tenant autenticado
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -180,7 +132,7 @@ export const NotificationsTab = () => {
           },
           (payload: any) => {
             console.log('Instance updated:', payload);
-            loadInstances(); // Recarregar quando há mudanças
+            if (authTenantId) loadInstances(); // Recarregar quando há mudanças
           }
         )
         .subscribe();
@@ -202,8 +154,8 @@ export const NotificationsTab = () => {
       return;
     }
 
-    if (!tenantId) {
-      toast.error('Tenant não carregado. Tente novamente.');
+    if (!authTenantId) {
+      toast.error('Autenticação perdida. Faça login novamente');
       return;
     }
 
@@ -222,7 +174,7 @@ export const NotificationsTab = () => {
         return;
       }
 
-      console.log('📤 Enviando para função:', { establishment_name: establishmentName, instance_name: instanceName, tenant_id: tenantId });
+      console.log('📤 Enviando para função:', { establishment_name: establishmentName, instance_name: instanceName, tenant_id: authTenantId });
 
       // Chamar função para criar instância na Evolution API
       const { data, error } = await supabase.functions.invoke(
@@ -231,7 +183,7 @@ export const NotificationsTab = () => {
           body: {
             establishment_name: establishmentName,
             instance_name: instanceName,
-            tenant_id: tenantId,
+            tenant_id: authTenantId,
           },
         }
       );
@@ -316,11 +268,12 @@ export const NotificationsTab = () => {
     try {
       console.log(`🗑️ Deletando instância: ${instance.evolution_instance_name}`);
       
-      // Obter tenant_id se não estiver no state
-      let currentTenantId = tenantId;
-      if (!currentTenantId) {
-        currentTenantId = localStorage.getItem('admin-tenant-id') || '';
+      // Usar tenant_id validado do hook
+      if (!authTenantId) {
+        toast.error('Tenant ID não encontrado');
+        return;
       }
+      const currentTenantId = authTenantId;
 
       // Chamar edge function para deletar da Evolution API e do Supabase
       const { data, error } = await supabase.functions.invoke(
@@ -412,7 +365,7 @@ export const NotificationsTab = () => {
                   />
                 </div>
 
-                {loadingTenant ? (
+                {tenantLoading ? (
                   <Button disabled className="w-full" variant="secondary">
                     <Loader className="w-4 h-4 mr-2 animate-spin" />
                     Carregando tenant...

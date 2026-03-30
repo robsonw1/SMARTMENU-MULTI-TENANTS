@@ -183,29 +183,8 @@ export const paidExtraIngredients: string[] = [
   'Mussarela',
 ];
 
-// COMBOS
-export const combos: Product[] = [
-  {
-    id: 'combo-casal',
-    name: 'Pizza Combo Casal',
-    description: '1 pizza grande (sabores promocionais) + Borda requeijão grátis + Refrigerante 2L',
-    ingredients: ['1 Pizza Grande', 'Borda Requeijão', 'Refrigerante 2L'],
-    category: 'combos',
-    price: 63.99,
-    isPopular: true,
-    isActive: true,
-  },
-  {
-    id: 'combo-familia',
-    name: 'Combo Família',
-    description: '2 pizzas grandes (sabores promocionais) + Borda requeijão grátis + Refrigerante 2L',
-    ingredients: ['2 Pizzas Grandes', 'Borda Requeijão', 'Refrigerante 2L'],
-    category: 'combos',
-    price: 114.99,
-    isPopular: true,
-    isActive: true,
-  },
-];
+// Helper to get all products - AGORA CARREGA APENAS DO SUPABASE (não hardcoded)
+
 
 // PIZZAS PROMOCIONAIS
 export const pizzasPromocionais: Product[] = [
@@ -1086,32 +1065,10 @@ export const neighborhoodsData: Neighborhood[] = [
   { id: 'cidade-tiradentes', name: 'Cidade Tiradentes', deliveryFee: 15.00, isActive: true },
 ];
 
-// Helper to get all products
-export const getAllProducts = (): Product[] => [
-  ...combos,
-  ...pizzasPromocionais,
-  ...pizzasTradicionais,
-  ...pizzasPremium,
-  ...pizzasEspeciais,
-  ...pizzasDoces,
-  ...bebidas,
-  ...adicionais,
-  ...bordas,
-];
-
-// Helper to get all pizzas (for half-half selection)
-export const getAllPizzas = (): Product[] => [
-  ...pizzasPromocionais,
-  ...pizzasTradicionais,
-  ...pizzasPremium,
-  ...pizzasEspeciais,
-  ...pizzasDoces,
-];
-
-// Helper to get promotional pizzas only (for combos)
-export const getPromotionalPizzas = (): Product[] => [
-  ...pizzasPromocionais,
-];
+// ✅ Todos os produtos carregam APENAS do Supabase via realtime sync
+export const getAllProducts = (): Product[] => [];
+export const getAllPizzas = (): Product[] => [];
+export const getPromotionalPizzas = (): Product[] => [];
 
 // Category labels
 export const categoryLabels: Record<string, string> = {

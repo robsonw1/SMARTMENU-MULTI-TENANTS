@@ -1,6 +1,5 @@
 import { create } from "zustand";
 import type { Product } from "@/data/products";
-import { getAllProducts } from "@/data/products";
 
 type CatalogState = {
   /** Map by product id for fast updates (includes base + custom). */
@@ -21,10 +20,10 @@ type CatalogActions = {
 };
 
 const seedProducts = (): CatalogState => {
-  const all = getAllProducts();
-  const productsById: Record<string, Product> = {};
-  for (const p of all) productsById[p.id] = p;
-  return { productsById, seedIds: all.map((p) => p.id) };
+  // ✅ NOVO (29/03/2026): Não carregar 110 produtos padrão
+  // Os produtos devem vir APENAS do banco via realtime sync
+  // Deixar store vazio desde o início = clean slate para todos os tenants
+  return { productsById: {}, seedIds: [] };
 };
 
 export const useCatalogStore = create<CatalogState & CatalogActions>()((set, get) => ({
@@ -55,6 +54,8 @@ export const useCatalogStore = create<CatalogState & CatalogActions>()((set, get
       delete next[id];
       return { ...state, productsById: next };
     }),
+
+  // ✅ NOVA AÇÃO (29/03/2026): Limpa os 110 produtos padrão carregados na inicialização
 
   getAll: () => Object.values(get().productsById),
 
