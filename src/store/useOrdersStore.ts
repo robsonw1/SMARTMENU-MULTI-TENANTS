@@ -326,7 +326,7 @@ export const useOrdersStore = create<OrdersStore>()(
             const itemId = generateItemId();
             
             // ­ƒöº CORRIGIDO: Mapear para campos EXATOS da tabela order_items conforme schema
-            // Schema: id, order_id, product_id, product_name, quantity, size, total_price, item_data (jsonb), created_at
+            // Schema: id, order_id, product_id, product_name, quantity, size, total_price, item_data (jsonb), created_at, tenant_id
             const itemRecord = {
               id: itemId, // ­ƒÄ» ID obrigat├│rio bigint
               order_id: newOrder.id,
@@ -337,6 +337,7 @@ export const useOrdersStore = create<OrdersStore>()(
               total_price: item.totalPrice || 0,
               item_data: itemDataObj, // Ô£à JSONB com TODOS os dados do item (sem JSON.stringify - Supabase cuida)
               created_at: createdAtISO, // Usar timestamp do pedido
+              tenant_id: finalTenantId, // ­ƒóπ Multi-tenant isolation - cada item vinculado ao tenant do pedido
             };
             
             console.log(`Ô£à [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}, total: ${itemRecord.total_price}) -> inserindo na BD...`);
@@ -637,7 +638,25 @@ export const useOrdersStore = create<OrdersStore>()(
       removeOrder: async (id) => {
         try {
           // Deletar do Supabase
-          await supabase.from('order_items').delete().eq('order_id', id);
+          // Obter tenant_id do pedido para garantir isolamento multi-tenant
+          const { data: orderData } = await (supabase as any)
+            .from('orders')
+            .select('tenant_id')
+            .eq('id', id)
+            .single();
+          
+          // Deletar items apenas do tenant correto (defesa em profundidade)
+          if (orderData?.tenant_id) {
+            await supabase.from('order_items')
+              .delete()
+              .eq('order_id', id)
+              .eq('tenant_id', orderData.tenant_id);
+          } else {
+            console.warn('[REMOVE-ORDER] tenant_id nao encontrado para ordem', id);
+            // Fallback (sem garantia de isolamento)
+            await supabase.from('order_items').delete().eq('order_id', id);
+          }
+          
           const { error } = await supabase.from('orders').delete().eq('id', id);
 
           if (error) throw error;
@@ -716,10 +735,12 @@ export const useOrdersStore = create<OrdersStore>()(
             const ordersWithItems = await Promise.all(
               data.map(async (row: any) => {
                 console.log(`📦 [SYNC] Carregando items para ${row.id}...`);
+                // Adicionar filtro tenant_id para garantir isolamento e performance
                 const { data: items, error: itemsError } = await (supabase as any)
                   .from('order_items')
                   .select('*')
-                  .eq('order_id', row.id);
+                  .eq('order_id', row.id)
+                  .eq('tenant_id', tenantId);  // Filtro de isolamento multi-tenant
                   
                 if (itemsError) {
                   console.warn(`⚠️ [SYNC] Erro ao carregar items para ${row.id}:`, itemsError);
