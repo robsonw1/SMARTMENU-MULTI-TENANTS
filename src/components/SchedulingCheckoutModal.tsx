@@ -639,6 +639,10 @@ export function SchedulingCheckoutModal() {
       const DEFAULT_DELIVERY_FEE = 8.0; // Taxa padrão em reais
       const newNeighborhoodId = `user-${neighborhoodInput.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
       const trimmedName = neighborhoodInput.trim();
+      
+      // ✅ NOVO (30/03/2026): Obter tenant_id do sessionStorage para RLS
+      const tenantIdFromStorage = sessionStorage.getItem('sb-tenant-id-by-slug') || sessionStorage.getItem('sb-auth-tenant-id') || tenantId;
+      console.log('[SCHEDULING] Criando bairro com tenant_id:', tenantIdFromStorage);
 
       // Salvar novo bairro no Supabase
       const { error } = await (supabase as any)
@@ -649,6 +653,7 @@ export function SchedulingCheckoutModal() {
             name: trimmedName,
             delivery_fee: DEFAULT_DELIVERY_FEE,
             is_active: true,
+            tenant_id: tenantIdFromStorage, // ✅ CRÍTICO: Necessário para RLS policy
           },
         ]);
 
