@@ -49,6 +49,8 @@ interface StoreSettings {
   adicionais_enabled?: boolean;
   bebidas_enabled?: boolean;
   bordas_enabled?: boolean;
+  // Tamanhos customiz├íveis (gen├ęrico e escal├ível)
+  enabled_sizes?: string[]; // Ex: ["broto", "grande"] - permite N tamanhos no futuro
 }
 
 interface SettingsStore {
@@ -112,6 +114,8 @@ const defaultSettings: StoreSettings = {
   adicionais_enabled: true,
   bebidas_enabled: true,
   bordas_enabled: true,
+  // Tamanhos habilitados (padr├úo: ambos disponibilizados)
+  enabled_sizes: ["broto", "grande"],
 };
 
 const dayNames: (keyof WeekSchedule)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -347,6 +351,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           adicionais_enabled: currentSettings.adicionais_enabled ?? true,
           bebidas_enabled: currentSettings.bebidas_enabled ?? true,
           bordas_enabled: currentSettings.bordas_enabled ?? true,
+          // ✅ Tamanhos habilitados (escalável)
+          enabled_sizes: currentSettings.enabled_sizes ?? ["broto", "grande"],
         },
       };
 
