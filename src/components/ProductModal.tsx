@@ -50,16 +50,6 @@ export function ProductModal() {
     [productsById]
   );
   
-  // ✅ Importar toggles do settings para sincronizar com admin (DEVE vir ANTES de useMemo que o usa)
-  const settings = useSettingsStore((s) => s.settings);
-  const {
-    meia_meia_enabled = true,
-    bordas_enabled = true,
-    adicionais_enabled = true,
-    bebidas_enabled = true,
-    imagens_enabled = true,
-  } = settings;
-
   const availableBordas = useMemo(
     () => Object.values(productsById)
       .filter((p) => p.category === 'bordas' && p.isActive)
@@ -81,13 +71,7 @@ export function ProductModal() {
     [productsById]
   );
   
-  // ✅ Tamanhos dinâmicos - começa com o primeiro habilitado
-  const enabledSizes = useMemo(
-    () => settings?.enabled_sizes ?? ["broto", "grande"],
-    [settings?.enabled_sizes]
-  );
-  const defaultSize = useMemo(() => enabledSizes[0] || 'grande', [enabledSizes]);
-  const [size, setSize] = useState<string>(defaultSize);
+  const [size, setSize] = useState<'broto' | 'grande'>('grande');
   const [isHalfHalf, setIsHalfHalf] = useState(false);
   const [secondHalfId, setSecondHalfId] = useState<string>('');
   const [selectedBorder, setSelectedBorder] = useState<string>('');
@@ -109,11 +93,20 @@ export function ProductModal() {
   const isCustomizable = selectedProduct?.isCustomizable || selectedProduct?.id === 'prem-moda-cliente';
   const showDrinkSelection = isPizza || isCombo;
 
+  // ✅ Importar toggles do settings para sincronizar com admin
+  const {
+    meia_meia_enabled = true,
+    bordas_enabled = true,
+    adicionais_enabled = true,
+    bebidas_enabled = true,
+    imagens_enabled = true,
+  } = useSettingsStore((s) => s.settings);
+
   const handleClose = () => {
     setProductModalOpen(false);
     setSelectedProduct(null);
     // Reset state
-    setSize(defaultSize);
+    setSize('grande');
     setIsHalfHalf(false);
     setSecondHalfId('');
     setSelectedBorder('');
@@ -144,18 +137,13 @@ export function ProductModal() {
 
     // Base price
     if (isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge) {
-      // Mapear tamanho dinamicamente: broto=small, grande=large (ou fallback)
-      total = (size === 'broto' || enabledSizes[0] === 'broto' && size === enabledSizes[0]) 
-        ? selectedProduct.priceSmall 
-        : selectedProduct.priceLarge;
+      total = size === 'broto' ? selectedProduct.priceSmall : selectedProduct.priceLarge;
       
       // Half-half: use the higher price
       if (isHalfHalf && secondHalfId) {
         const secondPizza = allPizzas.find(p => p.id === secondHalfId);
         if (secondPizza) {
-          const secondPrice = (size === 'broto' || enabledSizes[0] === 'broto' && size === enabledSizes[0]) 
-            ? secondPizza.priceSmall! 
-            : secondPizza.priceLarge!;
+          const secondPrice = size === 'broto' ? secondPizza.priceSmall! : secondPizza.priceLarge!;
           total = Math.max(total, secondPrice);
         }
       }
@@ -444,47 +432,47 @@ export function ProductModal() {
 
             <div className="mt-6 space-y-6">
               {/* Size Selection for Pizzas */}
-              {isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge && enabledSizes.length > 0 && (
+              {isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge && (
                 <div>
                   <Label className="text-base font-semibold mb-3 block">Tamanho</Label>
                   <RadioGroup value={size} onValueChange={(v) => {
-                    setSize(v);
-                    // Disable half-half when broto (primeiro tamanho) é selecionado
-                    if (v === 'broto' || v === enabledSizes[0]) {
+                    setSize(v as 'broto' | 'grande');
+                    // Disable half-half when broto is selected
+                    if (v === 'broto') {
                       setIsHalfHalf(false);
                     }
                   }}>
-                    <div className={`grid gap-3 ${
-                      enabledSizes.length === 1 
-                        ? 'grid-cols-1' 
-                        : enabledSizes.length === 2 
-                        ? 'grid-cols-2' 
-                        : 'grid-cols-3'
-                    }`}>
-                      {enabledSizes.map((sizeOption) => {
-                        const isSmall = sizeOption === 'broto';
-                        const price = isSmall ? selectedProduct.priceSmall : selectedProduct.priceLarge;
-                        const slices = isSmall ? '4 fatias' : '8 fatias';
-                        const label = isSmall ? 'Broto' : 'Grande';
-                        
-                        return (
-                          <div key={sizeOption} className="relative">
-                            <RadioGroupItem value={sizeOption} id={sizeOption} className="peer sr-only" />
-                            <Label
-                              htmlFor={sizeOption}
-                              className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
-                                peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
-                                hover:bg-secondary transition-colors"
-                            >
-                              <span className="font-semibold">{label}</span>
-                              <span className="text-lg font-bold text-primary">
-                                {formatPrice(price!)}
-                              </span>
-                              <span className="text-xs text-muted-foreground">{slices}</span>
-                            </Label>
-                          </div>
-                        );
-                      })}
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="relative">
+                        <RadioGroupItem value="grande" id="grande" className="peer sr-only" />
+                        <Label
+                          htmlFor="grande"
+                          className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
+                            peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
+                            hover:bg-secondary transition-colors"
+                        >
+                          <span className="font-semibold">Grande</span>
+                          <span className="text-lg font-bold text-primary">
+                            {formatPrice(selectedProduct.priceLarge)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">8 fatias</span>
+                        </Label>
+                      </div>
+                      <div className="relative">
+                        <RadioGroupItem value="broto" id="broto" className="peer sr-only" />
+                        <Label
+                          htmlFor="broto"
+                          className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
+                            peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
+                            hover:bg-secondary transition-colors"
+                        >
+                          <span className="font-semibold">Broto</span>
+                          <span className="text-lg font-bold text-primary">
+                            {formatPrice(selectedProduct.priceSmall)}
+                          </span>
+                          <span className="text-xs text-muted-foreground">4 fatias</span>
+                        </Label>
+                      </div>
                     </div>
                   </RadioGroup>
                 </div>
@@ -644,8 +632,8 @@ export function ProductModal() {
                 </>
               )}
 
-              {/* Half-Half Option - Only for Grande (último tamanho) e non-customizable */}
-              {isPizza && (size === 'grande' || (enabledSizes.length > 0 && size === enabledSizes[enabledSizes.length - 1])) && !isCustomizable && meia_meia_enabled && (
+              {/* Half-Half Option - Only for Grande size and non-customizable */}
+              {isPizza && size === 'grande' && !isCustomizable && meia_meia_enabled && (
                 <>
                   <Separator />
                   <div>
