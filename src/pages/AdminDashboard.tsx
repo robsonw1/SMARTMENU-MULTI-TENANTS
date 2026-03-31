@@ -864,9 +864,16 @@
           });
         }
 
+        // ✅ CRÍTICO: Garantir que os 5 toggles novos estão no payload
         const finalSettingsToSave = {
           ...settingsForm,
           schedule: validatedSchedule,
+          // ✅ Adicionar explicitamente os 5 toggles de cardápio
+          meia_meia_enabled: settingsForm.meia_meia_enabled ?? true,
+          imagens_enabled: settingsForm.imagens_enabled ?? true,
+          adicionais_enabled: settingsForm.adicionais_enabled ?? true,
+          bebidas_enabled: settingsForm.bebidas_enabled ?? true,
+          bordas_enabled: settingsForm.bordas_enabled ?? true,
         };
         
         console.log('💾 [ADMIN-SAVE] ════════════════════════════════════════');
@@ -878,19 +885,27 @@
         // Atualizar com TODOS os settings (incluindo schedule VALIDADO)
         await updateSettings(finalSettingsToSave);
         
-        console.log('✅ [ADMIN-SAVE] updateSettings() completou com sucesso!');
+        console.log('💾 [ADMIN-SAVE] updateSettings() completou com sucesso!');
         
         // 🔍 STEP EXTRA: VERIFICAR QUE FOI REALMENTE SALVO no Supabase
         console.log('🔍 [ADMIN-SAVE] Aguardando 1 segundo e recarregando do Supabase para VERIFICAÇÃO...');
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        await loadSettingsFromSupabase();
+        // ✅ forceRefresh: true para ignorar cache e recarregar TODOS os dados
+        await loadSettingsFromSupabase(true);
         
         // ⚡ CRÍTICO: Sincronizar settingsForm com os dados que acabaram de ser carregados
         // Assim o formulário mostra os dados salvos, não os antigos
         const reloadedState = useSettingsStore.getState();
         setSettingsForm(reloadedState.settings);
         console.log('✅ [ADMIN-SAVE] settingsForm sincronizado com dados carregados do Supabase');
+        console.log('✅ [ADMIN-SAVE] Toggles sincronizados:', {
+          meia_meia_enabled: reloadedState.settings.meia_meia_enabled,
+          imagens_enabled: reloadedState.settings.imagens_enabled,
+          adicionais_enabled: reloadedState.settings.adicionais_enabled,
+          bebidas_enabled: reloadedState.settings.bebidas_enabled,
+          bordas_enabled: reloadedState.settings.bordas_enabled,
+        });
         
         // Comparar: o que foi enviado vs. o que está no estado agora
         const currentState = useSettingsStore.getState();
