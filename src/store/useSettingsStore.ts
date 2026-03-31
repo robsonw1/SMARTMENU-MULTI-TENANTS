@@ -263,6 +263,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             respectBusinessHoursForScheduling: settingsData.respect_business_hours_for_scheduling ?? true,
             allowSameDaySchedulingOutsideHours: settingsData.allow_same_day_scheduling_outside_hours ?? false,
             timezone: valueJson.timezone || 'America/Sao_Paulo',
+            // ✅ Toggles de Cardápio (mapeados do BD)
+            meia_meia_enabled: settingsData.meia_meia_enabled ?? true,
+            imagens_enabled: settingsData.imagens_enabled ?? true,
+            adicionais_enabled: settingsData.adicionais_enabled ?? true,
+            bebidas_enabled: settingsData.bebidas_enabled ?? true,
+            bordas_enabled: settingsData.bordas_enabled ?? true,
           },
           // 🔐 NOVO: Registrar que este tenant foi carregado com sucesso
           _loadedTenantId: tenantId,
@@ -335,6 +341,12 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           allow_scheduling_outside_business_hours: currentSettings.allowSchedulingOutsideBusinessHours,
           respect_business_hours_for_scheduling: currentSettings.respectBusinessHoursForScheduling,
           allow_same_day_scheduling_outside_hours: currentSettings.allowSameDaySchedulingOutsideHours,
+          // ✅ Toggles de Cardápio
+          meia_meia_enabled: currentSettings.meia_meia_enabled ?? true,
+          imagens_enabled: currentSettings.imagens_enabled ?? true,
+          adicionais_enabled: currentSettings.adicionais_enabled ?? true,
+          bebidas_enabled: currentSettings.bebidas_enabled ?? true,
+          bordas_enabled: currentSettings.bordas_enabled ?? true,
         },
       };
 
