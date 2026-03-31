@@ -79,6 +79,11 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
       setError(null);
 
       console.log(`🔍 [TENANT-SETTINGS] Carregando configurações para tenant: ${tenantId}`);
+      
+      // DEBUG: Log auth context
+      const { data: { user } } = await supabase.auth.getUser();
+      console.log(`🔐 [TENANT-SETTINGS] Auth User ID:`, user?.id);
+      console.log(`🔐 [TENANT-SETTINGS] Tenant ID:`, tenantId);
 
       const { data, error: fetchError } = await supabase
         .from('tenant_settings')
@@ -88,6 +93,8 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
 
       if (fetchError) {
         console.error(`❌ [TENANT-SETTINGS] Erro ao carregar:`, fetchError);
+        console.error(`❌ [TENANT-SETTINGS] Código erro: ${fetchError.code}`);
+        console.error(`❌ [TENANT-SETTINGS] Detalhes: ${JSON.stringify(fetchError.details)}`);
         setError(fetchError.message);
         return;
       }
