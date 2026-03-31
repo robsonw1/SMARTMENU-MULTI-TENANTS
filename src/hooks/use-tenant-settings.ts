@@ -107,14 +107,22 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
 
   // Carregar settings inicialmente com AUTO-CREATE via RPC
   const loadSettings = useCallback(async () => {
-    if (!tenantId) {
-      setIsLoading(false);
-      return;
-    }
-
     try {
       setIsLoading(true);
       setError(null);
+
+      // Se tenantId vazio, usar defaults imediatamente
+      if (!tenantId) {
+        console.warn(`⚠️  [TENANT-SETTINGS] TenantId vazio, usando defaults`);
+        setSettings({
+          ...DEFAULT_SETTINGS,
+          id: `temp-${Date.now()}`,
+          tenant_id: '',
+        });
+        setIsUsingDefaults(true);
+        setIsLoading(false);
+        return;
+      }
 
       console.log(`🔍 [TENANT-SETTINGS] Carregando configurações para tenant: ${tenantId}`);
 
