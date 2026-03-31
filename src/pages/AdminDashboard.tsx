@@ -256,8 +256,15 @@
 
     // ✅ Função auxiliar para atualizar settingsForm E marcar como não salvo
     const updateSettingsFormWithFlag = (updates: Partial<typeof settingsForm>) => {
-      setSettingsForm(prev => ({ ...prev, ...updates }));
+      console.log('🎯 [UPDATE-FLAG] updateSettingsFormWithFlag chamada com:', updates);
+      setSettingsForm(prev => {
+        const newState = { ...prev, ...updates };
+        console.log('🎯 [UPDATE-FLAG] settingsForm atualizado para:', newState);
+        return newState;
+      });
+      console.log('🎯 [UPDATE-FLAG] Setando hasUnsavedChanges = true');
       setHasUnsavedChanges(true);
+      console.log('✅ [UPDATE-FLAG] ESTADO MARCADO COMO NÃO SALVO - Botão "Salvar" deve estar HABILITADO agora!');
     };
 
     // 📲 Função para notificar OUTRAS abas do mesmo navegador que houve alteração
@@ -841,6 +848,7 @@
     }, [orders, dateRange, orderStatusFilter, orderSort]);
 
     const handleSaveSettings = async () => {
+      console.log('🚀🚀🚀 [HANDLECLIKC] BOTÃO CLICADO - handleSaveSettings COMEÇOU');
       try {
         // ✅ CRÍTICO: Usar o settingsForm (que tem as edições locais do admin)
         // Inicializar com defaults se estiver vazio (proteção extra)
@@ -938,6 +946,8 @@
         toast.success('✅ Configurações salvas e sincronizadas em tempo real!');
       } catch (error) {
         console.error('❌ [ADMIN-SAVE] Erro ao salvar:', error);
+        console.error('❌ [ADMIN-SAVE] Stack:', error instanceof Error ? error.stack : 'N/A');
+        alert(`❌ ERRO ao salvar (veja console): ${error instanceof Error ? error.message : String(error)}`);
         toast.error('Erro ao salvar configurações. Tente novamente.');
       }
     };
