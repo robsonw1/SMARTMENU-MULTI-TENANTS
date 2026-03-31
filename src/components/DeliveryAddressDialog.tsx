@@ -89,6 +89,10 @@ export function DeliveryAddressDialog({
     try {
       const DEFAULT_DELIVERY_FEE = 8.0; // Taxa padrão em reais
       const newNeighborhoodId = `user-${neighborhoodInput.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
+      
+      // ✅ NOVO (30/03/2026): Obter tenant_id do sessionStorage para RLS
+      const tenantIdFromStorage = sessionStorage.getItem('sb-tenant-id-by-slug') || sessionStorage.getItem('sb-auth-tenant-id');
+      console.log('[DELIVERY-ADDRESS] Criando bairro com tenant_id:', tenantIdFromStorage);
 
       // Salvar novo bairro no Supabase
       const { error } = await (supabase as any)
@@ -99,6 +103,7 @@ export function DeliveryAddressDialog({
             name: neighborhoodInput.trim(),
             delivery_fee: DEFAULT_DELIVERY_FEE,
             is_active: true,
+            tenant_id: tenantIdFromStorage, // ✅ CRÍTICO: Necessário para RLS policy
           },
         ]);
 
