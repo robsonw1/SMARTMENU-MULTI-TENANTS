@@ -35,7 +35,7 @@ export interface CartItem {
   id: string;
   product: Product;
   quantity: number;
-  size?: 'broto' | 'grande';
+  size?: string; // Escalável: broto, grande, ou outros tamanhos configuráveis
   isHalfHalf?: boolean;
   secondHalf?: Product;
   border?: Product;
