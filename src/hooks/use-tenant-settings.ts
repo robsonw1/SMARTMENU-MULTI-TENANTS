@@ -59,6 +59,7 @@ interface UseTenantSettingsState {
   settings: TenantSettings | null;
   isLoading: boolean;
   error: string | null;
+  isUsingDefaults: boolean;
   updateSettings: (updates: Partial<TenantSettings>) => Promise<void>;
 }
 
@@ -102,6 +103,7 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
   const [settings, setSettings] = useState<TenantSettings | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isUsingDefaults, setIsUsingDefaults] = useState(false);
 
   // Carregar settings inicialmente com AUTO-CREATE via RPC
   const loadSettings = useCallback(async () => {
@@ -130,6 +132,7 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
           id: `temp-${Date.now()}`,
           tenant_id: tenantId,
         });
+        setIsUsingDefaults(true);
         setError(null); // Não mostrar erro, usar defaults
         return;
       }
@@ -141,6 +144,7 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
           id: `temp-${Date.now()}`,
           tenant_id: tenantId,
         });
+        setIsUsingDefaults(true);
         setError(null);
         return;
       }
@@ -149,6 +153,7 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
       const settingsData = data[0] as TenantSettings;
       console.log(`✅ [TENANT-SETTINGS] Configurações carregadas via RPC:`, settingsData);
       setSettings(settingsData);
+      setIsUsingDefaults(false); // Dados reais do BD
 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
@@ -160,6 +165,7 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
         id: `temp-${Date.now()}`,
         tenant_id: tenantId,
       });
+      setIsUsingDefaults(true);
       setError(null); // Não mostrar erro para usuário
     } finally {
       setIsLoading(false);
@@ -257,6 +263,7 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
     settings,
     isLoading,
     error,
+    isUsingDefaults,
     updateSettings,
   };
 };
