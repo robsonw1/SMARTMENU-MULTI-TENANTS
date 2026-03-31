@@ -1,255 +1,406 @@
-import { useState, useCallback } from 'react';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from '@/components/ui/accordion';
-import { Switch } from '@/components/ui/switch';
-import { Loader, MessageCircle, Save } from 'lucide-react';
-import { toast } from 'sonner';
-import { useWhatsAppStatusTemplates, WhatsAppStatusTemplate } from '@/hooks/use-whatsapp-status-templates';
+import { useEffect, useState, useCallback } from 'react'
+import { useWhatsappTemplatesStore, type WhatsAppStatus, type WhatsAppTemplate } from '@/store/useWhatsappTemplatesStore'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import { Button } from '@/components/ui/button'
+import { Textarea } from '@/components/ui/textarea'
+import { Label } from '@/components/ui/label'
+import { Switch } from '@/components/ui/switch'
+import { Loader, MessageCircle, RotateCcw, Save } from 'lucide-react'
+import { toast } from 'sonner'
 
-// Status com ícones e cores
-const STATUS_CONFIG: Record<string, { icon: string; label: string; color: string }> = {
-  pending: { icon: '📋', label: 'Pendente', color: 'bg-yellow-50' },
-  confirmed: { icon: '✅', label: 'Confirmado', color: 'bg-green-50' },
-  preparing: { icon: '👨‍🍳', label: 'Preparando', color: 'bg-blue-50' },
-  delivering: { icon: '🚗', label: 'Entregando', color: 'bg-purple-50' },
-  delivered: { icon: '✅', label: 'Entregue', color: 'bg-green-100' },
-  cancelled: { icon: '❌', label: 'Cancelado', color: 'bg-red-50' },
-};
+// 7 Status fixos com ícones, cores e labels
+const STATUS_CONFIG: Record<WhatsAppStatus, { icon: string; label: string; color: string; description: string }> = {
+  pending: {
+    icon: '📋',
+    label: 'Pendente',
+    color: 'border-yellow-200 bg-yellow-50',
+    description: 'Quando o pedido é recebido no sistema',
+  },
+  confirmed: {
+    icon: '✅',
+    label: 'Confirmado',
+    color: 'border-green-200 bg-green-50',
+    description: 'Quando o admin confirma o pedido',
+  },
+  preparing: {
+    icon: '👨‍🍳',
+    label: 'Preparando',
+    color: 'border-blue-200 bg-blue-50',
+    description: 'A pizza está sendo preparada no forno',
+  },
+  delivering: {
+    icon: '🚗',
+    label: 'Entregando',
+    color: 'border-purple-200 bg-purple-50',
+    description: 'O pedido saiu para entrega',
+  },
+  delivered: {
+    icon: '🎉',
+    label: 'Entregue',
+    color: 'border-emerald-200 bg-emerald-50',
+    description: 'Pedido entregue e finalizado',
+  },
+  cancelled: {
+    icon: '❌',
+    label: 'Cancelado',
+    color: 'border-red-200 bg-red-50',
+    description: 'Pedido foi cancelado pelo usuário ou admin',
+  },
+  agendado: {
+    icon: '📅',
+    label: 'Agendado',
+    color: 'border-indigo-200 bg-indigo-50',
+    description: 'Pedido foi agendado para mais tarde',
+  },
+}
 
-const PLACEHOLDERS = [
-  { name: '{nome}', description: 'Nome do cliente' },
-  { name: '{pedido}', description: 'ID do pedido' },
-];
+const PLACEHOLDER_EXAMPLES = [
+  { name: '{nome}', description: 'Nome completo do cliente', example: 'João Silva' },
+  { name: '{pedido}', description: 'ID único do pedido', example: 'PED-20260331-001' },
+  { name: '{hora_entrega}', description: 'Hora estimada de entrega', example: '19:30' },
+]
 
-export const WhatsAppStatusTemplates = () => {
-  const { templates, loading, saving, saveTemplate } = useWhatsAppStatusTemplates();
-  const [editingId, setEditingId] = useState<string | null>(null);
-  const [editValues, setEditValues] = useState<Record<string, { template: string; enabled: boolean }>>({});
+const DEFAULT_TEMPLATES: Record<WhatsAppStatus, string> = {
+  pending: '📋 Oi {nome}! Recebemos seu pedido #{pedido}. Você receberá uma confirmação em breve!',
+  confirmed: '🍕 Oi {nome}! Seu pedido #{pedido} foi confirmado! ⏱️ Saindo do forno em ~25min',
+  preparing: '👨‍🍳 Seu pedido #{pedido} está sendo preparado com capricho!',
+  delivering: '🚗 Seu pedido #{pedido} está a caminho! 📍 Chega em ~{hora_entrega}',
+  delivered: '✅ Pedido #{pedido} entregue, {nome}! Valeu pela compra 🙏',
+  cancelled: '❌ Pedido #{pedido} foi cancelado. Em caso de dúvidas, nos contate!',
+  agendado: '📅 Seu pedido #{pedido} foi agendado! Confirmaremos com você em breve.',
+}
 
-  // Inicializar valores de edição
-  const initializeEdit = useCallback((template: WhatsAppStatusTemplate) => {
-    if (!editValues[template.id]) {
-      setEditValues((prev) => ({
-        ...prev,
-        [template.id]: {
-          template: template.message_template,
-          enabled: template.enabled,
-        },
-      }));
+interface TemplateCardProps {
+  status: WhatsAppStatus
+  template: WhatsAppTemplate | null
+  isEditing: boolean
+  isSaving: boolean
+  onEdit: (status: WhatsAppStatus) => void
+  onSave: (status: WhatsAppStatus, message: string, enabled: boolean) => Promise<void>
+  onCancel: () => void
+  onReset: (status: WhatsAppStatus) => Promise<void>
+}
+
+/**
+ * TemplateCard: Um card para cada um dos 7 status fixos
+ * UPSERT Pattern: clica em "Editar" → altera → clica em "Salvar"
+ * Soft delete: toggle enabled=false para desativar
+ * Reset: volta ao padrão predefinido
+ */
+const TemplateCard: React.FC<TemplateCardProps> = ({
+  status,
+  template,
+  isEditing,
+  isSaving,
+  onEdit,
+  onSave,
+  onCancel,
+  onReset,
+}) => {
+  const config = STATUS_CONFIG[status]
+  const [editMessage, setEditMessage] = useState(template?.message_template ?? DEFAULT_TEMPLATES[status])
+  const [editEnabled, setEditEnabled] = useState(template?.enabled ?? true)
+
+  // Sincronizar quando template muda (realtime updates)
+  useEffect(() => {
+    if (template) {
+      setEditMessage(template.message_template)
+      setEditEnabled(template.enabled)
     }
-  }, [editValues]);
+  }, [template])
 
-  // Salvar template
-  const handleSave = useCallback(
-    async (templateId: string) => {
-      const values = editValues[templateId];
-      if (!values) return;
+  const handleSave = async () => {
+    if (!editMessage.trim()) {
+      toast.error('Mensagem não pode estar vazia')
+      return
+    }
+    await onSave(status, editMessage, editEnabled)
+  }
 
-      if (!values.template.trim()) {
-        toast.error('Mensagem não pode estar vazia');
-        return;
-      }
+  return (
+    <Card className={`border-2 transition-all ${config.color} ${isEditing ? 'ring-2 ring-offset-2 ring-blue-500' : ''}`}>
+      <CardHeader className="pb-3">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex items-start gap-3 flex-1">
+            <span className="text-3xl">{config.icon}</span>
+            <div className="flex-1">
+              <CardTitle className="text-lg flex items-center gap-2">
+                {config.label}
+                {!editEnabled && !isEditing && (
+                  <span className="inline-block px-2 py-1 text-xs bg-gray-200 text-gray-700 rounded font-medium">
+                    Desativado
+                  </span>
+                )}
+              </CardTitle>
+              <CardDescription className="text-xs mt-1">{config.description}</CardDescription>
+            </div>
+          </div>
 
-      const success = await saveTemplate(templateId, values.template, values.enabled);
-      if (success) {
-        setEditingId(null);
-        toast.success('✅ Template salvo com sucesso');
-      }
-    },
-    [editValues, saveTemplate]
-  );
+          {/* Toggle Enable/Disable */}
+          <div className="flex flex-col items-center gap-1">
+            <Switch
+              checked={editEnabled}
+              onCheckedChange={setEditEnabled}
+              disabled={!isEditing || isSaving}
+              aria-label={`${config.label} - Ativar/Desativar`}
+            />
+            <span className="text-xs text-muted-foreground">{editEnabled ? 'Ativo' : 'Inativo'}</span>
+          </div>
+        </div>
+      </CardHeader>
 
-  // Cancelar edição
+      <CardContent className="space-y-4">
+        {/* Preview ou Editor */}
+        {isEditing ? (
+          <>
+            <div className="space-y-2">
+              <Label htmlFor={`template-${status}`} className="text-sm font-medium">
+                Conteúdo do Template
+              </Label>
+              <Textarea
+                id={`template-${status}`}
+                value={editMessage}
+                onChange={(e) => setEditMessage(e.target.value)}
+                placeholder="Digite sua mensagem..."
+                className="min-h-[120px] resize-none font-mono text-sm"
+                disabled={isSaving}
+              />
+              <p className="text-xs text-muted-foreground">
+                {editMessage.length} caracteres (WhatsApp limite: 4096)
+              </p>
+            </div>
+
+            {/* Placeholders Info */}
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 space-y-2">
+              <p className="text-xs font-semibold text-blue-900">📌 Placeholders Disponíveis:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                {PLACEHOLDER_EXAMPLES.map((placeholder) => (
+                  <div key={placeholder.name} className="text-xs bg-white rounded p-2 border border-blue-100">
+                    <code className="block text-blue-600 font-mono font-bold">{placeholder.name}</code>
+                    <span className="text-blue-700">{placeholder.description}</span>
+                    <span className="text-blue-500 text-xs block mt-1">Ex: {placeholder.example}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Botões Edição */}
+            <div className="flex gap-2 pt-2">
+              <Button
+                onClick={handleSave}
+                disabled={isSaving}
+                size="sm"
+                className="flex-1 gap-2"
+                variant="default"
+              >
+                {isSaving ? (
+                  <>
+                    <Loader className="w-4 h-4 animate-spin" />
+                    Salvando...
+                  </>
+                ) : (
+                  <>
+                    <Save className="w-4 h-4" />
+                    Salvar
+                  </>
+                )}
+              </Button>
+              <Button
+                onClick={onCancel}
+                disabled={isSaving}
+                variant="outline"
+                size="sm"
+                className="flex-1"
+              >
+                Cancelar
+              </Button>
+              <Button
+                onClick={() => onReset(status)}
+                disabled={isSaving}
+                variant="ghost"
+                size="sm"
+                className="gap-1"
+                title="Restaurar template padrão"
+              >
+                <RotateCcw className="w-4 h-4" />
+                <span className="hidden sm:inline">Reset</span>
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            {/* Preview */}
+            <div className="bg-white border rounded-lg p-3 min-h-[100px] flex items-center">
+              <p className="text-sm leading-relaxed whitespace-pre-wrap break-words">{editMessage}</p>
+            </div>
+
+            {/* Last Updated */}
+            <div className="text-xs text-muted-foreground">
+              {template ? (
+                <>
+                  <span>✏️ Atualizado {new Date(template.updated_at).toLocaleDateString('pt-BR')}</span>
+                  <span className="ml-2">às {new Date(template.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}</span>
+                </>
+              ) : (
+                <span className="text-yellow-600">⚠️ Template não salvo ainda</span>
+              )}
+            </div>
+
+            {/* Edit Button */}
+            <Button
+              onClick={() => onEdit(status)}
+              variant="outline"
+              size="sm"
+              className="w-full"
+            >
+              Editar Template
+            </Button>
+          </>
+        )}
+      </CardContent>
+    </Card>
+  )
+}
+
+/**
+ * WhatsAppStatusTemplates: Painel Admin com 7 cards fixos
+ * Grid responsivo: 1 coluna mobile, 2 colunas tablet, 3 colunas desktop
+ */
+export const WhatsAppStatusTemplates = () => {
+  const store = useWhatsappTemplatesStore()
+  const [tenantId, setTenantId] = useState<string>('')
+  const [editingStatus, setEditingStatus] = useState<WhatsAppStatus | null>(null)
+  const [resetting, setResetting] = useState<WhatsAppStatus | null>(null)
+
+  // Obter tenant_id e carregar templates
+  useEffect(() => {
+    const id =
+      sessionStorage.getItem('sb-auth-tenant-id') ||
+      sessionStorage.getItem('sb-tenant-id-by-slug') ||
+      localStorage.getItem('admin-tenant-id')
+
+    if (id) {
+      setTenantId(id)
+      store.loadTemplates(id)
+
+      // Subscrever a mudanças realtime
+      const unsubscribe = store.subscribeToChanges(id, () => {
+        toast.info('💡 Templates atualizados em tempo real')
+      })
+
+      return () => unsubscribe()
+    }
+  }, [store])
+
+  // Handlers
+  const handleEdit = useCallback((status: WhatsAppStatus) => {
+    setEditingStatus(status)
+  }, [])
+
   const handleCancel = useCallback(() => {
-    setEditingId(null);
-  }, []);
+    setEditingStatus(null)
+  }, [])
 
-  // Atualizar valor de edição
-  const updateEditValue = useCallback(
-    (templateId: string, field: 'template' | 'enabled', value: string | boolean) => {
-      setEditValues((prev) => ({
-        ...prev,
-        [templateId]: {
-          ...prev[templateId],
-          [field]: value,
-        },
-      }));
+  const handleSave = useCallback(
+    async (status: WhatsAppStatus, message: string, enabled: boolean) => {
+      if (!tenantId) {
+        toast.error('Tenant não identificado')
+        return
+      }
+
+      const success = await store.updateTemplate(tenantId, status, message, enabled)
+      if (success) {
+        setEditingStatus(null)
+        toast.success(`✅ Template ${STATUS_CONFIG[status].label} salvo com sucesso`)
+      }
     },
-    []
-  );
+    [tenantId, store]
+  )
 
-  if (loading) {
+  const handleReset = useCallback(
+    async (status: WhatsAppStatus) => {
+      if (!tenantId) {
+        toast.error('Tenant não identificado')
+        return
+      }
+
+      setResetting(status)
+      try {
+        // Soft delete + recri ate with default
+        await store.resetTemplate(tenantId, status)
+        toast.success(`✅ Template ${STATUS_CONFIG[status].label} resetado para padrão`)
+      } finally {
+        setResetting(null)
+      }
+    },
+    [tenantId, store]
+  )
+
+  if (store.loading && Object.values(store.templates).every((t) => !t)) {
     return (
       <Card>
-        <CardContent className="py-12 text-center">
-          <Loader className="w-8 h-8 animate-spin mx-auto mb-3 text-muted-foreground" />
-          <p className="text-muted-foreground">Carregando templates...</p>
+        <CardContent className="py-16 flex flex-col items-center justify-center gap-4">
+          <Loader className="w-10 h-10 animate-spin text-muted-foreground" />
+          <div className="text-center">
+            <p className="text-lg font-medium">Carregando Templates...</p>
+            <p className="text-sm text-muted-foreground">Aguarde enquanto sincronizamos com seu banco de dados</p>
+          </div>
         </CardContent>
       </Card>
-    );
+    )
   }
 
   return (
     <div className="space-y-6">
-      {/* Cabeçalho */}
-      <div>
-        <h3 className="text-lg font-semibold flex items-center gap-2 mb-2">
-          <MessageCircle className="w-5 h-5" />
-          Configurar Templates de Status
-        </h3>
-        <p className="text-sm text-muted-foreground">
-          Personalize as mensagens enviadas para cada status do pedido. Use os placeholders {'{nome}'} e {'{pedido}'}
+      {/* Header */}
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <MessageCircle className="w-6 h-6 text-blue-600" />
+          <h2 className="text-2xl font-bold">Templates de WhatsApp</h2>
+        </div>
+        <p className="text-muted-foreground max-w-xl">
+          Personalize as 7 mensagens que seus clientes recebem por WhatsApp conforme o status do pedido avança. 
+          Use os placeholders para inserir dados dinâmicos como nome e ID do pedido.
         </p>
       </div>
 
-      {/* Accordion com Templates */}
-      <Accordion type="multiple" defaultValue={['pending', 'confirmed']} className="space-y-3">
-        {templates.map((template) => {
-          const config = STATUS_CONFIG[template.status] || { icon: '📝', label: template.status, color: 'bg-gray-50' };
-          const isEditing = editingId === template.id;
-          const values = editValues[template.id] || {
-            template: template.message_template,
-            enabled: template.enabled,
-          };
+      {/* Performance Info */}
+      <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
+        <span className="font-semibold">⚡ Opção A - UI Fixa 7 Slots:</span> O(1) performance, cache eficiente, RLS simples, escalável para 10k+ tenants
+      </div>
 
-          return (
-            <Card key={template.id} className={config.color}>
-              <AccordionItem value={template.status} className="border-0">
-                <div className="flex items-center justify-between px-4 pt-4">
-                  <AccordionTrigger className="flex-1 hover:no-underline">
-                    <div className="flex items-center gap-3 text-left">
-                      <span className="text-2xl">{config.icon}</span>
-                      <div>
-                        <p className="font-semibold">
-                          {config.label}
-                          {!template.enabled && (
-                            <span className="ml-2 text-xs font-normal text-muted-foreground">(Desativado)</span>
-                          )}
-                        </p>
-                        <p className="text-xs text-muted-foreground line-clamp-1 max-w-md">
-                          {template.message_template}
-                        </p>
-                      </div>
-                    </div>
-                  </AccordionTrigger>
+      {/* 7 Status Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max">
+        {(Object.keys(STATUS_CONFIG) as WhatsAppStatus[]).map((status) => (
+          <TemplateCard
+            key={status}
+            status={status}
+            template={store.templates[status]}
+            isEditing={editingStatus === status}
+            isSaving={store.saving || resetting === status}
+            onEdit={handleEdit}
+            onSave={handleSave}
+            onCancel={handleCancel}
+            onReset={handleReset}
+          />
+        ))}
+      </div>
 
-                  {/* Toggle Enabled */}
-                  <div className="flex items-center gap-3 ml-2">
-                    <Switch
-                      checked={values.enabled}
-                      onCheckedChange={(checked) =>
-                        updateEditValue(template.id, 'enabled', checked)
-                      }
-                      disabled={!isEditing && saving}
-                    />
-                  </div>
-                </div>
-
-                <AccordionContent className="px-4 pb-4 pt-2">
-                  <div className="space-y-4">
-                    {/* Campo de Texto */}
-                    <div className="space-y-2">
-                      <Label htmlFor={`template-${template.id}`}>Mensagem do Template</Label>
-                      {isEditing ? (
-                        <Textarea
-                          id={`template-${template.id}`}
-                          value={values.template}
-                          onChange={(e) =>
-                            updateEditValue(template.id, 'template', e.target.value)
-                          }
-                          placeholder="Digite sua mensagem..."
-                          className="min-h-[100px] resize-none"
-                          disabled={saving}
-                        />
-                      ) : (
-                        <div className="p-3 bg-white rounded-md border border-input text-sm whitespace-pre-wrap break-words">
-                          {template.message_template}
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Placeholders Disponíveis */}
-                    <div className="bg-blue-50 p-3 rounded-md">
-                      <p className="text-xs font-semibold text-blue-900 mb-2">Placeholders disponíveis:</p>
-                      <div className="grid grid-cols-2 gap-2">
-                        {PLACEHOLDERS.map((placeholder) => (
-                          <div key={placeholder.name} className="text-xs">
-                            <code className="bg-blue-100 px-2 py-1 rounded font-mono text-blue-900">
-                              {placeholder.name}
-                            </code>
-                            <p className="text-blue-700 mt-1">{placeholder.description}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    {/* Botões de Ação */}
-                    <div className="flex gap-2 pt-4">
-                      {!isEditing ? (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={() => {
-                            initializeEdit(template);
-                            setEditingId(template.id);
-                          }}
-                          className="flex-1"
-                        >
-                          Editar
-                        </Button>
-                      ) : (
-                        <>
-                          <Button
-                            size="sm"
-                            onClick={() => handleSave(template.id)}
-                            disabled={saving}
-                            className="flex-1 gap-2"
-                          >
-                            {saving ? (
-                              <>
-                                <Loader className="w-3 h-3 animate-spin" />
-                                Salvando...
-                              </>
-                            ) : (
-                              <>
-                                <Save className="w-3 h-3" />
-                                Salvar
-                              </>
-                            )}
-                          </Button>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={handleCancel}
-                            disabled={saving}
-                          >
-                            Cancelar
-                          </Button>
-                        </>
-                      )}
-                    </div>
-
-                    {/* Info de Última Atualização */}
-                    <p className="text-xs text-muted-foreground">
-                      Última atualização: {new Date(template.updated_at).toLocaleDateString('pt-BR')}{' '}
-                      às {new Date(template.updated_at).toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })}
-                    </p>
-                  </div>
-                </AccordionContent>
-              </AccordionItem>
-            </Card>
-          );
-        })}
-      </Accordion>
+      {/* Info Footer */}
+      <Card className="bg-slate-50 border-dashed">
+        <CardContent className="pt-6 text-xs text-muted-foreground space-y-2">
+          <p>
+            <span className="font-semibold text-slate-900">💾 Auto-Save:</span> Templates são salvos imediatamente quando você clica "Salvar"
+          </p>
+          <p>
+            <span className="font-semibold text-slate-900">🔄 Realtime Sync:</span> Se outro gerente editar um template, você verá a atualização em tempo real
+          </p>
+          <p>
+            <span className="font-semibold text-slate-900">🔒 Isolado por Tenant:</span> Cada pizzeria vê apenas seus próprios templates
+          </p>
+        </CardContent>
+      </Card>
     </div>
-  );
-};
+  )
+}
+
