@@ -585,28 +585,51 @@ export function CheckoutModal() {
       const newNeighborhoodId = `user-${neighborhoodInput.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
       const trimmedName = neighborhoodInput.trim();
       
-      // ✅ NOVO (30/03/2026): Obter tenant_id do sessionStorage para RLS
+      // ✅ NOVO (30/03/2026): Obter tenant_id do sessionStorage
       const tenantIdFromStorage = sessionStorage.getItem('sb-tenant-id-by-slug') || sessionStorage.getItem('sb-auth-tenant-id') || tenantId;
-      console.log('[CHECKOUT] Criando bairro com tenant_id:', tenantIdFromStorage);
+      console.log('[CHECKOUT] Criando bairro via Edge Function com tenant_id:', tenantIdFromStorage);
 
-      // Salvar novo bairro no Supabase
-      const { error } = await (supabase as any)
-        .from('neighborhoods')
-        .insert([
-          {
-            id: newNeighborhoodId,
-            name: trimmedName,
-            delivery_fee: DEFAULT_DELIVERY_FEE,
-            is_active: true,
-            tenant_id: tenantIdFromStorage, // ✅ CRÍTICO: Necessário para RLS policy
+      if (!tenantIdFromStorage) {
+        console.error('❌ [CHECKOUT] tenant_id não encontrado no sessionStorage');
+        toast.error('Erro: tenant_id não identificado');
+        setIsCreatingNeighborhood(false);
+        return;
+      }
+
+      // ✅ NOVO: Chamar Edge Function para criar bairro (bypassa RLS client-side)
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('VITE_SUPABASE_URL not configured');
+      }
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/create-neighborhood`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        ]);
+          body: JSON.stringify({
+            tenantId: tenantIdFromStorage,
+            neighborhood: {
+              id: newNeighborhoodId,
+              name: trimmedName,
+              delivery_fee: DEFAULT_DELIVERY_FEE,
+              is_active: true,
+            },
+          }),
+        }
+      );
 
-      if (error) {
-        console.error('❌ Erro ao criar bairro:', error);
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Erro ao criar bairro via Edge Function:', responseData);
         toast.error('Erro ao adicionar bairro');
         return;
       }
+
+      console.log('✅ [CHECKOUT] Bairro criado com sucesso via Edge Function:', responseData);
 
       // ✅ CRITICAL FIX: Setar selectedNeighborhood IMEDIATAMENTE após criar
       const newNeighborhood = {
