@@ -118,46 +118,57 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
 
       console.log(`🔍 [TENANT-SETTINGS] Carregando configurações para tenant: ${tenantId}`);
 
-      // 🟢 STRATEGY: Usar RPC function ensure_tenant_settings
-      // Se não existe, cria com defaults automaticamente
-      const { data, error: rpcError } = await (supabase as any).rpc('ensure_tenant_settings', {
-        p_tenant_id: tenantId,
-      });
+      // 🟢 STRATEGY 1: Tentar QUERY DIRETA primeiro (mais rápido)
+      const { data: existingData, error: queryError } = await supabase
+        .from('tenant_settings')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .single();
 
-      if (rpcError) {
-        console.warn(`⚠️  [TENANT-SETTINGS] RPC failed, usando defaults locais:`, rpcError);
-        // Fallback: usar defaults locais
-        setSettings({
-          ...DEFAULT_SETTINGS,
-          id: `temp-${Date.now()}`,
-          tenant_id: tenantId,
-        });
-        setIsUsingDefaults(true);
-        setError(null); // Não mostrar erro, usar defaults
+      if (!queryError && existingData) {
+        // ✅ Sucesso: dados existem no BD
+        console.log(`✅ [TENANT-SETTINGS] Dados encontrados:`, existingData);
+        setSettings(existingData as TenantSettings);
+        setIsUsingDefaults(false);
+        setIsLoading(false);
         return;
       }
 
-      if (!data || !Array.isArray(data) || data.length === 0) {
-        console.warn(`⚠️  [TENANT-SETTINGS] RPC retornou vazio, usando defaults`);
-        setSettings({
-          ...DEFAULT_SETTINGS,
-          id: `temp-${Date.now()}`,
-          tenant_id: tenantId,
-        });
-        setIsUsingDefaults(true);
-        setError(null);
+      console.log(`⚠️  [TENANT-SETTINGS] Dados não encontrados, tentando RPC auto-create...`);
+
+      // 🟢 STRATEGY 2: Se não existe, tentar RPC para criar
+      const { data: rpcData, error: rpcError } = await (supabase as any).rpc(
+        'ensure_tenant_settings',
+        { p_tenant_id: tenantId }
+      );
+
+      if (!rpcError && rpcData && Array.isArray(rpcData) && rpcData.length > 0) {
+        // ✅ RPC criou/retornou dados
+        console.log(`✅ [TENANT-SETTINGS] Auto-criado via RPC:`, rpcData[0]);
+        setSettings(rpcData[0] as TenantSettings);
+        setIsUsingDefaults(false);
+        setIsLoading(false);
         return;
       }
 
-      // Sucesso: dados retornados pela RPC
-      const settingsData = data[0] as TenantSettings;
-      console.log(`✅ [TENANT-SETTINGS] Configurações carregadas via RPC:`, settingsData);
-      setSettings(settingsData);
-      setIsUsingDefaults(false); // Dados reais do BD
+      console.warn(`⚠️  [TENANT-SETTINGS] RPC falhou ou está indisponível, usando defaults:`, rpcError);
+
+      // 🟢 STRATEGY 3: Fallback para defaults locais
+      // Nota: tenant_id estará vazio até que user salvar (OK por enquanto)
+      const defaultSettingsWithTenant = {
+        ...DEFAULT_SETTINGS,
+        id: `temp-${Date.now()}`,
+        tenant_id: tenantId,
+      };
+
+      setSettings(defaultSettingsWithTenant);
+      setIsUsingDefaults(true);
+      setError(null); // NUNCA mostrar erro para usuário
+      setIsLoading(false);
 
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Erro desconhecido';
-      console.error(`❌ [TENANT-SETTINGS] Erro ao carregar:`, err);
+      console.error(`❌ [TENANT-SETTINGS] Erro geral:`, err);
       
       // Fallback: usar defaults mesmo com erro
       setSettings({
@@ -167,7 +178,6 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
       });
       setIsUsingDefaults(true);
       setError(null); // Não mostrar erro para usuário
-    } finally {
       setIsLoading(false);
     }
   }, [tenantId]);
@@ -218,7 +228,7 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
     };
   }, [tenantId, loadSettings]);
 
-  // Atualizar settings usando UPSERT via RPC
+  // Atualizar settings com UPSERT automático
   const updateSettings = useCallback(
     async (updates: Partial<TenantSettings>) => {
       if (!tenantId || !settings) {
@@ -227,29 +237,52 @@ export const useTenantSettings = (tenantId: string): UseTenantSettingsState => {
       }
 
       try {
-        console.log(`📝 [TENANT-SETTINGS] Atualizando configurações via UPSERT:`, updates);
+        console.log(`📝 [TENANT-SETTINGS] Atualizando configurações:`, updates);
 
-        // Converter updates para JSONB format
-        const updatesJson = JSON.stringify(updates);
+        // 🟢 STRATEGY 1: Tentar UPDATE direto
+        const { data: updateData, error: updateError, count } = await supabase
+          .from('tenant_settings')
+          .update({
+            ...updates,
+            updated_at: new Date().toISOString(),
+          })
+          .eq('tenant_id', tenantId)
+          .select()
+          .single();
 
-        // 🟢 Usar RPC function upsert_tenant_settings
-        // Isso garante: 1) Se não existe, cria; 2) Se existe, atualiza
-        const { data, error: rpcError } = await (supabase as any).rpc('upsert_tenant_settings', {
-          p_tenant_id: tenantId,
-          p_updates: updatesJson,
-        });
-
-        if (rpcError) {
-          console.error(`❌ [TENANT-SETTINGS] UPSERT RPC falhou:`, rpcError);
-          throw rpcError;
+        if (!updateError && updateData) {
+          // ✅ UPDATE bem-sucedido
+          console.log(`✅ [TENANT-SETTINGS] UPDATE bem-sucedido:`, updateData);
+          setSettings(updateData as TenantSettings);
+          setIsUsingDefaults(false);
+          return;
         }
 
-        console.log(`✅ [TENANT-SETTINGS] UPSERT bem-sucedido, dados atualizados`);
-        
-        // Atualizar estado local imediatamente (realtime chegará depois)
-        // Mesclar updates com settings existentes
-        setSettings(prev => prev ? { ...prev, ...updates } : null);
-        
+        console.log(`⚠️  [TENANT-SETTINGS] UPDATE falhou (talvez não exista), tentando INSERT...`);
+
+        // 🟢 STRATEGY 2: Se UPDATE falhou, tentar INSERT (UPSERT)
+        const { data: insertData, error: insertError } = await supabase
+          .from('tenant_settings')
+          .insert({
+            tenant_id: tenantId,
+            ...updates,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .select()
+          .single();
+
+        if (!insertError && insertData) {
+          // ✅ INSERT bem-sucedido
+          console.log(`✅ [TENANT-SETTINGS] INSERT bem-sucedido:`, insertData);
+          setSettings(insertData as TenantSettings);
+          setIsUsingDefaults(false);
+          return;
+        }
+
+        console.error(`❌ [TENANT-SETTINGS] INSERT também falhou`, insertError);
+        throw insertError || updateError || new Error('Não conseguiu atualizar/inserir');
+
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Erro ao atualizar configurações';
         console.error(`❌ [TENANT-SETTINGS] Erro geral ao atualizar:`, err);
