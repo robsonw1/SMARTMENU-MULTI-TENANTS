@@ -10,6 +10,7 @@
   import { Input } from '@/components/ui/input';
   import { Label } from '@/components/ui/label';
   import { Switch } from '@/components/ui/switch';
+  import { Checkbox } from '@/components/ui/checkbox';
   import { Separator } from '@/components/ui/separator';
   import { ScrollArea } from '@/components/ui/scroll-area';
   import {
@@ -874,7 +875,7 @@
           });
         }
 
-        // ✅ CRÍTICO: Garantir que os 5 toggles novos estão no payload
+        // ✅ CRÍTICO: Garantir que os 5 toggles + enabled_sizes estão no payload
         const finalSettingsToSave = {
           ...settingsForm,
           schedule: validatedSchedule,
@@ -884,6 +885,8 @@
           adicionais_enabled: settingsForm.adicionais_enabled ?? true,
           bebidas_enabled: settingsForm.bebidas_enabled ?? true,
           bordas_enabled: settingsForm.bordas_enabled ?? true,
+          // ✅ Tamanhos disponíveis (com fallback para backward compatibility)
+          enabled_sizes: settingsForm.enabled_sizes ?? ["broto", "grande"],
         };
         
         console.log('💾 [ADMIN-SAVE] ════════════════════════════════════════');
@@ -1647,6 +1650,41 @@
                   </div>
 
                   <Separator />
+
+                  {/* Sele├ž├úo de Tamanhos Dispon├¡veis */}
+                  <div className="space-y-3">
+                    <Label className="text-base font-semibold">Tamanhos Dispon├¡veis</Label>
+                    <p className="text-sm text-muted-foreground">Escolha quais tamanhos os clientes poder├úo pedir</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {['broto', 'grande'].map((size) => (
+                        <div key={size} className="flex items-center space-x-2 p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                          <Checkbox
+                            id={`size-${size}`}
+                            checked={(settingsForm?.enabled_sizes ?? ["broto", "grande"]).includes(size)}
+                            onCheckedChange={(checked) => {
+                              const current = settingsForm?.enabled_sizes ?? ["broto", "grande"];
+                              let updated: string[];
+                              if (checked) {
+                                updated = [...current, size].sort((a, b) => a.localeCompare(b));
+                              } else {
+                                updated = current.filter(s => s !== size);
+                              }
+                              // Garantir que sempre ha pelo menos 1 tamanho
+                              if (updated.length > 0) {
+                                updateSettingsFormWithFlag({ enabled_sizes: updated });
+                              }
+                            }}
+                          />
+                          <Label htmlFor={`size-${size}`} className="cursor-pointer font-medium capitalize">
+                            {size === 'broto' ? 'Broto (4 fatias)' : 'Grande (8 fatias)'}
+                          </Label>
+                        </div>
+                      ))}
+                    </div>
+                    {(!settingsForm?.enabled_sizes || settingsForm.enabled_sizes.length === 0) && (
+                      <p className="text-xs text-amber-600 font-medium">⚠️ Pelo menos um tamanho deve estar ativado</p>
+                    )}
+                  </div>
 
                   {/* Botão Salvar - Específico para Toggles */}
                   <div className="flex gap-2 justify-end">
