@@ -4,7 +4,7 @@
   import { useAdminAuth } from '@/hooks/use-admin-auth';
   import { initTenantResolver, getTenantIdSync } from '@/lib/tenant-resolver';
   import { Button } from '@/components/ui/button';
-  import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
   import { Badge } from '@/components/ui/badge';
   import { Input } from '@/components/ui/input';
@@ -54,6 +54,8 @@
     Clock,
     Power,
     QrCode,
+    Save,
+    AlertCircle,
   } from 'lucide-react';
   import {
     Product,
@@ -1436,7 +1438,8 @@
 
             {/* Products Tab */}
             <TabsContent value="products">
-              <Card>
+              {/* SEÇÃO 1: GERENCIAR CARDÁPIO (Topo com Produtos) */}
+              <Card className="mb-6">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Gerenciar Cardápio</CardTitle>
                   <Button
@@ -1451,72 +1454,7 @@
                   </Button>
                 </CardHeader>
                 <CardContent>
-                  <div className="space-y-6 mb-6">
-                    <div>
-                      <h3 className="text-lg font-semibold mb-4">Configurações de Cardápio</h3>
-                      <p className="text-sm text-muted-foreground mb-4">Use os toggles abaixo para ativar/desativar recursos do cardápio</p>
-                      
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                          <div>
-                            <Label className="text-base font-medium cursor-pointer">Meia-meia</Label>
-                            <p className="text-xs text-muted-foreground">Permitir que clientes peçam meia-meia</p>
-                          </div>
-                          <Switch
-                            checked={settingsForm?.meia_meia_enabled ?? true}
-                            onCheckedChange={(value) => updateSettingsFormWithFlag({ meia_meia_enabled: value })}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                          <div>
-                            <Label className="text-base font-medium cursor-pointer">Imagens nos Produtos</Label>
-                            <p className="text-xs text-muted-foreground">Exibir fotos do cardápio</p>
-                          </div>
-                          <Switch
-                            checked={settingsForm?.imagens_enabled ?? true}
-                            onCheckedChange={(value) => updateSettingsFormWithFlag({ imagens_enabled: value })}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                          <div>
-                            <Label className="text-base font-medium cursor-pointer">Adicionais</Label>
-                            <p className="text-xs text-muted-foreground">Permitir adicionais nas pizzas</p>
-                          </div>
-                          <Switch
-                            checked={settingsForm?.adicionais_enabled ?? true}
-                            onCheckedChange={(value) => updateSettingsFormWithFlag({ adicionais_enabled: value })}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                          <div>
-                            <Label className="text-base font-medium cursor-pointer">Bebidas</Label>
-                            <p className="text-xs text-muted-foreground">Incluir categoria de bebidas</p>
-                          </div>
-                          <Switch
-                            checked={settingsForm?.bebidas_enabled ?? true}
-                            onCheckedChange={(value) => updateSettingsFormWithFlag({ bebidas_enabled: value })}
-                          />
-                        </div>
-
-                        <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                          <div>
-                            <Label className="text-base font-medium cursor-pointer">Bordas</Label>
-                            <p className="text-xs text-muted-foreground">Permitir escolher tipos de borda</p>
-                          </div>
-                          <Switch
-                            checked={settingsForm?.bordas_enabled ?? true}
-                            onCheckedChange={(value) => updateSettingsFormWithFlag({ bordas_enabled: value })}
-                          />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-
-                  <Separator className="my-6" />
-
+                  {/* Filtros e Busca */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
                     <div className="lg:col-span-1">
                       <Input
@@ -1557,6 +1495,7 @@
                     </div>
                   </div>
 
+                  {/* Tabela de Produtos */}
                   <ScrollArea className="h-[600px]">
                     <Table>
                       <TableHeader>
@@ -1636,6 +1575,107 @@
                     product={editingProduct}
                     tenantId={tenantId}
                   />
+                </CardContent>
+              </Card>
+
+              {/* SEÇÃO 2: CONFIGURAÇÕES AVANÇADAS (Abaixo com Toggles) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    Configurações Avançadas de Cardápio
+                  </CardTitle>
+                  <CardDescription>Ative ou desative recursos disponíveis no menu dos clientes</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Toggles */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Meia-meia</Label>
+                        <p className="text-xs text-muted-foreground">Permitir que clientes peçam meia-meia</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.meia_meia_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ meia_meia_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Imagens nos Produtos</Label>
+                        <p className="text-xs text-muted-foreground">Exibir fotos do cardápio</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.imagens_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ imagens_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Adicionais</Label>
+                        <p className="text-xs text-muted-foreground">Permitir adicionais nas pizzas</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.adicionais_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ adicionais_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Bebidas</Label>
+                        <p className="text-xs text-muted-foreground">Incluir categoria de bebidas</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.bebidas_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ bebidas_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Bordas</Label>
+                        <p className="text-xs text-muted-foreground">Permitir escolher tipos de borda</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.bordas_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ bordas_enabled: value })}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Botão Salvar - Específico para Toggles */}
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSettingsForm(useSettingsStore.getState().settings);
+                        setHasUnsavedChanges(false);
+                      }}
+                      disabled={!hasUnsavedChanges}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleSaveSettings}
+                      disabled={!hasUnsavedChanges}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Salvar Alterações
+                    </Button>
+                  </div>
+
+                  {hasUnsavedChanges && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      <p className="text-xs text-amber-800">Você tem alterações não salvas. Clique em "Salvar Alterações" para confirmar.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
