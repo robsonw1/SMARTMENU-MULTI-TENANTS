@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUIStore, useCartStore } from '@/store/useStore';
 import { availableIngredients, meatIngredients, paidExtraIngredients, Product, CartItem } from '@/data/products';
 import { useCatalogStore } from '@/store/useCatalogStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { GlassWater, ChefHat } from 'lucide-react';
 import { Plus, Minus, Leaf, Star, Sparkles, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
@@ -91,6 +92,15 @@ export function ProductModal() {
   const isCombo = selectedProduct && selectedProduct.category === 'combos';
   const isCustomizable = selectedProduct?.isCustomizable || selectedProduct?.id === 'prem-moda-cliente';
   const showDrinkSelection = isPizza || isCombo;
+
+  // ✅ Importar toggles do settings para sincronizar com admin
+  const {
+    meia_meia_enabled = true,
+    bordas_enabled = true,
+    adicionais_enabled = true,
+    bebidas_enabled = true,
+    imagens_enabled = true,
+  } = useSettingsStore((s) => s.settings);
 
   const handleClose = () => {
     setProductModalOpen(false);
@@ -623,7 +633,7 @@ export function ProductModal() {
               )}
 
               {/* Half-Half Option - Only for Grande size and non-customizable */}
-              {isPizza && size === 'grande' && !isCustomizable && (
+              {isPizza && size === 'grande' && !isCustomizable && meia_meia_enabled && (
                 <>
                   <Separator />
                   <div>
@@ -667,7 +677,7 @@ export function ProductModal() {
               )}
 
               {/* Border Selection */}
-              {isPizza && (
+              {isPizza && bordas_enabled && (
                 <>
                   <Separator />
                   <div>
@@ -692,7 +702,7 @@ export function ProductModal() {
               )}
 
               {/* Extras - Only for non-customizable pizzas */}
-              {isPizza && !isCustomizable && (
+              {isPizza && !isCustomizable && adicionais_enabled && (
                 <>
                   <Separator />
                   <div>
@@ -845,7 +855,7 @@ export function ProductModal() {
               )}
 
               {/* Drink Selection */}
-              {showDrinkSelection && (
+              {showDrinkSelection && bebidas_enabled && (
                 <>
                   <Separator />
                   <div>
