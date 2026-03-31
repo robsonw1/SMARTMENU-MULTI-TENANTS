@@ -27,34 +27,52 @@ export const useLoyaltySettingsStore = create<LoyaltySettingsStore>((set, get) =
 
   loadSettings: async () => {
     try {
+      // Obter tenant_id da sessão (admin ou cliente)
+      let tenantId = sessionStorage.getItem('sb-auth-tenant-id') || 
+                     sessionStorage.getItem('sb-tenant-id-by-slug');
+      
+      console.log('[LOYALTY-SETTINGS] Carregando settings para tenant:', tenantId);
+      
+      // Buscar settings com fallback para global default
+      // Priorizar: tenant-specific > global (tenant_id IS NULL)
       const { data, error } = await (supabase as any)
         .from('loyalty_settings')
         .select('*')
-        .single();
+        .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)  // Tenant-specific OR global
+        .order('tenant_id', { ascending: false })  // tenant-specific first (NOT NULL)
+        .limit(1);
 
       if (error) {
         console.error('Erro ao carregar configurações de fidelização:', error);
         return;
       }
 
-      if (data) {
+      if (data && data.length > 0) {
+        const settingsRow = data[0];
         const settings: LoyaltySettings = {
-          id: data.id,
-          pointsPerReal: data.points_per_real || 1.0,
-          discountPer100Points: data.discount_per_100_points || 5.0,
-          minPointsToRedeem: data.min_points_to_redeem || 50,
-          bronzeMultiplier: data.bronze_multiplier || 1.0,
-          silverMultiplier: data.silver_multiplier || 1.1,
-          goldMultiplier: data.gold_multiplier || 1.2,
-          silverThreshold: data.silver_threshold || 500,
-          goldThreshold: data.gold_threshold || 1500,
-          signupBonusPoints: data.signup_bonus_points || 50,
-          pointsExpirationDays: data.points_expiration_days || 365,
-          updatedAt: data.updated_at,
+          id: settingsRow.id,
+          pointsPerReal: settingsRow.points_per_real || 1.0,
+          discountPer100Points: settingsRow.discount_per_100_points || 5.0,
+          minPointsToRedeem: settingsRow.min_points_to_redeem || 50,
+          bronzeMultiplier: settingsRow.bronze_multiplier || 1.0,
+          silverMultiplier: settingsRow.silver_multiplier || 1.1,
+          goldMultiplier: settingsRow.gold_multiplier || 1.2,
+          silverThreshold: settingsRow.silver_threshold || 500,
+          goldThreshold: settingsRow.gold_threshold || 1500,
+          signupBonusPoints: settingsRow.signup_bonus_points || 50,
+          pointsExpirationDays: settingsRow.points_expiration_days || 365,
+          updatedAt: settingsRow.updated_at,
         };
 
         set({ settings });
-        console.log('✅ Configurações de fidelização carregadas:', settings);
+        console.log('✅ Configurações de fidelização carregadas:', {
+          tenantId,
+          pointsPerReal: settings.pointsPerReal,
+          discountPer100Points: settings.discountPer100Points,
+          isGlobal: !settingsRow.tenant_id,
+        });
+      } else {
+        console.warn('[LOYALTY-SETTINGS] Nenhuma configuração encontrada para tenant:', tenantId);
       }
     } catch (error) {
       console.error('Erro em loadSettings:', error);
