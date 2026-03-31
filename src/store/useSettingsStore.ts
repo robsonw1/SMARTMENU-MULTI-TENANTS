@@ -350,7 +350,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         },
       };
 
-      console.log('📤 [UPDATE-SETTINGS] Chamando Edge Function com payload:', updatePayload);
+      console.log('📤 [UPDATE-SETTINGS] Toggles que serão salvos:', {
+        meia_meia_enabled: updatePayload.updates.meia_meia_enabled,
+        imagens_enabled: updatePayload.updates.imagens_enabled,
+        adicionais_enabled: updatePayload.updates.adicionais_enabled,
+        bebidas_enabled: updatePayload.updates.bebidas_enabled,
+        bordas_enabled: updatePayload.updates.bordas_enabled,
+      });
 
       // 5. CHAMAR EDGE FUNCTION (que executa como service_role)
       const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
