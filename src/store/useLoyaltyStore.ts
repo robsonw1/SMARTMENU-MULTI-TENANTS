@@ -297,6 +297,11 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
         .eq('id', customerId);
 
       // Registrar transação com hora local e data de expiração
+      // Obter tenant_id da sessão do cliente (fallback para primeira pizzaria)
+      const tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                       sessionStorage.getItem('sb-auth-tenant-id') ||
+                       (await (supabase as any).from('tenants').select('id').limit(1).then((r: any) => r.data?.[0]?.id));
+      
       await (supabase as any)
         .from('loyalty_transactions')
         .insert([{
@@ -306,6 +311,7 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
           description: `Bônus de cadastro - ${signupBonus} pontos`,
           created_at: getLocalISOString(),
           expires_at: expiresAtISO,
+          tenant_id: tenantId,  // Multi-tenant isolation
         }]);
 
       console.log('✅ Bônus de signup adicionado:', signupBonus, 'pontos | Total:', newTotalPoints);
@@ -374,6 +380,30 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
         .eq('id', customerId);
 
       // Registrar transação com hora local e data de expiração
+      // Obter tenant_id da ordem ou sessão
+      let transactionTenantId: string | undefined;
+      
+      // 1. Tentar obter do pedido (mais confiável)
+      const { data: orderData } = await (supabase as any)
+        .from('orders')
+        .select('tenant_id')
+        .eq('id', orderId)
+        .single();
+      transactionTenantId = orderData?.tenant_id;
+      
+      // 2. Fallback para sessionStorage
+      if (!transactionTenantId) {
+        transactionTenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                              sessionStorage.getItem('sb-auth-tenant-id') ||
+                              undefined;
+      }
+      
+      // 3. Último fallback: primeiro tenant do sistema
+      if (!transactionTenantId) {
+        const { data: tenants } = await (supabase as any).from('tenants').select('id').limit(1);
+        transactionTenantId = tenants?.[0]?.id;
+      }
+      
       await (supabase as any)
         .from('loyalty_transactions')
         .insert([{
@@ -384,6 +414,7 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
           description: `Compra no valor de R$ ${amount.toFixed(2)} - ${pointsEarned} pontos`,
           created_at: localISO,
           expires_at: expiresAtISO,
+          tenant_id: transactionTenantId,  // Multi-tenant isolation
         }]);
 
       // Nota: Cupons agora são gerados manualmente pelo admin via painel de controle
@@ -463,14 +494,20 @@ export const useLoyaltyStore = create<LoyaltyStore>((set, get) => ({
       });
 
       // Registrar transação com hora local
+      // Obter tenant_id da sessão (cliente logado no app)
+      const redemptionTenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                                 sessionStorage.getItem('sb-auth-tenant-id') ||
+                                 (await (supabase as any).from('tenants').select('id').limit(1).then((r: any) => r.data?.[0]?.id));
+      
       const { data: transData, error: transError } = await (supabase as any)
         .from('loyalty_transactions')
         .insert([{
           customer_id: customerId,
           points_spent: pointsToSpend,
           transaction_type: 'redemption',
-          description: `Resgate de ${pointsToSpend} pontos - Desconto de R$ ${discountAmount.toFixed(2)}`,
+          description: `Resgate de ${pointsToSpend} pontos para desconto de R$ ${discountAmount.toFixed(2)}`,
           created_at: getLocalISOString(),
+          tenant_id: redemptionTenantId,  // Multi-tenant isolation
         }])
         .select();
 
