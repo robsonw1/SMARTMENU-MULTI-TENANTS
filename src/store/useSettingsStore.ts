@@ -43,6 +43,12 @@ interface StoreSettings {
   respectBusinessHoursForScheduling?: boolean; // Se TRUE, s├│ exibe slots dentro do hor├írio
   allowSameDaySchedulingOutsideHours?: boolean; // Se TRUE, permite agendar para HOJE fora do hor├írio
   timezone?: string; // Fuso hor├írio do tenant (ex: America/Sao_Paulo)
+  // Configura├ß├Ķes de Card├ípio (toggles)
+  meia_meia_enabled?: boolean;
+  imagens_enabled?: boolean;
+  adicionais_enabled?: boolean;
+  bebidas_enabled?: boolean;
+  bordas_enabled?: boolean;
 }
 
 interface SettingsStore {
@@ -100,6 +106,12 @@ const defaultSettings: StoreSettings = {
   respectBusinessHoursForScheduling: true,
   allowSameDaySchedulingOutsideHours: false,
   timezone: 'America/Sao_Paulo',
+  // Configura├ß├Ķes de Card├ípio (toggles)
+  meia_meia_enabled: true,
+  imagens_enabled: true,
+  adicionais_enabled: true,
+  bebidas_enabled: true,
+  bordas_enabled: true,
 };
 
 const dayNames: (keyof WeekSchedule)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
