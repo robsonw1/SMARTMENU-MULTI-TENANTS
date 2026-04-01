@@ -8,6 +8,7 @@ import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import logoForneiro from '@/assets/logo-forneiro.jpg';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useMemo } from 'react';
 
 interface FooterProps {
   onLoginClick?: () => void;
@@ -26,8 +27,33 @@ const dayLabels: Record<keyof WeekSchedule, string> = {
 
 export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
   const settings = useSettingsStore((s) => s.settings);
+  const categoriesConfig = useSettingsStore((s) => s.settings.categories_config);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+
+  // 💾 Carregar categorias de localStorage NO PRIMEIRO RENDER (antes do BD)
+  const cachedCategoriesConfig = useMemo(() => {
+    try {
+      const cached = localStorage.getItem('cached_categories_config');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao carregar categories_config do localStorage:', error);
+    }
+    return null;
+  }, []);
+
+  // 📍 Se não tem dados no store E não tem cache, mostrar "Carregando..."
+  if (!categoriesConfig && !cachedCategoriesConfig) {
+    return (
+      <footer className="bg-card border-t py-12">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-lg text-foreground">Carregando...</p>
+        </div>
+      </footer>
+    );
+  }
 
   const handleShareQR = async () => {
     const shareText = `Peça sua pizza no ${settings.name}! 🍕 ${appUrl}`;
