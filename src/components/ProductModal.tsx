@@ -100,6 +100,8 @@ export function ProductModal() {
     adicionais_enabled = true,
     bebidas_enabled = true,
     imagens_enabled = true,
+    broto_enabled = true,
+    grande_enabled = true,
   } = useSettingsStore((s) => s.settings);
 
   const handleClose = () => {
@@ -431,8 +433,8 @@ export function ProductModal() {
             </DialogHeader>
 
             <div className="mt-6 space-y-6">
-              {/* Size Selection for Pizzas */}
-              {isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge && (
+              {/* Size Selection for Pizzas - Renderiza dinamicamente baseado em toggles */}
+              {isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge && (broto_enabled || grande_enabled) && (
                 <div>
                   <Label className="text-base font-semibold mb-3 block">Tamanho</Label>
                   <RadioGroup value={size} onValueChange={(v) => {
@@ -442,37 +444,41 @@ export function ProductModal() {
                       setIsHalfHalf(false);
                     }
                   }}>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="relative">
-                        <RadioGroupItem value="grande" id="grande" className="peer sr-only" />
-                        <Label
-                          htmlFor="grande"
-                          className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
-                            peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
-                            hover:bg-secondary transition-colors"
-                        >
-                          <span className="font-semibold">Grande</span>
-                          <span className="text-lg font-bold text-primary">
-                            {formatPrice(selectedProduct.priceLarge)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">8 fatias</span>
-                        </Label>
-                      </div>
-                      <div className="relative">
-                        <RadioGroupItem value="broto" id="broto" className="peer sr-only" />
-                        <Label
-                          htmlFor="broto"
-                          className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
-                            peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
-                            hover:bg-secondary transition-colors"
-                        >
-                          <span className="font-semibold">Broto</span>
-                          <span className="text-lg font-bold text-primary">
-                            {formatPrice(selectedProduct.priceSmall)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">4 fatias</span>
-                        </Label>
-                      </div>
+                    <div className={`grid gap-3 ${grande_enabled && broto_enabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      {grande_enabled && (
+                        <div className="relative">
+                          <RadioGroupItem value="grande" id="grande" className="peer sr-only" />
+                          <Label
+                            htmlFor="grande"
+                            className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
+                              peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
+                              hover:bg-secondary transition-colors"
+                          >
+                            <span className="font-semibold">Grande</span>
+                            <span className="text-lg font-bold text-primary">
+                              {formatPrice(selectedProduct.priceLarge)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">8 fatias</span>
+                          </Label>
+                        </div>
+                      )}
+                      {broto_enabled && (
+                        <div className="relative">
+                          <RadioGroupItem value="broto" id="broto" className="peer sr-only" />
+                          <Label
+                            htmlFor="broto"
+                            className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
+                              peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
+                              hover:bg-secondary transition-colors"
+                          >
+                            <span className="font-semibold">Broto</span>
+                            <span className="text-lg font-bold text-primary">
+                              {formatPrice(selectedProduct.priceSmall)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">4 fatias</span>
+                          </Label>
+                        </div>
+                      )}
                     </div>
                   </RadioGroup>
                 </div>
