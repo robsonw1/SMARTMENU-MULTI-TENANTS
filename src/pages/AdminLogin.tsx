@@ -44,7 +44,7 @@ const AdminLogin = () => {
             alt="Forneiro Éden" 
             className="w-16 h-16 rounded-full object-cover mx-auto mb-4"
           />
-          <CardTitle className="font-display text-2xl">Forneiro Éden</CardTitle>
+          <CardTitle className="font-display text-2xl">SmartMenu</CardTitle>
           <CardDescription>Painel Administrativo</CardDescription>
         </CardHeader>
         <CardContent>
