@@ -68,10 +68,11 @@ export function ProductCatalog() {
       .sort((a, b) => a.order - b.order)
       .map((cat) => ({
         id: cat.id,
-        label: cat.label,
+        // Se não tem categoriesConfig no store + não tem cache = mostrar "Carregando..."
+        label: !categoriesConfig && !cachedCategoriesConfig ? "Carregando..." : cat.label,
         icon: ICON_MAP[cat.icon_name] || Gift,
       }));
-  }, [categoriesConfig]);
+  }, [categoriesConfig, cachedCategoriesConfig]);
 
   // Definir aba ativa como primeira categoria habilitada
   useEffect(() => {
@@ -106,20 +107,6 @@ export function ProductCatalog() {
     }
   }, [activeTab]);
 
-  // � Se não tem dados no store E não tem cache, mostrar "Carregando..."
-  // (categoriesConfig é undefined quando ainda não carregou do Supabase)
-  if (!categoriesConfig && !cachedCategoriesConfig) {
-    return (
-      <section id="cardapio" className="py-12 md:py-20">
-        <div className="container mx-auto px-4 text-center">
-          <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground mb-6">
-            Carregando...
-          </h2>
-          <p className="text-muted-foreground">Preparando cardápio para você</p>
-        </div>
-      </section>
-    );
-  }
 
   return (
     <section id="cardapio" className="py-12 md:py-20">
