@@ -28,19 +28,6 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
   const settings = useSettingsStore((s) => s.settings);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
-  const isLoading = useSettingsStore((s) => s._isLoadingInProgress);
-  const cachedCategories = localStorage.getItem('cached_categories_config');
-
-  // 📍 Se carregando E não tem cache, mostrar "Carregando..."
-  if (isLoading && !cachedCategories) {
-    return (
-      <footer className="bg-card border-t py-12">
-        <div className="container mx-auto px-4 text-center">
-          <p className="text-lg text-foreground">Carregando...</p>
-        </div>
-      </footer>
-    );
-  }
 
   const handleShareQR = async () => {
     const shareText = `Peça sua pizza no ${settings.name}! 🍕 ${appUrl}`;
