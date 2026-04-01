@@ -954,7 +954,13 @@
         // Force settings refresh em todos os contextos IMEDIATAMENTE
         localStorage.setItem('admin-settings-updated', Date.now().toString());
         
-        // 📲 Notificar OUTRAS abas do mesmo navegador via BroadcastChannel
+        // � Cache de categorias no localStorage para carregamento instantâneo
+        if (finalSettingsToSave.categories_config) {
+          localStorage.setItem('cached_categories_config', JSON.stringify(finalSettingsToSave.categories_config));
+          console.log('💾 [CACHE] categories_config salvo em localStorage');
+        }
+        
+        // �📲 Notificar OUTRAS abas do mesmo navegador via BroadcastChannel
         notifyOtherTabs(finalSettingsToSave);
         
         // MARCAR COMO NÃO SALVO IMEDIATAMENTE (não usar setTimeout)
