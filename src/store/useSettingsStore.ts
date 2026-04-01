@@ -108,10 +108,10 @@ const defaultCategoriesConfig: CategoryConfig[] = [
 ];
 
 const defaultSettings: StoreSettings = {
-  name: 'Forneiro ├ëden',
-  phone: '(11) 99999-9999',
-  address: 'Rua das Pizzas, 123 - Centro',
-  slogan: 'A Pizza mais recheada da cidade ­ƒç«­ƒç╣',
+  name: 'Carregando...',
+  phone: 'carregando...',
+  address: 'carregando',
+  slogan: 'carregando...',
   schedule: defaultWeekSchedule,
   isManuallyOpen: true,
   deliveryTimeMin: 60,
@@ -263,10 +263,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
         set({
           settings: {
-            name: valueJson.name || 'Forneiro Éden',
-            phone: valueJson.phone || '(11) 99999-9999',
-            address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
-            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade 🍕',
+            name: valueJson.name || 'carregando...',
+            phone: valueJson.phone || 'carregando...',
+            address: valueJson.address || 'carregando...',
+            slogan: valueJson.slogan || 'carregando...',
             schedule: loadedSchedule,
             isManuallyOpen: settingsData.is_manually_open !== null ? settingsData.is_manually_open : (valueJson.isManuallyOpen ?? true),
             deliveryTimeMin: valueJson.deliveryTimeMin ?? 60,
