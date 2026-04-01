@@ -19,7 +19,7 @@ import {
   SelectValue,
 } from '@/components/ui/select';
 import { Card } from '@/components/ui/card';
-import { Trash2, GripVertical, ChevronUp, ChevronDown } from 'lucide-react';
+import { Trash2, GripVertical, ChevronUp, ChevronDown, Plus } from 'lucide-react';
 import {
   Gift,
   Tag,
@@ -65,6 +65,8 @@ export function CategoryManagementDialog({
   onSave,
 }: CategoryManagementDialogProps) {
   const [editingCategories, setEditingCategories] = useState<CategoryConfig[]>(categories);
+  const [newCategoryName, setNewCategoryName] = useState('');
+  const [newCategoryIcon, setNewCategoryIcon] = useState<keyof typeof ICON_OPTIONS>('Gift');
 
   const sortedCategories = useMemo(
     () => [...editingCategories].sort((a, b) => a.order - b.order),
@@ -115,6 +117,45 @@ export function CategoryManagementDialog({
     toast.success('✅ Categoria removida');
   };
 
+  const addNewCategory = () => {
+    // 🔍 Validações
+    if (editingCategories.length >= 20) {
+      toast.error('❌ Máximo 20 categorias permitidas!');
+      return;
+    }
+
+    const trimmedName = newCategoryName.trim();
+    if (!trimmedName) {
+      toast.error('❌ Nome da categoria não pode ser vazio!');
+      return;
+    }
+
+    if (trimmedName.length > 30) {
+      toast.error('❌ Nome deve ter no máximo 30 caracteres!');
+      return;
+    }
+
+    if (editingCategories.some((c) => c.label.toLowerCase() === trimmedName.toLowerCase())) {
+      toast.error('❌ Já existe uma categoria com este nome!');
+      return;
+    }
+
+    // ✅ Criar nova categoria
+    const maxOrder = Math.max(...editingCategories.map((c) => c.order), -1);
+    const newCategory: CategoryConfig = {
+      id: `category_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+      label: trimmedName,
+      icon_name: newCategoryIcon,
+      enabled: true,
+      order: maxOrder + 1,
+    };
+
+    setEditingCategories((prev) => [...prev, newCategory]);
+    setNewCategoryName('');
+    setNewCategoryIcon('Gift');
+    toast.success(`✅ "${trimmedName}" adicionada!`);
+  };
+
   const handleSave = () => {
     const enabledCount = editingCategories.filter((c) => c.enabled).length;
     if (enabledCount === 0) {
@@ -122,15 +163,90 @@ export function CategoryManagementDialog({
       return;
     }
     onSave(editingCategories);
+    // Reset form
+    setNewCategoryName('');
+    setNewCategoryIcon('Gift');
     onOpenChange(false);
   };
 
+  const handleOpenChange = (newOpen: boolean) => {
+    if (!newOpen) {
+      // Reset form ao fechar
+      setNewCategoryName('');
+      setNewCategoryIcon('Gift');
+    }
+    onOpenChange(newOpen);
+  };
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Gerenciar Categorias do Cardápio</DialogTitle>
         </DialogHeader>
+
+        {/* ➕ Adicionar Nova Categoria */}
+        <Card className="p-4 bg-secondary/30 border-dashed border-2">
+          <div className="space-y-3">
+            <h3 className="text-sm font-semibold text-foreground flex items-center gap-2">
+              <Plus className="w-4 h-4" /> Adicionar Nova Categoria
+            </h3>
+            <div className="grid grid-cols-1 gap-3">
+              <div>
+                <Label className="text-xs text-muted-foreground">Nome da Categoria</Label>
+                <Input
+                  placeholder="Ex: Bebidas Alcoólicas, Combos do Mês..."
+                  value={newCategoryName}
+                  onChange={(e) => setNewCategoryName(e.target.value.slice(0, 30))}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      addNewCategory();
+                    }
+                  }}
+                  className="h-8"
+                  maxLength={30}
+                />
+                <p className="text-xs text-muted-foreground mt-1">
+                  {newCategoryName.length}/30 caracteres
+                </p>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <Label className="text-xs text-muted-foreground">Escolha um Ícone</Label>
+                  <Select value={newCategoryIcon} onValueChange={(value: any) => setNewCategoryIcon(value)}>
+                    <SelectTrigger className="h-8">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Object.keys(ICON_OPTIONS).map((iconKey) => (
+                        <SelectItem key={iconKey} value={iconKey}>
+                          {iconKey}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-col justify-end">
+                  <Button
+                    onClick={addNewCategory}
+                    variant="default"
+                    size="sm"
+                    className="gap-2"
+                    disabled={editingCategories.length >= 20 || !newCategoryName.trim()}
+                  >
+                    <Plus className="w-4 h-4" />
+                    Adicionar
+                  </Button>
+                </div>
+              </div>
+              {editingCategories.length >= 20 && (
+                <p className="text-xs text-destructive">
+                  ⚠️ Limite máximo de 20 categorias atingido!
+                </p>
+              )}
+            </div>
+          </div>
+        </Card>
 
         <div className="space-y-2">
           {sortedCategories.map((category, idx) => {
@@ -229,7 +345,7 @@ export function CategoryManagementDialog({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => handleOpenChange(false)}>
             Cancelar
           </Button>
           <Button onClick={handleSave}>
