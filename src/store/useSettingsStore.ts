@@ -351,6 +351,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           adicionais_enabled: currentSettings.adicionais_enabled ?? true,
           bebidas_enabled: currentSettings.bebidas_enabled ?? true,
           bordas_enabled: currentSettings.bordas_enabled ?? true,
+          broto_enabled: currentSettings.broto_enabled ?? true,
+          grande_enabled: currentSettings.grande_enabled ?? true,
         },
       };
 
@@ -360,6 +362,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         adicionais_enabled: updatePayload.updates.adicionais_enabled,
         bebidas_enabled: updatePayload.updates.bebidas_enabled,
         bordas_enabled: updatePayload.updates.bordas_enabled,
+        broto_enabled: updatePayload.updates.broto_enabled,
+        grande_enabled: updatePayload.updates.grande_enabled,
       });
 
       // 5. CHAMAR EDGE FUNCTION (que executa como service_role)
