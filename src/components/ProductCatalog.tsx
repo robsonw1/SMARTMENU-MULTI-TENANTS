@@ -106,6 +106,32 @@ export function ProductCatalog() {
     }
   }, [activeTab]);
 
+  // 🔄 Check se está carregando dados do Supabase
+  const isLoading = useSettingsStore((s) => s._isLoadingInProgress);
+
+  // 📍 Se carregando E não tem cache, mostrar skeleton
+  if (isLoading && !cachedCategoriesConfig) {
+    return (
+      <section id="cardapio" className="py-12 md:py-20">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-10">
+            <div className="h-10 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-lg animate-pulse mb-4 w-48 mx-auto" />
+            <div className="h-6 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-lg animate-pulse mb-6 w-72 mx-auto" />
+            <div className="flex flex-wrap items-center justify-center gap-3">
+              <div className="h-8 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-lg animate-pulse w-32" />
+              <div className="h-8 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-lg animate-pulse w-32" />
+            </div>
+          </div>
+
+          <div className="space-y-4">
+            <div className="h-12 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-lg animate-pulse" />
+            <div className="h-96 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-lg animate-pulse" />
+          </div>
+        </div>
+      </section>
+    );
+  }
+
   return (
     <section id="cardapio" className="py-12 md:py-20">
       <div className="container mx-auto px-4">
