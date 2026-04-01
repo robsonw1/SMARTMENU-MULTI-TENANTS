@@ -1,20 +1,25 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/ProductCard';
-import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Truck, Store, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Heart, Zap, Utensils, Leaf, Coffee, Truck, Store, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCategoryCarousel } from '@/hooks/use-category-carousel';
 
-const categories = [
-  { id: 'combos', label: 'Combos', icon: Gift },
-  { id: 'promocionais', label: 'Promocionais', icon: Tag },
-  { id: 'tradicionais', label: 'Tradicionais', icon: Pizza },
-  { id: 'premium', label: 'Premium', icon: Crown },
-  { id: 'especiais', label: 'Especiais', icon: Star },
-  { id: 'doces', label: 'Doces', icon: Cake },
-  { id: 'bebidas', label: 'Bebidas', icon: GlassWater },
-] as const;
+const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
+  Gift,
+  Tag,
+  Pizza,
+  Crown,
+  Star,
+  Cake,
+  GlassWater,
+  Heart,
+  Zap,
+  Utensils,
+  Leaf,
+  Coffee,
+};
 
 export function ProductCatalog() {
   const [activeTab, setActiveTab] = useState('combos');
@@ -23,8 +28,32 @@ export function ProductCatalog() {
   const deliveryTimeMax = useSettingsStore((s) => s.settings.deliveryTimeMax);
   const pickupTimeMin = useSettingsStore((s) => s.settings.pickupTimeMin);
   const pickupTimeMax = useSettingsStore((s) => s.settings.pickupTimeMax);
+  const categoriesConfig = useSettingsStore((s) => s.settings.categories_config);
 
   const products = useMemo(() => Object.values(productsById), [productsById]);
+
+  // Construir categorias dinamicamente a partir do settings
+  const categories = useMemo(() => {
+    if (!categoriesConfig || categoriesConfig.length === 0) {
+      return [];
+    }
+    return categoriesConfig
+      .filter((cat) => cat.enabled)
+      .sort((a, b) => a.order - b.order)
+      .map((cat) => ({
+        id: cat.id,
+        label: cat.label,
+        icon: ICON_MAP[cat.icon_name] || Gift,
+      }));
+  }, [categoriesConfig]);
+
+  // Definir aba ativa como primeira categoria habilitada
+  useEffect(() => {
+    if (categories.length > 0 && !categories.find((c) => c.id === activeTab)) {
+      setActiveTab(categories[0].id);
+    }
+  }, [categories, activeTab]);
+
   const getByCategory = useMemo(() => {
     return (categoryId: string) =>
       products
