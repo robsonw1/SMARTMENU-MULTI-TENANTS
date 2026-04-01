@@ -297,5 +297,3 @@ export function ProductCatalog() {
     </section>
   );
 }
-
-
