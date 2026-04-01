@@ -878,12 +878,14 @@
         const finalSettingsToSave = {
           ...settingsForm,
           schedule: validatedSchedule,
-          // ✅ Adicionar explicitamente os 5 toggles de cardápio
+          // ✅ Adicionar explicitamente os 7 toggles de cardápio
           meia_meia_enabled: settingsForm.meia_meia_enabled ?? true,
           imagens_enabled: settingsForm.imagens_enabled ?? true,
           adicionais_enabled: settingsForm.adicionais_enabled ?? true,
           bebidas_enabled: settingsForm.bebidas_enabled ?? true,
           bordas_enabled: settingsForm.bordas_enabled ?? true,
+          broto_enabled: settingsForm.broto_enabled ?? true,
+          grande_enabled: settingsForm.grande_enabled ?? true,
         };
         
         console.log('💾 [ADMIN-SAVE] ════════════════════════════════════════');
@@ -915,6 +917,8 @@
           adicionais_enabled: reloadedState.settings.adicionais_enabled,
           bebidas_enabled: reloadedState.settings.bebidas_enabled,
           bordas_enabled: reloadedState.settings.bordas_enabled,
+          broto_enabled: reloadedState.settings.broto_enabled,
+          grande_enabled: reloadedState.settings.grande_enabled,
         });
         
         // Comparar: o que foi enviado vs. o que está no estado agora
@@ -1642,6 +1646,28 @@
                       <Switch
                         checked={settingsForm?.bordas_enabled ?? true}
                         onCheckedChange={(value) => updateSettingsFormWithFlag({ bordas_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Tamanho Broto</Label>
+                        <p className="text-xs text-muted-foreground">Disponibilizar opção de pizza broto</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.broto_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ broto_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Tamanho Grande</Label>
+                        <p className="text-xs text-muted-foreground">Disponibilizar opção de pizza grande</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.grande_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ grande_enabled: value })}
                       />
                     </div>
                   </div>
