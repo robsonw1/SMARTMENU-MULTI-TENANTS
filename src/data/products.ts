@@ -1070,7 +1070,8 @@ export const getAllProducts = (): Product[] => [];
 export const getAllPizzas = (): Product[] => [];
 export const getPromotionalPizzas = (): Product[] => [];
 
-// Category labels
+// ⚠️ DEPRECATED: Use useSettingsStore((s) => s.settings.categories_config) instead
+// Este fallback é mantido apenas para backward compatibility
 export const categoryLabels: Record<string, string> = {
   combos: 'Combos',
   promocionais: 'Promocionais',
