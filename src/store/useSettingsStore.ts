@@ -273,6 +273,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             adicionais_enabled: settingsData.adicionais_enabled ?? true,
             bebidas_enabled: settingsData.bebidas_enabled ?? true,
             bordas_enabled: settingsData.bordas_enabled ?? true,
+            broto_enabled: settingsData.broto_enabled ?? true,
+            grande_enabled: settingsData.grande_enabled ?? true,
           },
           // 🔐 NOVO: Registrar que este tenant foi carregado com sucesso
           _loadedTenantId: tenantId,
