@@ -49,6 +49,8 @@ interface StoreSettings {
   adicionais_enabled?: boolean;
   bebidas_enabled?: boolean;
   bordas_enabled?: boolean;
+  broto_enabled?: boolean;
+  grande_enabled?: boolean;
 }
 
 interface SettingsStore {
@@ -98,6 +100,8 @@ const defaultSettings: StoreSettings = {
   adminPassword: 'forneiroeden123',
   orderAlertEnabled: true,
   sendOrderSummaryToWhatsApp: false,
+  broto_enabled: true,
+  grande_enabled: true,
   enableScheduling: false,
   minScheduleMinutes: 30,
   maxScheduleDays: 7,
