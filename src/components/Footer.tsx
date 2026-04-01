@@ -121,10 +121,10 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
               />
               <div>
                 <span className="font-display text-lg font-bold">
-                  {settings.name.split(' ')[0] || 'Forneiro'}
+                  {settings.name.split(' ')[0] || 'AEZap Smartmenu'}
                 </span>
                 <span className="font-display text-sm text-primary block -mt-1">
-                  {settings.name.split(' ').slice(1).join(' ') || 'Éden'}
+                  {settings.name.split(' ').slice(1).join(' ') || 'AEZap Smartmenu'}
                 </span>
               </div>
             </div>
