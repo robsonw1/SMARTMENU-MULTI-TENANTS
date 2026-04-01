@@ -71,6 +71,7 @@
   import { OrderDetailsDialog } from '@/components/admin/OrderDetailsDialog';
   import { NeighborhoodFormDialog } from '@/components/admin/NeighborhoodFormDialog';
   import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
+  import { CategoryManagementDialog } from '@/components/admin/CategoryManagementDialog';
   import { DateRangeFilter } from '@/components/admin/DateRangeFilter';
   import { SchedulingSettings } from '@/components/admin/SchedulingSettings';
   import { PrintNodeSettings } from '@/components/admin/PrintNodeSettings';
@@ -216,6 +217,7 @@
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
     const [isNeighborhoodDialogOpen, setIsNeighborhoodDialogOpen] = useState(false);
+    const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
     const [editingNeighborhood, setEditingNeighborhood] = useState<any>(null);
     const [deleteDialog, setDeleteDialog] = useState<{
       open: boolean;
@@ -1649,6 +1651,19 @@
                       />
                     </div>
 
+                    <Separator className="my-4" />
+
+                    {/* Botão Gerenciar Categorias */}
+                    <Button
+                      onClick={() => setIsCategoryDialogOpen(true)}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      📋 Gerenciar Categorias do Cardápio
+                    </Button>
+
+                    <Separator className="my-4" />
+
                     <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
                       <div>
                         <Label className="text-base font-medium cursor-pointer">Tamanho Broto</Label>
@@ -2353,6 +2368,16 @@
             </div>
           </Tabs>
         </div>
+
+        {/* Category Management Dialog */}
+        <CategoryManagementDialog
+          open={isCategoryDialogOpen}
+          onOpenChange={setIsCategoryDialogOpen}
+          categories={settingsForm.categories_config || []}
+          onSave={(categories) => {
+            updateSettingsFormWithFlag({ categories_config: categories });
+          }}
+        />
 
         {/* Delete Confirmation Dialog */}
         <ConfirmDeleteDialog
