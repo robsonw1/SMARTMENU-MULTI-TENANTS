@@ -29,15 +29,41 @@ export function ProductCatalog() {
   const pickupTimeMin = useSettingsStore((s) => s.settings.pickupTimeMin);
   const pickupTimeMax = useSettingsStore((s) => s.settings.pickupTimeMax);
   const categoriesConfig = useSettingsStore((s) => s.settings.categories_config);
+  const loadSettingsFromSupabase = useSettingsStore((s) => s.loadSettingsFromSupabase);
+
+  // 💾 Carregar categorias de localStorage NO PRIMEIRO RENDER (antes do BD)
+  const cachedCategoriesConfig = useMemo(() => {
+    try {
+      const cached = localStorage.getItem('cached_categories_config');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao carregar categories_config do localStorage:', error);
+    }
+    return null;
+  }, []);
+
+  // ✅ Usar: localStorage primeiro → depois store → defaults
+  const effectiveCategories = categoriesConfig || cachedCategoriesConfig;
+
+  // 🔄 Sincronizar BD em background assim que componente monta
+  useEffect(() => {
+    const tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || sessionStorage.getItem('sb-auth-tenant-id');
+    if (tenantId) {
+      // Carrega silenciosamente em background (forceRefresh)
+      loadSettingsFromSupabase(true);
+    }
+  }, [loadSettingsFromSupabase]);
 
   const products = useMemo(() => Object.values(productsById), [productsById]);
 
   // Construir categorias dinamicamente a partir do settings
   const categories = useMemo(() => {
-    if (!categoriesConfig || categoriesConfig.length === 0) {
+    if (!effectiveCategories || effectiveCategories.length === 0) {
       return [];
     }
-    return categoriesConfig
+    return effectiveCategories
       .filter((cat) => cat.enabled)
       .sort((a, b) => a.order - b.order)
       .map((cat) => ({
