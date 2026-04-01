@@ -106,11 +106,9 @@ export function ProductCatalog() {
     }
   }, [activeTab]);
 
-  // 🔄 Check se está carregando dados do Supabase
-  const isLoading = useSettingsStore((s) => s._isLoadingInProgress);
-
-  // 📍 Se carregando E não tem cache, mostrar "Carregando..."
-  if (isLoading && !cachedCategoriesConfig) {
+  // � Se não tem dados no store E não tem cache, mostrar "Carregando..."
+  // (categoriesConfig é undefined quando ainda não carregou do Supabase)
+  if (!categoriesConfig && !cachedCategoriesConfig) {
     return (
       <section id="cardapio" className="py-12 md:py-20">
         <div className="container mx-auto px-4 text-center">
@@ -297,3 +295,5 @@ export function ProductCatalog() {
     </section>
   );
 }
+
+
