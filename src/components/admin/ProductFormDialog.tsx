@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import type { Product } from "@/data/products";
 import { categoryLabels } from "@/data/products";
 import { useCatalogStore } from "@/store/useCatalogStore";
+import { useSettingsStore } from "@/store/useSettingsStore";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
@@ -45,6 +46,20 @@ const categoryOptions = [
 // ✅ IMPORTANTE: tenantId agora vem como prop, não precisa mais de useSecureTenantId()
 export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Props) {
   const upsertProduct = useCatalogStore((s) => s.upsertProduct);
+  const settingsForm = useSettingsStore((s) => s.settings);
+
+  // 🔄 Mapeamento dinâmico de categorias (lê de settings.categories_config)
+  const dynamicCategoryLabels = useMemo(() => {
+    const mapping: Record<string, string> = { ...categoryLabels };
+    
+    if (settingsForm.categories_config && Array.isArray(settingsForm.categories_config)) {
+      settingsForm.categories_config.forEach((cat) => {
+        mapping[cat.id] = cat.label;
+      });
+    }
+    
+    return mapping;
+  }, [settingsForm.categories_config]);
 
   const isEdit = !!product;
 
@@ -223,7 +238,7 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
               <SelectContent>
                 {categoryOptions.map((c) => (
                   <SelectItem key={c} value={c}>
-                    {categoryLabels[c]}
+                    {dynamicCategoryLabels[c]}
                   </SelectItem>
                 ))}
               </SelectContent>
