@@ -1,5 +1,14 @@
 import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
+
+export interface CategoryConfig {
+  id: string;
+  label: string;
+  icon_name: string; // 'Gift' | 'Tag' | 'Pizza' | 'Crown' | 'Star' | 'Cake' | 'GlassWater'
+  enabled: boolean;
+  order: number; // Para reordenação
+}
+
 export interface DaySchedule {
   isOpen: boolean;
   openTime: string;
@@ -51,6 +60,8 @@ interface StoreSettings {
   bordas_enabled?: boolean;
   broto_enabled?: boolean;
   grande_enabled?: boolean;
+  // Configurações de Categorias (dinâmicas)
+  categories_config?: CategoryConfig[];
 }
 
 interface SettingsStore {
@@ -86,6 +97,16 @@ const defaultWeekSchedule: WeekSchedule = {
   sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
 };
 
+const defaultCategoriesConfig: CategoryConfig[] = [
+  { id: 'combos', label: 'Combos', icon_name: 'Gift', enabled: true, order: 0 },
+  { id: 'promocionais', label: 'Promocionais', icon_name: 'Tag', enabled: true, order: 1 },
+  { id: 'tradicionais', label: 'Tradicionais', icon_name: 'Pizza', enabled: true, order: 2 },
+  { id: 'premium', label: 'Premium', icon_name: 'Crown', enabled: true, order: 3 },
+  { id: 'especiais', label: 'Especiais', icon_name: 'Star', enabled: true, order: 4 },
+  { id: 'doces', label: 'Doces', icon_name: 'Cake', enabled: true, order: 5 },
+  { id: 'bebidas', label: 'Bebidas', icon_name: 'GlassWater', enabled: true, order: 6 },
+];
+
 const defaultSettings: StoreSettings = {
   name: 'Forneiro ├ëden',
   phone: '(11) 99999-9999',
@@ -115,8 +136,7 @@ const defaultSettings: StoreSettings = {
   imagens_enabled: true,
   adicionais_enabled: true,
   bebidas_enabled: true,
-  bordas_enabled: true,
-};
+  bordas_enabled: true,  categories_config: defaultCategoriesConfig,};
 
 const dayNames: (keyof WeekSchedule)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
@@ -275,6 +295,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             bordas_enabled: settingsData.bordas_enabled ?? true,
             broto_enabled: settingsData.broto_enabled ?? true,
             grande_enabled: settingsData.grande_enabled ?? true,
+            // ✅ Configurações de Categorias (mapeadas do BD)
+            categories_config: settingsData.categories_config ?? defaultCategoriesConfig,
           },
           // 🔐 NOVO: Registrar que este tenant foi carregado com sucesso
           _loadedTenantId: tenantId,
@@ -355,6 +377,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           bordas_enabled: currentSettings.bordas_enabled ?? true,
           broto_enabled: currentSettings.broto_enabled ?? true,
           grande_enabled: currentSettings.grande_enabled ?? true,
+          // ✅ Configurações de Categorias
+          categories_config: currentSettings.categories_config ?? defaultCategoriesConfig,
         },
       };
 
