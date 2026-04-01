@@ -238,6 +238,19 @@
 
     // ✅ NOVA SOLUÇÃO: Sincronizar settingsForm APENAS no mount
     // NÃO sincroniza enquanto admin está editando (mesmo que realtime traga atualizações)
+
+    // 🔄 Mapeamento dinâmico de categorias (lê de settings.categories_config)
+    const dynamicCategoryLabels = useMemo(() => {
+      const mapping: Record<string, string> = { ...categoryLabels };
+      
+      if (settingsForm.categories_config && Array.isArray(settingsForm.categories_config)) {
+        settingsForm.categories_config.forEach((cat) => {
+          mapping[cat.id] = cat.label;
+        });
+      }
+      
+      return mapping;
+    }, [settingsForm.categories_config]);
     // Isso garante que edições do admin não sejam perdidas
     // ⚡ CRÍTICO: Sincronizar settingsForm QUANDO `settings` do Zustand mudar
     // Isso garante que quando `loadSettingsFromSupabase()` carrega dados, o formulário mostra
@@ -1476,7 +1489,7 @@
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todas as categorias</SelectItem>
-                          {Object.entries(categoryLabels ?? {}).filter(Boolean).map(([key, label]: any) => {
+                          {Object.entries(dynamicCategoryLabels ?? {}).filter(Boolean).map(([key, label]: any) => {
                             if (!key) return null;
                             return (
                             <SelectItem key={key} value={key}>
@@ -1522,7 +1535,7 @@
                             <TableCell className="font-medium">{product.name}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize">
-                                {categoryLabels[product.category] ?? product.category}
+                                {dynamicCategoryLabels[product.category] ?? product.category}
                               </Badge>
                             </TableCell>
                             <TableCell>
