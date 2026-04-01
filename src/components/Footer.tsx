@@ -28,6 +28,44 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
   const settings = useSettingsStore((s) => s.settings);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  const isLoading = useSettingsStore((s) => s._isLoadingInProgress);
+  const cachedCategories = localStorage.getItem('cached_categories_config');
+
+  // 📍 Se carregando E não tem cache, não renderizar rodapé com dados errados
+  if (isLoading && !cachedCategories) {
+    return (
+      <footer className="bg-card border-t py-12">
+        <div className="container mx-auto px-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8">
+            {/* Skeleton Brand */}
+            <div>
+              <div className="flex items-center gap-2 mb-4">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 animate-pulse" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-5 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded animate-pulse w-24" />
+                </div>
+              </div>
+              <div className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded animate-pulse w-32 mb-2" />
+            </div>
+
+            {/* Skeleton Contact & Hours */}
+            <div className="space-y-4">
+              {[1, 2, 3].map((i) => (
+                <div key={i} className="h-4 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded animate-pulse w-40" />
+              ))}
+            </div>
+
+            {/* Skeleton App */}
+            <div className="space-y-4">
+              {[1, 2].map((i) => (
+                <div key={i} className="h-8 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-800 rounded-lg animate-pulse" />
+              ))}
+            </div>
+          </div>
+        </div>
+      </footer>
+    );
+  }
 
   const handleShareQR = async () => {
     const shareText = `Peça sua pizza no ${settings.name}! 🍕 ${appUrl}`;
