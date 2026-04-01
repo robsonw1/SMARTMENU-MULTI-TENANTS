@@ -136,7 +136,9 @@ const defaultSettings: StoreSettings = {
   imagens_enabled: true,
   adicionais_enabled: true,
   bebidas_enabled: true,
-  bordas_enabled: true,  categories_config: defaultCategoriesConfig,};
+  bordas_enabled: true,
+  categories_config: undefined, // Vai carregar do Supabase / localStorage
+};
 
 const dayNames: (keyof WeekSchedule)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
 
