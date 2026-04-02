@@ -37,6 +37,7 @@ interface StoreSettings {
   pickupTimeMin: number;
   pickupTimeMax: number;
   adminPassword: string;
+  store_logo_url?: string | null; // ✅ NOVO: URL da logo do estabelecimento
   printnode_printer_id?: string | null;
   print_mode?: string;
   auto_print_pix?: boolean;
@@ -119,6 +120,7 @@ const defaultSettings: StoreSettings = {
   pickupTimeMin: 40,
   pickupTimeMax: 50,
   adminPassword: 'forneiroeden123',
+  store_logo_url: null,
   orderAlertEnabled: true,
   sendOrderSummaryToWhatsApp: false,
   broto_enabled: true,
