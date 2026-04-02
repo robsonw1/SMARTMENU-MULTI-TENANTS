@@ -33,14 +33,24 @@ export const useLoyaltySettingsStore = create<LoyaltySettingsStore>((set, get) =
       
       console.log('[LOYALTY-SETTINGS] Carregando settings para tenant:', tenantId);
       
-      // Buscar settings com fallback para global default
-      // Priorizar: tenant-specific > global (tenant_id IS NULL)
-      const { data, error } = await (supabase as any)
+      // ✅ NOVO: Timeout para evitar travamento no mobile (3s)
+      const timeoutPromise = new Promise<any>((_, reject) =>
+        setTimeout(() => reject(new Error('Loyalty settings timeout')), 3000)
+      );
+
+      const queryPromise = (supabase as any)
         .from('loyalty_settings')
         .select('*')
         .or(`tenant_id.eq.${tenantId},tenant_id.is.null`)  // Tenant-specific OR global
         .order('tenant_id', { ascending: false })  // tenant-specific first (NOT NULL)
         .limit(1);
+
+      // Buscar settings com fallback para global default
+      // Priorizar: tenant-specific > global (tenant_id IS NULL)
+      const { data, error } = await Promise.race([queryPromise, timeoutPromise]).catch(() => ({
+        data: null,
+        error: new Error('Timeout'),
+      })) as any;
 
       if (error) {
         console.error('Erro ao carregar configurações de fidelização:', error);
