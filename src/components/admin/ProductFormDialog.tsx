@@ -171,7 +171,7 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
 
       // Upload file
       const { error: uploadError } = await supabase.storage
-        .from('pizzaria-products')
+        .from('tenant-products')
         .upload(filePath, file, { upsert: true });
 
       if (uploadError) {
@@ -182,7 +182,7 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
 
       // Get public URL
       const { data } = supabase.storage
-        .from('pizzaria-products')
+        .from('tenant-products')
         .getPublicUrl(filePath);
 
       const publicUrl = data?.publicUrl;
