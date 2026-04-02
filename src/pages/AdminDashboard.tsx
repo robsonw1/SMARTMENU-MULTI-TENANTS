@@ -396,23 +396,42 @@
           return;
         }
 
-        console.log('🎨 [LOGO-SAVE] Upload bem-sucedido, salvando APENAS store_logo_url...');
+        console.log('🎨 [LOGO-SAVE] Upload bem-sucedido, salvando em settings.value.store_logo_url...');
 
-        // ✅ Salvar ISOLADAMENTE (sem afetar hasUnsavedChanges global)
-        // Usar supabase direto para evitar triggeralert no formulário principal
-        const tenantSettingsId = `settings_${tenantId}`;
+        // ✅ SOLUÇÃO: Armazenar logo em value.store_logo_url (JSONB)
+        // Passo 1: Ler o value atual para não perder outros dados
+        const settingsId = `settings_${tenantId}`;
+        const { data: currentSettings, error: readError } = await (supabase as any)
+          .from('settings')
+          .select('value')
+          .eq('id', settingsId)
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (readError) {
+          console.error('❌ [LOGO-SAVE] Erro ao ler settings atual:', readError);
+          throw readError;
+        }
+
+        // Passo 2: Adicionar store_logo_url ao value
+        const updatedValue = {
+          ...(currentSettings?.value || {}),
+          store_logo_url: uploadedLogoUrl,
+        };
+
+        // Passo 3: Salvar com logo adicionado ao value
         const { error: updateError } = await (supabase as any)
           .from('settings')
-          .update({ store_logo_url: uploadedLogoUrl })
-          .eq('tenant_id', tenantId)
-          .eq('id', tenantSettingsId);
+          .update({ value: updatedValue })
+          .eq('id', settingsId)
+          .eq('tenant_id', tenantId);
 
         if (updateError) {
-          console.error('❌ [LOGO-SAVE] Erro ao atualizar tenant_settings:', updateError);
+          console.error('❌ [LOGO-SAVE] Erro ao atualizar settings:', updateError);
           throw updateError;
         }
 
-        console.log('🎨 [LOGO-SAVE] tenant_settings atualizado, recarregando do Supabase...');
+        console.log('🎨 [LOGO-SAVE] settings.value atualizado, recarregando do Supabase...');
 
         // Aguardar e recarregar
         await new Promise(resolve => setTimeout(resolve, 500));
