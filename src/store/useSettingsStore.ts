@@ -216,7 +216,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       console.log('[LOAD-SUPABASE] 🔍 Query:', { settingsId, tenantId });
       
       const { data, error } = await (supabase as any)
-        .from('settings')
+        .from('tenant_settings')
         .select('*')
         .eq('tenant_id', tenantId)
         .eq('id', settingsId)
@@ -613,7 +613,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       // ✅ Usar o ID dinâmico e filtrar por tenant_id
       const { error } = await (supabase as any)
-        .from('settings')
+        .from('tenant_settings')
         .update(updateData)
         .eq('id', settingsId)
         .eq('tenant_id', tenantId);
