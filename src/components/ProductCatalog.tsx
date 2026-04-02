@@ -54,26 +54,37 @@ export function ProductCatalog() {
     const tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || sessionStorage.getItem('sb-auth-tenant-id');
     if (tenantId) {
       // Carrega silenciosamente em background (forceRefresh)
-      loadSettingsFromSupabase(true);
+      console.log('📦 [CATALOG] Recarregando settings do banco...');
+      loadSettingsFromSupabase(true).catch((err) => {
+        console.error('❌ [CATALOG] Erro ao recarregar settings:', err);
+      });
+    } else {
+      console.warn('⚠️ [CATALOG] Nenhum tenant_id encontrado para recarregar dados');
     }
   }, [loadSettingsFromSupabase]);
 
   const products = useMemo(() => Object.values(productsById), [productsById]);
 
-  // Construir categorias dinamicamente a partir do settings
+  // ✅ NOVO: Forçar renderização mesmo com categories vazia (mobile não fica preta)
   const categories = useMemo(() => {
-    if (!effectiveCategories || effectiveCategories.length === 0) {
+    try {
+      if (!effectiveCategories || effectiveCategories.length === 0) {
+        console.warn('⚠️ [CATALOG] Sem categories, usando fallback');
+        return [];
+      }
+      return effectiveCategories
+        .filter((cat) => cat.enabled)
+        .sort((a, b) => a.order - b.order)
+        .map((cat) => ({
+          id: cat.id,
+          // Se não tem categoriesConfig no store + não tem cache = mostrar "Carregando..."
+          label: !categoriesConfig && !cachedCategoriesConfig ? "Carregando..." : cat.label,
+          icon: ICON_MAP[cat.icon_name] || Gift,
+        }));
+    } catch (err) {
+      console.error('❌ [CATALOG] Erro ao construir categories:', err);
       return [];
     }
-    return effectiveCategories
-      .filter((cat) => cat.enabled)
-      .sort((a, b) => a.order - b.order)
-      .map((cat) => ({
-        id: cat.id,
-        // Se não tem categoriesConfig no store + não tem cache = mostrar "Carregando..."
-        label: !categoriesConfig && !cachedCategoriesConfig ? "Carregando..." : cat.label,
-        icon: ICON_MAP[cat.icon_name] || Gift,
-      }));
   }, [categoriesConfig, cachedCategoriesConfig]);
 
   // Definir aba ativa como primeira categoria habilitada
@@ -150,111 +161,125 @@ export function ProductCatalog() {
         <div className="w-full">
           {/* Desktop: Horizontal Scroll Tabs */}
           <div className="hidden md:block overflow-x-auto scrollbar-hide -mx-4 px-4 mb-8">
-            <div className="inline-flex h-auto p-1 bg-secondary/50 rounded-xl gap-1 min-w-max">
-              {categories.map((category) => {
-                const Icon = category.icon;
-                const products = getByCategory(category.id as any);
-                const isActive = activeTab === category.id;
-                return (
-                  <button
-                    key={category.id}
-                    onClick={() => setActiveTab(category.id)}
-                    className={`flex items-center gap-2 px-4 py-2.5 rounded-lg whitespace-nowrap transition-all ${
-                      isActive
-                        ? 'bg-primary text-primary-foreground'
-                        : 'bg-secondary/50 text-foreground hover:bg-secondary'
-                    }`}
-                  >
-                    <Icon className="w-4 h-4" />
-                    <span className="font-medium">{category.label}</span>
-                    <span className="ml-1 text-xs opacity-70">
-                      ({products.filter(p => p.isActive).length})
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+            {categories.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Carregando cardápio...
+              </div>
+            ) : (
+              <div className="inline-flex h-auto p-1 bg-secondary/50 rounded-xl gap-1 min-w-max">
+                {categories.map((category) => {
+                  const Icon = category.icon;
+                  const products = getByCategory(category.id as any);
+                  const isActive = activeTab === category.id;
+                  return (
+                    <button
+                      key={category.id}
+                      onClick={() => setActiveTab(category.id)}
+                      className={`flex items-center gap-2 px-4 py-2.5 rounded-lg whitespace-nowrap transition-all ${
+                        isActive
+                          ? 'bg-primary text-primary-foreground'
+                          : 'bg-secondary/50 text-foreground hover:bg-secondary'
+                      }`}
+                    >
+                      <Icon className="w-4 h-4" />
+                      <span className="font-medium">{category.label}</span>
+                      <span className="ml-1 text-xs opacity-70">
+                        ({products.filter(p => p.isActive).length})
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
 
           {/* Mobile: Carousel with Navigation */}
           <div className="md:hidden mb-8 space-y-4">
-            {/* Carousel Container */}
-            <div className="relative">
-              {/* Left Arrow */}
-              <button
-                onClick={carousel.prevCategory}
-                disabled={!carousel.canGoPrev || carousel.isAnimating}
-                className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-primary/80 hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronLeft className="w-4 h-4 text-primary-foreground" />
-              </button>
-
-              {/* Carousel */}
-              <div
-                ref={carousel.containerRef}
-                onTouchStart={carousel.handleTouchStart}
-                onTouchEnd={carousel.handleTouchEnd}
-                className="overflow-x-auto scrollbar-hide scroll-smooth"
-              >
-                <div className="inline-flex gap-2 px-8 min-w-max">
-                  {categories.map((category) => {
-                    const Icon = category.icon;
-                    const products = getByCategory(category.id as any);
-                    const isActive = activeTab === category.id;
-                    return (
-                      <button
-                        key={category.id}
-                        onClick={() => {
-                          carousel.goToCategory(
-                            categories.findIndex((c) => c.id === category.id)
-                          );
-                          setActiveTab(category.id);
-                        }}
-                        className={`flex items-center gap-2 px-4 py-2.5 rounded-lg whitespace-nowrap transition-all ${
-                          isActive
-                            ? 'bg-primary text-primary-foreground'
-                            : 'bg-secondary/50 text-foreground hover:bg-secondary'
-                        }`}
-                      >
-                        <Icon className="w-4 h-4" />
-                        <span className="font-medium text-sm">{category.label}</span>
-                        <span className="text-xs opacity-70">
-                          ({products.filter(p => p.isActive).length})
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
+            {categories.length === 0 ? (
+              <div className="text-center py-8 text-muted-foreground">
+                Carregando cardápio no mobile...
               </div>
+            ) : (
+              <>
+                {/* Carousel Container */}
+                <div className="relative">
+                  {/* Left Arrow */}
+                  <button
+                    onClick={carousel.prevCategory}
+                    disabled={!carousel.canGoPrev || carousel.isAnimating}
+                    className="absolute -left-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-primary/80 hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronLeft className="w-4 h-4 text-primary-foreground" />
+                  </button>
 
-              {/* Right Arrow */}
-              <button
-                onClick={carousel.nextCategory}
-                disabled={!carousel.canGoNext || carousel.isAnimating}
-                className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-primary/80 hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-              >
-                <ChevronRight className="w-4 h-4 text-primary-foreground" />
-              </button>
-            </div>
+                  {/* Carousel */}
+                  <div
+                    ref={carousel.containerRef}
+                    onTouchStart={carousel.handleTouchStart}
+                    onTouchEnd={carousel.handleTouchEnd}
+                    className="overflow-x-auto scrollbar-hide scroll-smooth"
+                  >
+                    <div className="inline-flex gap-2 px-8 min-w-max">
+                      {categories.map((category) => {
+                        const Icon = category.icon;
+                        const products = getByCategory(category.id as any);
+                        const isActive = activeTab === category.id;
+                        return (
+                          <button
+                            key={category.id}
+                            onClick={() => {
+                              carousel.goToCategory(
+                                categories.findIndex((c) => c.id === category.id)
+                              );
+                              setActiveTab(category.id);
+                            }}
+                            className={`flex items-center gap-2 px-4 py-2.5 rounded-lg whitespace-nowrap transition-all ${
+                              isActive
+                                ? 'bg-primary text-primary-foreground'
+                                : 'bg-secondary/50 text-foreground hover:bg-secondary'
+                            }`}
+                          >
+                            <Icon className="w-4 h-4" />
+                            <span className="font-medium text-sm">{category.label}</span>
+                            <span className="text-xs opacity-70">
+                              ({products.filter(p => p.isActive).length})
+                            </span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
 
-            {/* Dot Indicators */}
-            <div className="flex justify-center gap-2">
-              {categories.map((_, index) => (
-                <button
-                  key={index}
-                  onClick={() => {
-                    carousel.goToCategory(index);
-                    setActiveTab(categories[index].id);
-                  }}
-                  className={`h-2 rounded-full transition-all ${
-                    carousel.currentIndex === index
-                      ? 'w-6 bg-primary'
-                      : 'w-2 bg-primary/30 hover:bg-primary/50'
-                  }`}
-                  aria-label={`Go to category ${index + 1}`}
-                />
-              ))}
-            </div>
+                  {/* Right Arrow */}
+                  <button
+                    onClick={carousel.nextCategory}
+                    disabled={!carousel.canGoNext || carousel.isAnimating}
+                    className="absolute -right-4 top-1/2 -translate-y-1/2 z-10 p-2 rounded-full bg-primary/80 hover:bg-primary disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+                  >
+                    <ChevronRight className="w-4 h-4 text-primary-foreground" />
+                  </button>
+                </div>
+
+                {/* Dot Indicators */}
+                <div className="flex justify-center gap-2">
+                  {categories.map((_, index) => (
+                    <button
+                      key={index}
+                      onClick={() => {
+                        carousel.goToCategory(index);
+                        setActiveTab(categories[index].id);
+                      }}
+                      className={`h-2 rounded-full transition-all ${
+                        carousel.currentIndex === index
+                          ? 'w-6 bg-primary'
+                          : 'w-2 bg-primary/30 hover:bg-primary/50'
+                      }`}
+                      aria-label={`Go to category ${index + 1}`}
+                    />
+                  ))}
+                </div>
+              </>
+            )}
           </div>
 
           {/* Products Grid */}
