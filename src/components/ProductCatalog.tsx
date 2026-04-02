@@ -24,6 +24,8 @@ const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>
 export function ProductCatalog() {
   const [activeTab, setActiveTab] = useState('combos');
   const productsById = useCatalogStore((s) => s.productsById);
+  const storeName = useSettingsStore((s) => s.settings.name || 'Nosso Cardápio');
+  const storeSlogan = useSettingsStore((s) => s.settings.slogan || 'Bem-vindo ao nosso cardápio!');
   const deliveryTimeMin = useSettingsStore((s) => s.settings.deliveryTimeMin);
   const deliveryTimeMax = useSettingsStore((s) => s.settings.deliveryTimeMax);
   const pickupTimeMin = useSettingsStore((s) => s.settings.pickupTimeMin);
@@ -113,11 +115,11 @@ export function ProductCatalog() {
       <div className="container mx-auto px-4">
         {/* Section Header */}
         <div className="text-center mb-10">
-          <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground mb-3">
-            Nosso Cardápio
+          <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground mb-3">,
+            {storeName}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
-            A Pizza mais recheada da cidade 🇮🇹.
+            {storeSlogan}
           </p>
 
           {/* Delivery & Pickup Badges */}
