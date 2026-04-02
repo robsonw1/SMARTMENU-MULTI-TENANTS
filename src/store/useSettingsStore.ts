@@ -358,6 +358,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         pickupTimeMax: currentSettings.pickupTimeMax,
         orderAlertEnabled: currentSettings.orderAlertEnabled,
         sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp,
+        // ✅ CRÍTICO: Sempre preservar logo - NUNCA deixar ser removido!
+        store_logo_url: currentSettings.store_logo_url || null,
       };
 
       const updatePayload = {
