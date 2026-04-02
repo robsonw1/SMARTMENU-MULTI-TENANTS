@@ -1122,6 +1122,14 @@
         console.log('📊 Agora no estado thursday:', savedThursday);
         console.log('📊 MATCH?', JSON.stringify(sentThursday) === JSON.stringify(savedThursday) ? '✅ PERFEITO' : '❌ NÃO CORRESPONDENTE');
         
+        // ✅ NOVO: Verificar que store_logo_url NÃO foi perdida!
+        const currentLogo = currentState.settings.store_logo_url;
+        const sentLogo = finalSettingsToSave.store_logo_url;
+        console.log('🖼️  [ADMIN-SAVE] LOGO VERIFICATION:');
+        console.log('🖼️  Logo enviado:', sentLogo);
+        console.log('🖼️  Logo após save:', currentLogo);
+        console.log('🖼️  Logo preservada?', (sentLogo === currentLogo || (sentLogo && currentLogo)) ? '✅ SIM!' : '⚠️  VERIFIQUE');
+        
         if (JSON.stringify(sentThursday) !== JSON.stringify(savedThursday)) {
           console.error('❌ [ADMIN-SAVE] ALERTA: Os dados salvos não correspondem aos enviados!');
           toast.error('⚠️  Aviso: dados podem não ter sido salvos corretamente. Tente novamente.');
