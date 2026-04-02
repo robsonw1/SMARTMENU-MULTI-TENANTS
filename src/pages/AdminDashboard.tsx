@@ -321,6 +321,8 @@
       setSelectedLogoFile(file);
       const url = URL.createObjectURL(file);
       setPreviewLogoUrl(url);
+      // ✅ CRÍTICO: Marcar como "unsaved" para ativar botão "Salvar"
+      updateSettingsFormWithFlag({ store_logo_url: url });
     };
 
     // ✅ NOVO: Upload de logo para Supabase Storage
@@ -989,8 +991,6 @@
           const uploadedLogoUrl = await uploadLogoToStorage(selectedLogoFile);
           if (uploadedLogoUrl) {
             logoUrlToSave = uploadedLogoUrl;
-            setSelectedLogoFile(null);
-            setPreviewLogoUrl(null);
             console.log('✅ [ADMIN-SAVE] Logo upload bem-sucedido:', logoUrlToSave);
           }
         }
@@ -1015,6 +1015,14 @@
         const reloadedState = useSettingsStore.getState();
         setSettingsForm(reloadedState.settings);
         console.log('✅ [ADMIN-SAVE] settingsForm sincronizado com dados carregados do Supabase');
+        console.log('✅ [ADMIN-SAVE] store_logo_url sincronizado:', reloadedState.settings.store_logo_url);
+        
+        // ✅ NOVO: Limpar UI de upload APENAS APÓS confirmação que foi salvo
+        if (selectedLogoFile) {
+          setSelectedLogoFile(null);
+          setPreviewLogoUrl(null);
+          console.log('✅ [ADMIN-SAVE] Logo file clearing - URL salva no Supabase');
+        }
         console.log('✅ [ADMIN-SAVE] Toggles sincronizados:', {
           meia_meia_enabled: reloadedState.settings.meia_meia_enabled,
           imagens_enabled: reloadedState.settings.imagens_enabled,
