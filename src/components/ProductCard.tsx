@@ -65,6 +65,24 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
         </div>
       )}
 
+      {/* ✅ NOVO: Renderizar imagem se existir, senão fallback com emoji */}
+      <div className="relative w-full h-40 bg-gradient-to-br from-orange-100 to-amber-100 rounded-t-xl flex items-center justify-center overflow-hidden">
+        {product.image ? (
+          <img
+            src={product.image}
+            alt={product.name}
+            className="w-full h-full object-cover"
+            loading="lazy"
+            onError={(e) => {
+              // Fallback se imagem não carregar
+              (e.target as HTMLImageElement).style.display = 'none';
+            }}
+          />
+        ) : (
+          <span className="text-6xl">🍕</span>
+        )}
+      </div>
+
       {/* Badges */}
       <div className="flex flex-wrap gap-2 p-4 pb-0">
         {product.isPopular && (
