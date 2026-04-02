@@ -115,7 +115,7 @@ export function ProductCatalog() {
       <div className="container mx-auto px-4">
         {/* Section Header */}
         <div className="text-center mb-10">
-          <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground mb-3">,
+          <h2 className="font-heading text-3xl md:text-4xl font-bold text-foreground mb-3">
             {storeName}
           </h2>
           <p className="text-muted-foreground max-w-2xl mx-auto mb-6">
