@@ -56,6 +56,8 @@
     QrCode,
     Save,
     AlertCircle,
+    Upload,
+    X,
   } from 'lucide-react';
   import {
     Product,
@@ -226,6 +228,11 @@
       name: string;
     }>({ open: false, type: 'product', id: '', name: '' });
 
+    // ✅ NOVO: Estados para upload de logo
+    const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
+    const [previewLogoUrl, setPreviewLogoUrl] = useState<string | null>(null);
+    const [logoUploading, setLogoUploading] = useState(false);
+
     // Date range for stats
     const [dateRange, setDateRange] = useState({
       start: startOfDay(new Date()),
@@ -299,6 +306,72 @@
       } catch (error) {
         console.warn('⚠️  BroadcastChannel não disponível neste navegador:', error);
       }
+    };
+
+    // ✅ NOVO: Manipular seleção de arquivo de logo
+    const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.currentTarget.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        toast.error('Por favor, selecione uma imagem (PNG ou JPEG)');
+        return;
+      }
+
+      setSelectedLogoFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewLogoUrl(url);
+    };
+
+    // ✅ NOVO: Upload de logo para Supabase Storage
+    const uploadLogoToStorage = async (file: File): Promise<string | null> => {
+      if (!tenantId) {
+        toast.error('Tenant ID não encontrado');
+        return null;
+      }
+
+      try {
+        setLogoUploading(true);
+        const timestamp = Date.now();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `logo-${timestamp}.${fileExt}`;
+        const filePath = `logos/${tenantId}/${fileName}`;
+
+        console.log(`📤 [LOGO-UPLOAD] Iniciando upload: ${filePath}`);
+
+        // Upload file
+        const { error: uploadError } = await supabase.storage
+          .from('tenant-products')
+          .upload(filePath, file, { upsert: true });
+
+        if (uploadError) {
+          console.error('❌ [LOGO-UPLOAD] Erro ao enviar:', uploadError);
+          toast.error(`Erro ao enviar logo: ${uploadError.message}`);
+          setLogoUploading(false);
+          return null;
+        }
+
+        // Get public URL
+        const { data } = supabase.storage
+          .from('tenant-products')
+          .getPublicUrl(filePath);
+
+        const publicUrl = data?.publicUrl;
+        console.log(`✅ [LOGO-UPLOAD] Sucesso! URL: ${publicUrl}`);
+        setLogoUploading(false);
+        return publicUrl || null;
+      } catch (error) {
+        console.error('❌ [LOGO-UPLOAD] Erro:', error);
+        toast.error('Erro ao fazer upload da logo');
+        setLogoUploading(false);
+        return null;
+      }
+    };
+
+    // ✅ NOVO: Remover logo selecionada
+    const handleRemoveLogoImage = () => {
+      setSelectedLogoFile(null);
+      setPreviewLogoUrl(null);
     };
 
     useEffect(() => {
@@ -909,8 +982,24 @@
         console.log('💾 [ADMIN-SAVE] thursday que será salvo:', finalSettingsToSave.schedule.thursday);
         console.log('💾 [ADMIN-SAVE] Enviando para updateSettings()...');
         
+        // ✅ NOVO: Upload de logo se arquivo foi selecionado
+        let logoUrlToSave = settingsForm.store_logo_url;
+        if (selectedLogoFile) {
+          console.log('📤 [ADMIN-SAVE] Logo file selecionado, fazendo upload...');
+          const uploadedLogoUrl = await uploadLogoToStorage(selectedLogoFile);
+          if (uploadedLogoUrl) {
+            logoUrlToSave = uploadedLogoUrl;
+            setSelectedLogoFile(null);
+            setPreviewLogoUrl(null);
+            console.log('✅ [ADMIN-SAVE] Logo upload bem-sucedido:', logoUrlToSave);
+          }
+        }
+        
         // Atualizar com TODOS os settings (incluindo schedule VALIDADO)
-        await updateSettings(finalSettingsToSave);
+        await updateSettings({
+          ...finalSettingsToSave,
+          store_logo_url: logoUrlToSave,
+        });
         
         console.log('💾 [ADMIN-SAVE] updateSettings() completou com sucesso!');
         
@@ -2039,6 +2128,53 @@
                       <p className="text-xs text-muted-foreground mt-1">
                         Aparece na página inicial e no rodapé da área do cliente
                       </p>
+                    </div>
+
+                    {/* ✅ NOVO: Upload de Logo */}
+                    <div className="grid gap-3 p-3 border-2 border-dashed rounded-lg bg-secondary/10">
+                      <div className="text-sm font-medium">Logo / Imagem da Loja</div>
+                      <p className="text-xs text-muted-foreground">
+                        Aparece no header, footer, ícone do PWA e compartilhamentos no WhatsApp
+                      </p>
+
+                      {/* Preview existente ou nova */}
+                      {(previewLogoUrl || settingsForm.store_logo_url) && (
+                        <div className="relative w-full">
+                          <img
+                            src={previewLogoUrl || settingsForm.store_logo_url || ''}
+                            alt="logo-preview"
+                            className="w-full h-32 object-contain rounded-md border bg-white p-2"
+                          />
+                          {selectedLogoFile && (
+                            <button
+                              type="button"
+                              onClick={handleRemoveLogoImage}
+                              className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
+                            >
+                              <X className="w-4 h-4" />
+                            </button>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Upload input */}
+                      <label className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                        logoUploading 
+                          ? 'opacity-50 cursor-not-allowed' 
+                          : 'hover:bg-primary/5 hover:border-primary'
+                      }`}>
+                        <Upload className="w-4 h-4 text-muted-foreground" />
+                        <span className="text-sm text-muted-foreground">
+                          {logoUploading ? 'Enviando...' : !selectedLogoFile && !settingsForm.store_logo_url ? 'Clique para selecionar' : 'Clique para trocar'}
+                        </span>
+                        <input
+                          type="file"
+                          accept="image/png,image/jpeg"
+                          onChange={handleLogoFileSelect}
+                          disabled={logoUploading}
+                          className="hidden"
+                        />
+                      </label>
                     </div>
 
                     <Separator />
