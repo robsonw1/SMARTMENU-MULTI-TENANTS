@@ -5,6 +5,7 @@ import { Leaf, Star, Sparkles, AlertCircle } from 'lucide-react';
 import { useUIStore } from '@/store/useStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { motion } from 'framer-motion';
+import { useState, useEffect } from 'react';
 
 interface ProductCardProps {
   product: Product;
@@ -13,7 +14,26 @@ interface ProductCardProps {
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const { setSelectedProduct, setProductModalOpen } = useUIStore();
-  const imagesEnabled = useSettingsStore((s) => s.settings.imagens_enabled ?? true);
+  // ✅ NOVO: State local para re-render quando settings mudam
+  const [imagesEnabled, setImagesEnabled] = useState<boolean>(true);
+  
+  // 🔄 Sincronizar com Zustand em tempo real
+  useEffect(() => {
+    // ✅ Pré-carregar valor inicial
+    const initialValue = useSettingsStore.getState().settings.imagens_enabled ?? true;
+    setImagesEnabled(initialValue);
+    
+    // ✅ Subscrever a mudanças do estado
+    const unsubscribe = useSettingsStore.subscribe(
+      (state) => {
+        const newValue = state.settings.imagens_enabled ?? true;
+        console.log('🔄 [PRODUCTCARD] imagens_enabled mudou para:', newValue);
+        setImagesEnabled(newValue);
+      }
+    );
+    
+    return unsubscribe;
+  }, []);
 
   const isUnavailable = !product.isActive;
 
