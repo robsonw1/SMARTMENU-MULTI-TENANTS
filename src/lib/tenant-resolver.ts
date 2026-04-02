@@ -70,16 +70,36 @@ const detectTenantFromSlug = (): string | null => {
 };
 
 /**
+ * ✅ NOVO: Wrapper com timeout para getSession (evita travamento no mobile)
+ */
+const getSessionWithTimeout = async (timeoutMs = 3000): Promise<any> => {
+  try {
+    const result = await Promise.race([
+      supabase.auth.getSession(),
+      new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('getSession timeout')), timeoutMs)
+      ),
+    ]);
+    return result;
+  } catch (error) {
+    console.warn(`⚠️ [TENANT-AUTH] getSession timeout or error:`, error);
+    return { data: { session: null }, error: error };
+  }
+};
+
+/**
  * Obtém tenant_id do usuário autenticado (admin)
  */
 const getTenantFromAuth = async (): Promise<string | null> => {
   try {
-    console.log(`🔐 [TENANT-AUTH] Tentando obter session...`);
+    console.log(`🔐 [TENANT-AUTH] Tentando obter session (com timeout 3s)...`);
     
-    const { data: { session }, error } = await supabase.auth.getSession();
+    // ✅ NOVO: Usar timeout para não travar no mobile
+    const result = await getSessionWithTimeout(3000);
+    const { data: { session }, error } = result;
     
     if (error) {
-      console.warn(`⚠️ [TENANT-AUTH] Erro ao obter session:`, error.message);
+      console.warn(`⚠️ [TENANT-AUTH] Erro ao obter session:`, error);
       return null;
     }
 
@@ -123,11 +143,21 @@ const getTenantFromSlug = async (slug: string): Promise<string | null> => {
   try {
     console.log(`🔍 [TENANT-SLUG-QUERY] Buscando tenant para slug: ${slug}`);
     
-    const { data, error } = await supabase
+    // ✅ NOVO: Timeout para evitar travamento no mobile
+    const timeoutPromise = new Promise<{ data: null; error: any }>((_, reject) =>
+      setTimeout(() => reject(new Error('Slug query timeout')), 3000)
+    );
+
+    const queryPromise = supabase
       .from('tenants')
       .select('id')
       .eq('slug', slug.toLowerCase())
       .single();
+
+    const { data, error } = await Promise.race([queryPromise, timeoutPromise]).catch(() => ({
+      data: null,
+      error: new Error('Query timeout'),
+    })) as any;
 
     if (error) {
       console.warn(`⚠️ [TENANT-SLUG-QUERY] Erro ao buscar tenant:`, error.message);
@@ -155,6 +185,8 @@ const getTenantFromSlug = async (slug: string): Promise<string | null> => {
  * 2. Se não for admin, tentar obter do slug (cliente público)
  * 3. Cachear o resultado
  * 4. Todos os components usam getTenantIdSync() daí em diante
+ * 
+ * ✅ NOVO: Timeout de 5s para evitar travamento no mobile
  */
 export const initTenantResolver = async (): Promise<string | null> => {
   // Se já está resolvendo, retornar promise existente
@@ -163,44 +195,55 @@ export const initTenantResolver = async (): Promise<string | null> => {
     return tenantResolvePromise;
   }
 
-  console.log(`🚀 [TENANT-INIT] Inicializando resolver de tenant_id...`);
+  console.log(`🚀 [TENANT-INIT] Inicializando resolver de tenant_id (com timeout 5s)...`);
 
-  tenantResolvePromise = (async () => {
-    try {
-      // 1. Tentar obter do auth (admin)
-      let tenantId = await getTenantFromAuth();
-      
-      if (tenantId) {
-        console.log(`✅ [TENANT-INIT] Resolvido como ADMIN: ${tenantId}`);
-        tenantIdCache = tenantId;
-        sessionStorage.setItem('tenant_id_cache', tenantId);
-        // ✅ NOVO: Também salvar em sb-tenant-id-by-slug para useSettingsStore encontrar
-        sessionStorage.setItem('sb-tenant-id-by-slug', tenantId);
-        return tenantId;
-      }
-
-      // 2. Tentar obter do slug (cliente público)
-      const slug = detectTenantFromSlug();
-      if (slug) {
-        tenantId = await getTenantFromSlug(slug);
+  // ✅ NOVO: Wrapping com timeout para evitar travamento no mobile
+  tenantResolvePromise = Promise.race([
+    (async () => {
+      try {
+        // 1. Tentar obter do auth (admin)
+        let tenantId = await getTenantFromAuth();
+        
         if (tenantId) {
-          console.log(`✅ [TENANT-INIT] Resolvido como CLIENTE: ${tenantId}`);
+          console.log(`✅ [TENANT-INIT] Resolvido como ADMIN: ${tenantId}`);
           tenantIdCache = tenantId;
           sessionStorage.setItem('tenant_id_cache', tenantId);
           // ✅ NOVO: Também salvar em sb-tenant-id-by-slug para useSettingsStore encontrar
           sessionStorage.setItem('sb-tenant-id-by-slug', tenantId);
           return tenantId;
         }
-      }
+        
+        // 2. Tentar obter do slug (cliente público)
+        const slug = detectTenantFromSlug();
+        if (slug) {
+          tenantId = await getTenantFromSlug(slug);
+          if (tenantId) {
+            console.log(`✅ [TENANT-INIT] Resolvido como CLIENTE: ${tenantId}`);
+            tenantIdCache = tenantId;
+            sessionStorage.setItem('tenant_id_cache', tenantId);
+            // ✅ NOVO: Também salvar em sb-tenant-id-by-slug para useSettingsStore encontrar
+            sessionStorage.setItem('sb-tenant-id-by-slug', tenantId);
+            return tenantId;
+          }
+        }
 
-      // 3. Falhou
-      console.error(`❌ [TENANT-INIT] Não foi possível resolver tenant_id`);
-      return null;
-    } finally {
-      // Limpar promise após conclusão (mesmo que falhe)
-      tenantResolvePromise = null;
-    }
-  })();
+        // 3. Falhou
+        console.error(`❌ [TENANT-INIT] Não foi possível resolver tenant_id`);
+        return null;
+      } finally {
+        // Limpar promise após conclusão (mesmo que falhe)
+        tenantResolvePromise = null;
+      }
+    })(),
+    // ✅ NOVO: Timeout promise que garante que não fica eternamente aguardando
+    new Promise<string | null>((resolve) =>
+      setTimeout(() => {
+        console.warn('⏱️ [TENANT-INIT] Timeout de 5s atingido, continuando sem tenant_id...');
+        tenantResolvePromise = null;
+        resolve(null);
+      }, 5000)
+    ),
+  ]);
 
   return tenantResolvePromise;
 };
