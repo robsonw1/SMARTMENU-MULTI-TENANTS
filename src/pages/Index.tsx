@@ -23,14 +23,33 @@ const Index = () => {
   const restoreRememberedLogin = useLoyaltyStore((s) => s.restoreRememberedLogin);
 
   // ✅ Sincronizar dados em tempo real (produtos, pedidos, configurações)
-  useRealtimeSync();
-  useLoyaltyRealtimeSync();
-  useSettingsRealtimeSync();
+  // Mas apenas se não há erro - renderizar conteúdo mesmo assim
+  try {
+    useRealtimeSync();
+  } catch (err) {
+    console.error('❌ [INDEX] Erro em useRealtimeSync:', err);
+  }
+
+  try {
+    useLoyaltyRealtimeSync();
+  } catch (err) {
+    console.error('❌ [INDEX] Erro em useLoyaltyRealtimeSync:', err);
+  }
+
+  try {
+    useSettingsRealtimeSync();
+  } catch (err) {
+    console.error('❌ [INDEX] Erro em useSettingsRealtimeSync:', err);
+  }
 
   // ✅ Carregar configurações de fidelização (cliente - seguro aqui)
   const { loadSettings } = useLoyaltySettingsStore();
   useEffect(() => {
-    loadSettings();
+    console.log('[PAGE-INIT] Carregando loyalty settings...');
+    loadSettings().catch((err) => {
+      console.error('❌ [PAGE-INIT] Erro ao carregar loyalty settings:', err);
+      // NÃO FALHAR - Continuar mesmo com erro
+    });
   }, [loadSettings]);
 
   // ✅ NOVO (30/03/2026): Inicializar resolver de tenant_id
@@ -41,8 +60,11 @@ const Index = () => {
       if (tenantId) {
         console.log(`✅ [INDEX-INIT] Tenant resolver inicializado: ${tenantId}`);
       } else {
-        console.warn('⚠️ [INDEX-INIT] Não foi possível resolver tenant_id');
+        console.warn('⚠️ [INDEX-INIT] Não foi possível resolver tenant_id (continuando mesmo assim)');
       }
+    }).catch((err) => {
+      console.error('❌ [INDEX-INIT] Erro ao inicializar tenant resolver:', err);
+      // NÃO FALHAR - Continuar mesmo com erro, usuário vê "Carregando..."
     });
   }, []);
 
@@ -69,7 +91,7 @@ const Index = () => {
       <DynamicMetaTags />
       <Header onLoginClick={() => setIsLoginModalOpen(true)} />
 
-      <main className="flex-1">
+      <main className="flex-1 w-full">
         <ProductCatalog />
       </main>
 
