@@ -7,6 +7,7 @@ import { SchedulingCheckoutModal } from '@/components/SchedulingCheckoutModal';
 import { Footer } from '@/components/Footer';
 import { CustomerLoginModal } from '@/components/CustomerLoginModal';
 import { DeliveryAddressDialog } from '@/components/DeliveryAddressDialog';
+import { DynamicMetaTags } from '@/components/DynamicMetaTags';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
 import { useLoyaltyRealtimeSync } from '@/hooks/use-loyalty-realtime-sync';
 import { useRealtimeSync } from '@/hooks/use-realtime-sync';
@@ -65,6 +66,7 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
+      <DynamicMetaTags />
       <Header onLoginClick={() => setIsLoginModalOpen(true)} />
 
       <main className="flex-1">
