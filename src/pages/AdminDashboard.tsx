@@ -228,10 +228,11 @@
       name: string;
     }>({ open: false, type: 'product', id: '', name: '' });
 
-    // ✅ NOVO: Estados para upload de logo
+    // ✅ NOVO: Estados para upload de logo (SEPARADOS do formulário principal)
     const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
     const [previewLogoUrl, setPreviewLogoUrl] = useState<string | null>(null);
     const [logoUploading, setLogoUploading] = useState(false);
+    const [logoHasUnsavedChanges, setLogoHasUnsavedChanges] = useState(false);
 
     // Date range for stats
     const [dateRange, setDateRange] = useState({
@@ -308,7 +309,7 @@
       }
     };
 
-    // ✅ NOVO: Manipular seleção de arquivo de logo
+    // ✅ NOVO: Manipular seleção de arquivo de logo (ISOLADO, sem afetar main form)
     const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
       const file = e.currentTarget.files?.[0];
       if (!file) return;
@@ -321,8 +322,9 @@
       setSelectedLogoFile(file);
       const url = URL.createObjectURL(file);
       setPreviewLogoUrl(url);
-      // ✅ CRÍTICO: Marcar como "unsaved" para ativar botão "Salvar"
-      updateSettingsFormWithFlag({ store_logo_url: url });
+      // ✅ NOVO: Marcar APENAS logo como unsaved (não afeta formulário geral)
+      setLogoHasUnsavedChanges(true);
+      console.log('🎨 [LOGO-SELECT] Logo selecionado, marcado como unsaved (isolado)');
     };
 
     // ✅ NOVO: Upload de logo para Supabase Storage
@@ -376,7 +378,7 @@
       setPreviewLogoUrl(null);
     };
 
-    // ✅ NOVO: Salvar APENAS logo (função separada)
+    // ✅ NOVO: Salvar APENAS logo (função 100% isolada - NÃO afeta formulário geral)
     const handleSaveLogoOnly = async () => {
       try {
         if (!selectedLogoFile) {
@@ -394,28 +396,36 @@
           return;
         }
 
-        console.log('🎨 [LOGO-SAVE] Upload bem-sucedido, salvando em settings...');
+        console.log('🎨 [LOGO-SAVE] Upload bem-sucedido, salvando APENAS store_logo_url...');
 
-        // Salvar APENAS store_logo_url
-        await updateSettings({
-          store_logo_url: uploadedLogoUrl,
-        });
+        // ✅ Salvar ISOLADAMENTE (sem afetar hasUnsavedChanges global)
+        // Usar supabase direto para evitar triggeralert no formulário principal
+        const tenantSettingsId = `settings_${tenantId}`;
+        const { error: updateError } = await (supabase as any)
+          .from('tenant_settings')
+          .update({ store_logo_url: uploadedLogoUrl })
+          .eq('tenant_id', tenantId)
+          .eq('id', tenantSettingsId);
 
-        console.log('🎨 [LOGO-SAVE] Settings atualizado, recarregando do Supabase...');
+        if (updateError) {
+          console.error('❌ [LOGO-SAVE] Erro ao atualizar tenant_settings:', updateError);
+          throw updateError;
+        }
+
+        console.log('🎨 [LOGO-SAVE] tenant_settings atualizado, recarregando do Supabase...');
 
         // Aguardar e recarregar
         await new Promise(resolve => setTimeout(resolve, 500));
         await loadSettingsFromSupabase(true);
 
-        // Sincronizar settingsForm
+        // Sincronizar settingsForm (sem ativar hasUnsavedChanges global)
         const reloadedState = useSettingsStore.getState();
-        setSettingsForm(reloadedState.settings);
-        
         console.log('✅ [LOGO-SAVE] Logo salvo com sucesso! URL:', reloadedState.settings.store_logo_url);
 
-        // Limpar UI
+        // Limpar UI de logo APENAS
         setSelectedLogoFile(null);
         setPreviewLogoUrl(null);
+        setLogoHasUnsavedChanges(false);
         setLogoUploading(false);
 
         toast.success('✅ Logo salva! Aparecendo em Header, Footer, PWA e WhatsApp');
