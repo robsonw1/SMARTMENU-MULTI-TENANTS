@@ -402,7 +402,7 @@
         // Usar supabase direto para evitar triggeralert no formulário principal
         const tenantSettingsId = `settings_${tenantId}`;
         const { error: updateError } = await (supabase as any)
-          .from('tenant_settings')
+          .from('settings')
           .update({ store_logo_url: uploadedLogoUrl })
           .eq('tenant_id', tenantId)
           .eq('id', tenantSettingsId);
