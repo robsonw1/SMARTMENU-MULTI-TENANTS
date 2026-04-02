@@ -243,12 +243,15 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         const settingsData = data as any;
         const valueJson = settingsData.value || {};
         
+        // ✅ Extrair store_logo_url do value.store_logo_url
+        const storeLogoUrl = valueJson.store_logo_url || null;
         console.log('✅ [LOAD-SUPABASE] Dados do banco carregados com sucesso:', {
           id: settingsData.id,
           tenant_id: settingsData.tenant_id,
           name: valueJson.name,
           phone: valueJson.phone,
           slogan: valueJson.slogan,
+          store_logo_url: storeLogoUrl,
           forceRefresh,
         });
         
@@ -276,6 +279,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             pickupTimeMin: valueJson.pickupTimeMin ?? 40,
             pickupTimeMax: valueJson.pickupTimeMax ?? 50,
             adminPassword: valueJson.adminPassword || 'forneiroeden123',
+            store_logo_url: storeLogoUrl,
             printnode_printer_id: settingsData.printnode_printer_id || valueJson.printnode_printer_id || null,
             print_mode: settingsData.print_mode || valueJson.print_mode || 'auto',
             auto_print_pix: settingsData.auto_print_pix ?? (valueJson.auto_print_pix ?? false),
@@ -612,9 +616,18 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       // ✅ Usar o ID dinâmico e filtrar por tenant_id
+      // ✅ Guardar logo em value.store_logo_url (JSONB)
+      const updateDataWithLogo = {
+        ...updateData,
+        value: {
+          ...(updateData.value || {}),
+          store_logo_url: settings.store_logo_url || null,
+        },
+      };
+      
       const { error } = await (supabase as any)
         .from('settings')
-        .update(updateData)
+        .update(updateDataWithLogo)
         .eq('id', settingsId)
         .eq('tenant_id', tenantId);
 
