@@ -3,6 +3,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Leaf, Star, Sparkles, AlertCircle } from 'lucide-react';
 import { useUIStore } from '@/store/useStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { motion } from 'framer-motion';
 
 interface ProductCardProps {
@@ -12,6 +13,7 @@ interface ProductCardProps {
 
 export function ProductCard({ product, index = 0 }: ProductCardProps) {
   const { setSelectedProduct, setProductModalOpen } = useUIStore();
+  const imagesEnabled = useSettingsStore((s) => s.settings.imagens_enabled ?? true);
 
   const isUnavailable = !product.isActive;
 
@@ -65,23 +67,23 @@ export function ProductCard({ product, index = 0 }: ProductCardProps) {
         </div>
       )}
 
-      {/* ✅ NOVO: Renderizar imagem se existir, senão fallback com emoji */}
-      <div className="relative w-full h-40 bg-gradient-to-br from-orange-100 to-amber-100 rounded-t-xl flex items-center justify-center overflow-hidden">
-        {product.image ? (
-          <img
-            src={product.image}
-            alt={product.name}
-            className="w-full h-full object-cover"
-            loading="lazy"
-            onError={(e) => {
-              // Fallback se imagem não carregar
-              (e.target as HTMLImageElement).style.display = 'none';
-            }}
-          />
-        ) : (
-          <span className="text-6xl">🍕</span>
-        )}
-      </div>
+      {/* ✅ Renderizar imagem APENAS se configuração imagens_enabled = true */}
+      {imagesEnabled && (
+        <div className="relative w-full h-40 bg-gradient-to-br from-orange-100 to-amber-100 rounded-t-xl flex items-center justify-center overflow-hidden">
+          {product.image && (
+            <img
+              src={product.image}
+              alt={product.name}
+              className="w-full h-full object-cover"
+              loading="lazy"
+              onError={(e) => {
+                // Fallback se imagem não carregar
+                (e.target as HTMLImageElement).style.display = 'none';
+              }}
+            />
+          )}
+        </div>
+      )}
 
       {/* Badges */}
       <div className="flex flex-wrap gap-2 p-4 pb-0">
