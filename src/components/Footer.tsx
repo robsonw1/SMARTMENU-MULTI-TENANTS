@@ -28,6 +28,7 @@ const dayLabels: Record<keyof WeekSchedule, string> = {
 export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
   const settings = useSettingsStore((s) => s.settings);
   const categoriesConfig = useSettingsStore((s) => s.settings.categories_config);
+  const storeLogo = useSettingsStore((s) => s.settings.store_logo_url);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
 
@@ -115,7 +116,7 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <img
-                src={logoForneiro}
+                src={storeLogo || logoForneiro}
                 alt={settings.name}
                 className="w-10 h-10 rounded-full object-cover"
               />
