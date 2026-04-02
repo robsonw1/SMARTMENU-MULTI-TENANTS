@@ -376,6 +376,56 @@
       setPreviewLogoUrl(null);
     };
 
+    // ✅ NOVO: Salvar APENAS logo (função separada)
+    const handleSaveLogoOnly = async () => {
+      try {
+        if (!selectedLogoFile) {
+          toast.error('Selecione uma imagem primeiro');
+          return;
+        }
+
+        setLogoUploading(true);
+        console.log('🎨 [LOGO-SAVE] Iniciando salvamento isolado de logo...');
+
+        // Upload de logo
+        const uploadedLogoUrl = await uploadLogoToStorage(selectedLogoFile);
+        if (!uploadedLogoUrl) {
+          setLogoUploading(false);
+          return;
+        }
+
+        console.log('🎨 [LOGO-SAVE] Upload bem-sucedido, salvando em settings...');
+
+        // Salvar APENAS store_logo_url
+        await updateSettings({
+          store_logo_url: uploadedLogoUrl,
+        });
+
+        console.log('🎨 [LOGO-SAVE] Settings atualizado, recarregando do Supabase...');
+
+        // Aguardar e recarregar
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await loadSettingsFromSupabase(true);
+
+        // Sincronizar settingsForm
+        const reloadedState = useSettingsStore.getState();
+        setSettingsForm(reloadedState.settings);
+        
+        console.log('✅ [LOGO-SAVE] Logo salvo com sucesso! URL:', reloadedState.settings.store_logo_url);
+
+        // Limpar UI
+        setSelectedLogoFile(null);
+        setPreviewLogoUrl(null);
+        setLogoUploading(false);
+
+        toast.success('✅ Logo salva! Aparecendo em Header, Footer, PWA e WhatsApp');
+      } catch (error) {
+        console.error('❌ [LOGO-SAVE] Erro:', error);
+        toast.error('Erro ao salvar logo');
+        setLogoUploading(false);
+      }
+    };
+
     useEffect(() => {
       // Sincronizar pedidos do Supabase quando o painel carrega
       if (!user || !tenantId) return;
@@ -2075,6 +2125,85 @@
             {/* Settings Tab */}
             <TabsContent value="settings">
               <div className="grid gap-6">
+                {/* ✅ NOVA CARD: Upload de Logo (SEPARADO) */}
+                <Card className="border-2 border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-950/20">
+                  <CardHeader>
+                    <CardTitle className="text-orange-900 dark:text-orange-100">🖼️ Logo / Imagem da Loja</CardTitle>
+                    <CardDescription>
+                      Aparece no header, footer, ícone do PWA e compartilhamentos no WhatsApp
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Preview da logo atual */}
+                    {(previewLogoUrl || settingsForm.store_logo_url) && (
+                      <div className="relative w-full">
+                        <img
+                          src={previewLogoUrl || settingsForm.store_logo_url || ''}
+                          alt="logo-preview"
+                          className="w-full h-40 object-contain rounded-md border-2 border-orange-200 dark:border-orange-700 bg-white p-3"
+                        />
+                        {selectedLogoFile && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveLogoImage}
+                            className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors shadow-lg"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* File input */}
+                    <label className={`flex items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                      logoUploading 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100' 
+                        : 'hover:bg-orange-100 dark:hover:bg-orange-950/50 hover:border-orange-400 border-orange-300 dark:border-orange-700'
+                    }`}>
+                      <Upload className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                      <div className="text-center">
+                        <span className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                          {logoUploading ? '⏳ Enviando...' : !selectedLogoFile && !settingsForm.store_logo_url ? '📁 Clique para selecionar logo' : '🔄 Clique para trocar'}
+                        </span>
+                        <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">PNG ou JPEG (recomendado: 400x400px)</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={handleLogoFileSelect}
+                        disabled={logoUploading}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Botão Salvar Logo */}
+                    <Button
+                      onClick={handleSaveLogoOnly}
+                      disabled={!selectedLogoFile || logoUploading}
+                      className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold"
+                      size="lg"
+                    >
+                      {logoUploading ? (
+                        <>
+                          <span className="animate-spin mr-2">⏳</span>
+                          Salvando Logo...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          💾 Salvar Logo
+                        </>
+                      )}
+                    </Button>
+
+                    {settingsForm.store_logo_url && !selectedLogoFile && (
+                      <div className="text-xs bg-green-50 dark:bg-green-950/20 p-3 rounded border border-green-200 dark:border-green-700 text-green-900 dark:text-green-100">
+                        ✅ <strong>Logo salva!</strong> Aparecendo em Header, Footer, PWA e WhatsApp
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle>Dados do Estabelecimento</CardTitle>
@@ -2136,53 +2265,6 @@
                       <p className="text-xs text-muted-foreground mt-1">
                         Aparece na página inicial e no rodapé da área do cliente
                       </p>
-                    </div>
-
-                    {/* ✅ NOVO: Upload de Logo */}
-                    <div className="grid gap-3 p-3 border-2 border-dashed rounded-lg bg-secondary/10">
-                      <div className="text-sm font-medium">Logo / Imagem da Loja</div>
-                      <p className="text-xs text-muted-foreground">
-                        Aparece no header, footer, ícone do PWA e compartilhamentos no WhatsApp
-                      </p>
-
-                      {/* Preview existente ou nova */}
-                      {(previewLogoUrl || settingsForm.store_logo_url) && (
-                        <div className="relative w-full">
-                          <img
-                            src={previewLogoUrl || settingsForm.store_logo_url || ''}
-                            alt="logo-preview"
-                            className="w-full h-32 object-contain rounded-md border bg-white p-2"
-                          />
-                          {selectedLogoFile && (
-                            <button
-                              type="button"
-                              onClick={handleRemoveLogoImage}
-                              className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors"
-                            >
-                              <X className="w-4 h-4" />
-                            </button>
-                          )}
-                        </div>
-                      )}
-
-                      {/* Upload input */}
-                      <label className={`flex items-center justify-center gap-2 p-4 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
-                        logoUploading 
-                          ? 'opacity-50 cursor-not-allowed' 
-                          : 'hover:bg-primary/5 hover:border-primary'
-                      }`}>
-                        <Upload className="w-4 h-4 text-muted-foreground" />
-                        <span className="text-sm text-muted-foreground">
-                          {logoUploading ? 'Enviando...' : !selectedLogoFile && !settingsForm.store_logo_url ? 'Clique para selecionar' : 'Clique para trocar'}
-                        </span>
-                        <input
-                          type="file"
-                          accept="image/png,image/jpeg"
-                          onChange={handleLogoFileSelect}
-                          disabled={logoUploading}
-                          className="hidden"
-                        />
-                      </label>
                     </div>
 
                     <Separator />
