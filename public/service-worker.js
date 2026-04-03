@@ -1,6 +1,6 @@
 // Cache versioning
-const CACHE_VERSION = 'forneiro-eden-v1';
-const MANIFEST_CACHE = 'manifest-cache-v1';
+const CACHE_VERSION = 'forneiro-eden-v3';
+const MANIFEST_CACHE = 'manifest-cache-v3';
 const MANIFEST_CACHE_TIME = 30 * 60 * 1000; // 30 minutos
 
 const CACHE_URLS = [
@@ -94,6 +94,47 @@ self.addEventListener('activate', (event) => {
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
+
+  // 🔥 PRIORIDADE MÁXIMA: Requisições de navegação (app launch em mobile)
+  // Quando usuário clica no ícone da app instalada, precisa servir index.html IMEDIATAMENTE
+  if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+    event.respondWith(
+      (async () => {
+        try {
+          // 1️⃣ Tentar ir para rede primeiro (app sempre atualizada)
+          const networkResponse = await Promise.race([
+            fetch(event.request),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), 3000))
+          ]);
+          
+          if (networkResponse.ok) {
+            console.log('[SW] ⚡ Navegação servida da rede (rápida)');
+            return networkResponse;
+          }
+        } catch (networkError) {
+          console.warn('[SW] ⚠️ Rede lenta ou offline para navegação:', networkError.message);
+        }
+        
+        // 2️⃣ Se rede falhou/lenta, servir index.html do cache IMEDIATAMENTE
+        try {
+          const cachedIndex = await caches.match('/index.html');
+          if (cachedIndex) {
+            console.log('[SW] 📦 Navegação servida do cache (fallback rápido)');
+            return cachedIndex;
+          }
+        } catch (cacheError) {
+          console.warn('[SW] ⚠️ Erro ao acessar cache:', cacheError);
+        }
+        
+        // 3️⃣ Último recurso: retornar página offline
+        return new Response(
+          '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Carregando...</title><style>body{background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui}div{text-align:center}</style></head><body><div><h1>⏳</h1><p>Carregando aplicação...</p></body></html>',
+          { status: 200, headers: { 'Content-Type': 'text/html' } }
+        );
+      })()
+    );
+    return;
+  }
 
   // 🔥 SPECIAL HANDLING: /manifest.json (dinâmico)
   if (event.request.url.includes('/manifest.json')) {
