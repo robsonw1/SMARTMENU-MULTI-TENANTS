@@ -1,37 +1,22 @@
 import { useEffect } from 'react';
 import { useSettingsStore } from '@/store/useSettingsStore';
-import { getTenantIdSync } from '@/lib/tenant-resolver';
 
 /**
  * Componente para injetar meta tags dinâmicas no head da página
- * - Manifest dinâmico para PWA (com logo do tenant)
- * - og:image para WhatsApp sharing
+ * - og:image para WhatsApp sharing (com logo customizado do tenant)
+ * - og:title e og:description customizados
+ * 
+ * ✅ NOTA: Manifest dinâmico é agora handle pelo Service Worker (public/service-worker.js)
+ * Não injetamos mais o link manifest aqui para evitar conflitos!
  */
 export function DynamicMetaTags() {
   const settings = useSettingsStore((s) => s.settings);
 
   useEffect(() => {
-    const tenantId = getTenantIdSync();
     const storeName = settings?.name || 'Pizzaria Forneiro Eden';
     const logoUrl = settings?.store_logo_url;
 
-    // 1️⃣  Injetar ou atualizar link do manifest dinâmico
-    if (tenantId) {
-      const existingManifestLink = document.querySelector('link[rel="manifest"]');
-      const manifestUrl = `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/get-manifest?tenant_id=${tenantId}`;
-
-      if (existingManifestLink) {
-        existingManifestLink.setAttribute('href', manifestUrl);
-      } else {
-        const link = document.createElement('link');
-        link.rel = 'manifest';
-        link.href = manifestUrl;
-        document.head.appendChild(link);
-      }
-      console.log(`✅ [META-TAGS] Manifest dinâmico injetado: ${manifestUrl}`);
-    }
-
-    // 2️⃣  Injetar ou atualizar og:image para WhatsApp
+    // 1️⃣  Atualizar og:image para WhatsApp sharing (com logo customizado)
     if (logoUrl) {
       const existingOgImage = document.querySelector('meta[property="og:image"]');
       
@@ -64,7 +49,7 @@ export function DynamicMetaTags() {
       console.log(`✅ [META-TAGS] og:image injetado: ${logoUrl}`);
     }
 
-    // 3️⃣  Atualizar og:title e og:description com storeName
+    // 2️⃣  Atualizar og:title e og:description com storeName
     if (storeName) {
       const existingOgTitle = document.querySelector('meta[property="og:title"]');
       if (existingOgTitle) {
