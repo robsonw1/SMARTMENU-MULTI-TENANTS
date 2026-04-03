@@ -27,7 +27,7 @@ function getTenantSlugFromHostname() {
 async function fetchDynamicManifest(slug) {
   try {
     console.log(`[SW] 📡 Buscando manifest dinâmico para slug: ${slug}`);
-    const response = await fetch(`/functions/v1/get-manifest?tenant_id=${encodeURIComponent(slug)}`, {
+    const response = await fetch(`https://towmfxficdkrgfwghcer.supabase.co/functions/v1/get-manifest?tenant_id=${encodeURIComponent(slug)}`, {
       method: 'GET',
       headers: {
         'Content-Type': 'application/json',
