@@ -133,9 +133,17 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Skip some URLs that shouldn't be cached (Supabase APIs, etc)
+  // Skip caching for Supabase APIs (let browser handle, don't block)
   if (event.request.url.includes('/functions/v1/') || event.request.url.includes('supabase')) {
-    return; // Let network handle without caching
+    event.respondWith(
+      fetch(event.request).catch(() => {
+        // Se falhar, tenta cache, senão retorna erro
+        return caches.match(event.request).catch(() => {
+          return new Response('Network error', { status: 0 });
+        });
+      })
+    );
+    return;
   }
 
   // Skip chrome-extension URLs and other non-http protocols
