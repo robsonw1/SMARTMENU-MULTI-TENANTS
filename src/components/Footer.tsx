@@ -57,10 +57,7 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
   }
 
   const handleShareQR = async () => {
-    // 🎯 URL com meta tags customizados via Edge Function render-html
-    // Crawlers (WhatsApp, LinkedIn, etc) acessam essa URL e recebem HTML com og:image correto
-    const shareUrl = `${appUrl}/functions/v1/render-html`;
-    const shareText = `Peça sua pizza no ${settings.name}! 🍕 ${shareUrl}`;
+    const shareText = `Peça sua pizza no ${settings.name}! 🍕 ${appUrl}`;
 
     // Tentar usar Web Share API (mobile, mais bonito)
     if (navigator.share) {
@@ -68,9 +65,9 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
         await navigator.share({
           title: `${settings.name} - Pedir Pizza Online`,
           text: shareText,
-          url: shareUrl,
+          url: appUrl,
         });
-        toast.success('Compartilhado com sucesso! ✨ Agora com logo personalizado!');
+        toast.success('Compartilhado com sucesso!');
       } catch (error) {
         console.log('Compartilhamento cancelado pelo usuário');
       }
@@ -78,7 +75,7 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
       // Fallback: copiar para clipboard
       try {
         await navigator.clipboard.writeText(shareText);
-        toast.success('Link copiado com logo personalizado!');
+        toast.success('Link copiado! Cole em qualquer lugar');
       } catch (error) {
         toast.error('Erro ao copiar link');
       }
