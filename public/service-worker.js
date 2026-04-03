@@ -1,6 +1,6 @@
 // Cache versioning
-const CACHE_VERSION = 'forneiro-eden-v1';
-const MANIFEST_CACHE = 'manifest-cache-v1';
+const CACHE_VERSION = 'forneiro-eden-v2';
+const MANIFEST_CACHE = 'manifest-cache-v2';
 const MANIFEST_CACHE_TIME = 30 * 60 * 1000; // 30 minutos
 
 const CACHE_URLS = [
@@ -69,6 +69,7 @@ self.addEventListener('install', (event) => {
       });
     })
   );
+  // ✅ FORÇAR ativação imediata para PWA instalada
   self.skipWaiting();
 });
 
@@ -149,6 +150,7 @@ self.addEventListener('fetch', (event) => {
   // Skip chrome-extension URLs and other non-http protocols
   if (!event.request.url.startsWith('http://') && !event.request.url.startsWith('https://')) {
     console.warn('[SW] Skipping non-http request:', event.request.url);
+    // ✅ NÃO usar return vazio! Deixar browser processar normalmente
     return;
   }
 
@@ -173,13 +175,22 @@ self.addEventListener('fetch', (event) => {
         console.warn('[SW] Fetch failed:', error.message);
         // Network failed, try cache
         return caches.match(event.request).then((cachedResponse) => {
-          return (
-            cachedResponse ||
-            new Response('Offline - recurso não disponível', {
-              status: 503,
-              statusText: 'Service Unavailable',
-            })
-          );
+          if (cachedResponse) {
+            return cachedResponse;
+          }
+          
+          // ✅ FALLBACK PA SPA: Se for requisição de navegação, servir index.html
+          if (event.request.mode === 'navigate' || event.request.destination === 'document') {
+            console.log('[SW] 🔄 Fallback SPA: Servindo /index.html');
+            return caches.match('/index.html').catch(() => {
+              return new Response('Offline', { status: 503 });
+            });
+          }
+          
+          return new Response('Offline - recurso não disponível', {
+            status: 503,
+            statusText: 'Service Unavailable',
+          });
         });
       })
   );
