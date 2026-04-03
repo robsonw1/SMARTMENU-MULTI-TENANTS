@@ -1,11 +1,16 @@
 // Cache versioning
-const CACHE_VERSION = 'forneiro-eden-v3';
-const MANIFEST_CACHE = 'manifest-cache-v3';
+const CACHE_VERSION = 'forneiro-eden-v4';
+const MANIFEST_CACHE = 'manifest-cache-v4';
 const MANIFEST_CACHE_TIME = 30 * 60 * 1000; // 30 minutos
 
+// ✅ Assets essenciais que SEMPRE devem estar pré-cacheados
+// Para garantir que app funciona mesmo em modo standalone
 const CACHE_URLS = [
   '/',
   '/index.html',
+  '/manifest.json',
+  '/logo-192.png',
+  '/logo-512.png',
 ];
 
 // ✅ Detectar tenant slug do hostname
@@ -101,35 +106,42 @@ self.addEventListener('fetch', (event) => {
     event.respondWith(
       (async () => {
         try {
-          // 1️⃣ Tentar ir para rede primeiro (app sempre atualizada)
+          // ✅ MODO STANDALONE: Cache primeiro com timeout curto na rede
+          // Se rede não responder em 2s, vai pro cache (melhor que esperar)
           const networkResponse = await Promise.race([
             fetch(event.request),
-            new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), 3000))
+            new Promise((_, reject) => setTimeout(() => reject(new Error('Network timeout')), 2000))
           ]);
           
           if (networkResponse.ok) {
-            console.log('[SW] ⚡ Navegação servida da rede (rápida)');
+            console.log('[SW] ⚡ Navegação: Rede rápida (<2s)');
+            // Cache a resposta para próximo acesso
+            const clonedResponse = networkResponse.clone();
+            caches.open(CACHE_VERSION).then(cache => {
+              cache.put(event.request, clonedResponse);
+            });
             return networkResponse;
           }
         } catch (networkError) {
-          console.warn('[SW] ⚠️ Rede lenta ou offline para navegação:', networkError.message);
+          console.warn('[SW] ⚠️ Rede lenta/offline, tentando cache...', networkError.message);
         }
         
-        // 2️⃣ Se rede falhou/lenta, servir index.html do cache IMEDIATAMENTE
+        // 2️⃣ Se rede falhou/lenta, servir index.html do cache INSTANTANEAMENTE
         try {
           const cachedIndex = await caches.match('/index.html');
           if (cachedIndex) {
-            console.log('[SW] 📦 Navegação servida do cache (fallback rápido)');
+            console.log('[SW] 📦 Navegação: Cache (fallback rápido <500ms)');
             return cachedIndex;
           }
         } catch (cacheError) {
           console.warn('[SW] ⚠️ Erro ao acessar cache:', cacheError);
         }
         
-        // 3️⃣ Último recurso: retornar página offline
+        // 3️⃣ Último recurso: página de carregamento (nunca deixa tela preta)
+        console.log('[SW] 🔄 Retornando página de carregamento');
         return new Response(
-          '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width"><title>Carregando...</title><style>body{background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:system-ui}div{text-align:center}</style></head><body><div><h1>⏳</h1><p>Carregando aplicação...</p></body></html>',
-          { status: 200, headers: { 'Content-Type': 'text/html' } }
+          '<!DOCTYPE html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="theme-color" content="#000000"><title>Carregando...</title><style>body{margin:0;padding:0;background:#000;color:#fff;display:flex;align-items:center;justify-content:center;height:100vh;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}div{text-align:center}h1{font-size:3rem;margin:0 0 1rem}p{font-size:1rem;margin:0;opacity:.8}</style></head><body><div><h1>⏳</h1><p>Carregando aplicação...</p></div></body></html>',
+          { status: 200, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
         );
       })()
     );
@@ -288,68 +300,4 @@ self.addEventListener('notificationclose', (event) => {
   console.log('[SW] 🚫 Notification dismissed:', event.notification.tag);
 });
 
-console.log('[SW] Service Worker loaded');
-
-// Push notification received
-self.addEventListener('push', (event) => {
-  if (!event.data) {
-    console.log('[SW] Push event without data');
-    return;
-  }
-
-  let notificationData = {};
-
-  try {
-    notificationData = event.data.json();
-  } catch {
-    notificationData = {
-      title: 'Notificação',
-      body: event.data.text(),
-    };
-  }
-
-  console.log('[SW] 🔔 Push notification received:', notificationData);
-
-  const options = {
-    icon: '/manifest.json width=192 height=192',
-    badge: 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><circle cx="48" cy="48" r="48" fill="%23ff9500"/></svg>',
-    tag: notificationData.tag || 'forneiro-eden-notification',
-    requireInteraction: notificationData.requireInteraction ?? false,
-    data: notificationData.data || {},
-    actions: notificationData.actions || [],
-  };
-
-  event.waitUntil(
-    self.registration.showNotification(notificationData.title || 'Forneiro Eden', options)
-  );
-});
-
-// Notification click handler
-self.addEventListener('notificationclick', (event) => {
-  console.log('[SW] 📲 Notification clicked:', event.notification.tag);
-  event.notification.close();
-
-  const urlToOpen = event.notification.data.url || '/';
-
-  event.waitUntil(
-    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
-      // Procurar janela já aberta
-      for (let client of clientList) {
-        if (client.url === urlToOpen && 'focus' in client) {
-          return client.focus();
-        }
-      }
-      // Abrir nova janela se não houver
-      if (self.clients.openWindow) {
-        return self.clients.openWindow(urlToOpen);
-      }
-    })
-  );
-});
-
-// Notification close handler
-self.addEventListener('notificationclose', (event) => {
-  console.log('[SW] 🚫 Notification dismissed:', event.notification.tag);
-});
-
-console.log('[SW] Service Worker loaded');
+console.log('[SW] Service Worker loaded successfully - v3');
