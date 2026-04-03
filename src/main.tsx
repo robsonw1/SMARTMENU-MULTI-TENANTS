@@ -11,6 +11,13 @@ if ("serviceWorker" in navigator) {
       .register("/service-worker.js", { scope: "/" })
       .then((registration) => {
         console.log("[SW] ✅ Service Worker registrado com sucesso:", registration.scope);
+        
+        // ✅ Verificar atualizações a cada 30 segundos (força atualização rápida)
+        setInterval(() => {
+          registration.update().catch(error => {
+            console.warn('[SW] Erro ao verificar atualizações:', error);
+          });
+        }, 30000);
       })
       .catch((error) => {
         console.warn("[SW] ❌ Erro ao registrar Service Worker:", error);
