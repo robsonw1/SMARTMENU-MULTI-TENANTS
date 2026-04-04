@@ -22,28 +22,136 @@ function getTenantSlugFromHostname() {
   return null;
 }
 
-// ✅ Buscar manifest dinâmico da Edge Function
+// ✅ SMART FALLBACK: Build manifest locally if Edge Function fails
+async function buildLocalManifest(slug) {
+  console.log(`[SW] 🏗️ Building local manifest for: ${slug}`);
+  
+  // ✅ Lógica LOCAL para gerar manifest sem dependência de Edge Function
+  // Utiliza dados padrão sensatos baseados no slug
+  const storeName = slug.charAt(0).toUpperCase() + slug.slice(1).replace(/-/g, ' ');
+  const primaryColor = '#ff9500'; // Padrão Forneiro Eden
+  
+  // ✅ Gerar SVG com inicial do slug
+  const firstLetter = slug.substring(0, 1).toUpperCase();
+  const svgContent = `
+    <svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'>
+      <defs>
+        <linearGradient id='grad' x1='0%' y1='0%' x2='100%' y2='100%'>
+          <stop offset='0%' style='stop-color:${primaryColor};stop-opacity:1' />
+          <stop offset='100%' style='stop-color:${primaryColor}dd;stop-opacity:1' />
+        </linearGradient>
+      </defs>
+      <rect width='200' height='200' fill='url(#grad)' rx='40'/>
+      <circle cx='100' cy='100' r='80' fill='rgba(255,255,255,0.1)'/>
+      <text x='50%' y='50%' font-size='100' font-weight='bold' fill='white' text-anchor='middle' dominant-baseline='middle' font-family='Arial, sans-serif'>${firstLetter}</text>
+      <text x='50%' y='155' font-size='14' fill='white' text-anchor='middle' font-family='Arial, sans-serif' font-weight='500'>${storeName.substring(0, 12)}</text>
+    </svg>
+  `.trim();
+  
+  const svgBase64 = btoa(unescape(encodeURIComponent(svgContent)));
+  const logoUrl = `data:image/svg+xml;base64,${svgBase64}`;
+  
+  const manifest = {
+    "name": storeName,
+    "short_name": storeName.substring(0, 12),
+    "description": `Cardápio digital e pedidos online da ${storeName}`,
+    "start_url": "/",
+    "scope": "/",
+    "display": "standalone",
+    "background_color": "#000000",
+    "theme_color": primaryColor,
+    "orientation": "portrait-primary",
+    "icons": [
+      {
+        "src": logoUrl,
+        "sizes": "192x192",
+        "type": "image/svg+xml",
+        "purpose": "any"
+      },
+      {
+        "src": logoUrl,
+        "sizes": "512x512",
+        "type": "image/svg+xml",
+        "purpose": "any"
+      },
+      {
+        "src": logoUrl,
+        "sizes": "192x192",
+        "type": "image/svg+xml",
+        "purpose": "maskable"
+      }
+    ],
+    "categories": ["food", "shopping"]
+  };
+  
+  console.log(`[SW] ✅ Local manifest built: ${storeName}`);
+  
+  return new Response(
+    JSON.stringify(manifest),
+    { 
+      status: 200,
+      headers: { 'Content-Type': 'application/json' }
+    }
+  );
+}
+
+// ✅ Buscar manifest dinâmico da Edge Function (com fallback local)
 async function fetchDynamicManifest(slug) {
   try {
     const url = `https://towmfxficdkrgfwghcer.supabase.co/functions/v1/get-manifest?tenant_id=${encodeURIComponent(slug)}`;
-    console.log(`[SW] 📡 Buscando manifest dinâmico: ${slug}`);
+    console.log(`[SW] 📡 Fetching dynamic manifest for: ${slug}`);
+    console.log(`[SW] URL: ${url}`);
     
+    // ✅ Timeout 15s - rápido para não travar install
+    const controller = new AbortController();
+    const timeout = setTimeout(() => {
+      console.warn('[SW] ⏱️ Manifest fetch timeout after 15s - using local');
+      controller.abort();
+    }, 15000);
+
     const response = await fetch(url, {
       method: 'GET',
+      signal: controller.signal,
       headers: {
         'Content-Type': 'application/json',
       },
     });
 
-    if (!response || response.status !== 200) {
-      console.warn(`[SW] ⚠️ Manifest fetch failed: ${response.status}`);
+    clearTimeout(timeout);
+
+    console.log(`[SW] 📊 Response status: ${response?.status}`);
+    
+    if (!response) {
+      console.warn(`[SW] ⚠️ No response - will use local manifest`);
       return null;
     }
 
-    console.log(`[SW] ✅ Manifest dinâmico recebido`);
-    return response;
+    if (response.status !== 200) {
+      const bodyText = await response.clone().text();
+      console.warn(`[SW] ⚠️ Manifest fetch failed: ${response.status}`);
+      console.warn(`[SW] Response: ${bodyText.substring(0, 150)}`);
+      return null;
+    }
+
+    // Clone before reading
+    const clonedResponse = response.clone();
+    const jsonData = await clonedResponse.json();
+    
+    console.log(`[SW] ✅ Remote manifest received`);
+    console.log(`[SW] 📱 Manifest name: ${jsonData?.name || 'unknown'}`);
+    
+    return new Response(
+      JSON.stringify(jsonData),
+      { 
+        status: 200,
+        headers: { 'Content-Type': 'application/json' }
+      }
+    );
   } catch (error) {
-    console.warn('[SW] ❌ Erro ao buscar manifest dinâmico:', error);
+    console.warn('[SW] ❌ Error fetching remote manifest:', error?.message || error);
+    if (error?.name === 'AbortError') {
+      console.warn('[SW] 🔴 Request was aborted (timeout)');
+    }
     return null;
   }
 }
@@ -115,7 +223,7 @@ self.addEventListener('fetch', (event) => {
             // Cache the dynamic manifest
             const cache = await caches.open(MANIFEST_CACHE);
             await cache.put(event.request, dynamicResponse.clone());
-            console.log('[SW] 💾 Manifest dinâmico cacheado');
+            console.log('[SW] 💾 Manifest cacheado');
             return dynamicResponse;
           }
         } catch (error) {
@@ -129,18 +237,9 @@ self.addEventListener('fetch', (event) => {
           return cached;
         }
 
-        // Last resort: return minimal manifest
-        console.log('[SW] 📄 Retornando manifest minimal');
-        return new Response(
-          JSON.stringify({
-            "name": "Pizzaria Forneiro Eden",
-            "short_name": "Forneiro Eden",
-            "start_url": "/",
-            "display": "standalone",
-            "icons": []
-          }),
-          { headers: { 'Content-Type': 'application/json' } }
-        );
+        // Last resort: build local manifest without Edge Function
+        console.log('[SW] 📄 Construindo manifest local (sem Edge Function)');
+        return await buildLocalManifest(slug);
       })()
     );
     return;
