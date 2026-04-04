@@ -1,20 +1,61 @@
-// Cache versioning - v4: Fixes incorrect Supabase URL in manifest caching
+// Cache versioning - v4: Dynamic manifest via Edge Function
 const CACHE_VERSION = 'forneiro-eden-v4';
+const MANIFEST_CACHE = 'manifest-cache-v4'; // Separate cache for dynamic manifest
 const CACHE_URLS = [
   '/',
   '/index.html',
-  '/manifest.json',
+  // ✅ REMOVED /manifest.json - now dynamic via Edge Function
 ];
 
-// Install: cache assets
+// ✅ Detectar tenant slug do hostname
+function getTenantSlugFromHostname() {
+  try {
+    const hostname = self.location.hostname;
+    // Formato: {slug}.app.aezap.site ou {slug}.aezap.site
+    const match = hostname.match(/^([a-z0-9-]+)\./i);
+    if (match && match[1] && match[1] !== 'app') {
+      return match[1];
+    }
+  } catch (error) {
+    console.warn('[SW] Erro ao detectar hostname:', error);
+  }
+  return null;
+}
+
+// ✅ Buscar manifest dinâmico da Edge Function
+async function fetchDynamicManifest(slug) {
+  try {
+    const url = `https://towmfxficdkrgfwghcer.supabase.co/functions/v1/get-manifest?tenant_id=${encodeURIComponent(slug)}`;
+    console.log(`[SW] 📡 Buscando manifest dinâmico: ${slug}`);
+    
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    });
+
+    if (!response || response.status !== 200) {
+      console.warn(`[SW] ⚠️ Manifest fetch failed: ${response.status}`);
+      return null;
+    }
+
+    console.log(`[SW] ✅ Manifest dinâmico recebido`);
+    return response;
+  } catch (error) {
+    console.warn('[SW] ❌ Erro ao buscar manifest dinâmico:', error);
+    return null;
+  }
+}
+
+// Install: cache assets (SEM manifest.json)
 self.addEventListener('install', (event) => {
-  console.log('[SW] Installing service worker...');
+  console.log('[SW] Installing service worker v4...');
   event.waitUntil(
     caches.open(CACHE_VERSION).then((cache) => {
-      console.log('[SW] ✅ Cache opened');
+      console.log('[SW] ✅ Cache v4 opened');
       return cache.addAll(CACHE_URLS).catch((error) => {
         console.warn('[SW] ⚠️ Some assets could not be cached:', error);
-        // Não falha se alguns assets não conseguir cachear
         return Promise.resolve();
       });
     })
@@ -24,12 +65,13 @@ self.addEventListener('install', (event) => {
 
 // Activate: cleanup old caches
 self.addEventListener('activate', (event) => {
-  console.log('[SW] Activating service worker...');
+  console.log('[SW] Activating service worker v4...');
   event.waitUntil(
     caches.keys().then((cacheNames) => {
       return Promise.all(
         cacheNames.map((cacheName) => {
-          if (cacheName !== CACHE_VERSION) {
+          // Keep v4 caches, delete everything else
+          if (cacheName !== CACHE_VERSION && cacheName !== MANIFEST_CACHE) {
             console.log('[SW] Deleting old cache:', cacheName);
             return caches.delete(cacheName);
           }
@@ -40,14 +82,73 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first, fallback to cache
+// ✅ SPECIAL: Intercept /manifest.json and call Edge Function
 self.addEventListener('fetch', (event) => {
   // Skip non-GET requests
   if (event.request.method !== 'GET') return;
 
-  // Skip some URLs that shouldn't be cached
-  if (event.request.url.includes('/api/') || event.request.url.includes('supabase')) {
-    return; // Let network handle it without caching
+  // 🔥 SPECIAL HANDLING: /manifest.json (DYNAMIC)
+  if (event.request.url.endsWith('/manifest.json') || event.request.url.includes('/manifest.json')) {
+    event.respondWith(
+      (async () => {
+        const slug = getTenantSlugFromHostname();
+        
+        if (!slug) {
+          console.log('[SW] ⚠️ Could not detect slug, returning fallback');
+          // Fallback: return minimal manifest
+          return new Response(
+            JSON.stringify({
+              "name": "Pizzaria Forneiro Eden",
+              "short_name": "Forneiro Eden",
+              "start_url": "/",
+              "display": "standalone",
+              "icons": []
+            }),
+            { headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+
+        try {
+          // Try to fetch dynamic manifest from Edge Function
+          const dynamicResponse = await fetchDynamicManifest(slug);
+          if (dynamicResponse) {
+            // Cache the dynamic manifest
+            const cache = await caches.open(MANIFEST_CACHE);
+            await cache.put(event.request, dynamicResponse.clone());
+            console.log('[SW] 💾 Manifest dinâmico cacheado');
+            return dynamicResponse;
+          }
+        } catch (error) {
+          console.warn('[SW] Erro ao buscar manifest dinâmico:', error);
+        }
+
+        // Fallback: try cached manifest
+        const cached = await caches.match(event.request);
+        if (cached) {
+          console.log('[SW] 📦 Retornando manifest cacheado');
+          return cached;
+        }
+
+        // Last resort: return minimal manifest
+        console.log('[SW] 📄 Retornando manifest minimal');
+        return new Response(
+          JSON.stringify({
+            "name": "Pizzaria Forneiro Eden",
+            "short_name": "Forneiro Eden",
+            "start_url": "/",
+            "display": "standalone",
+            "icons": []
+          }),
+          { headers: { 'Content-Type': 'application/json' } }
+        );
+      })()
+    );
+    return;
+  }
+
+  // Skip APIs - let browser handle without caching
+  if (event.request.url.includes('/api/') || event.request.url.includes('supabase') || event.request.url.includes('/functions/')) {
+    return;
   }
 
   // Skip chrome-extension URLs and other non-http protocols
@@ -56,6 +157,7 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
+  // 📱 Normal fetch: network-first, fallback to cache
   event.respondWith(
     fetch(event.request)
       .then((response) => {
