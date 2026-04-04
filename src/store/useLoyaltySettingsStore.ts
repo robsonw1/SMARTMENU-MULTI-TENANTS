@@ -33,9 +33,10 @@ export const useLoyaltySettingsStore = create<LoyaltySettingsStore>((set, get) =
       
       console.log('[LOYALTY-SETTINGS] Carregando settings para tenant:', tenantId);
       
-      // ✅ NOVO: Timeout para evitar travamento no mobile (3s)
+      // ✅ NOVO: Timeout tolerante para evitar travamento (15s)
+      // Aumentado de 3s para 15s para Supabase lento ou primeira carga
       const timeoutPromise = new Promise<any>((_, reject) =>
-        setTimeout(() => reject(new Error('Loyalty settings timeout')), 3000)
+        setTimeout(() => reject(new Error('Loyalty settings timeout')), 15000)
       );
 
       const queryPromise = (supabase as any)
