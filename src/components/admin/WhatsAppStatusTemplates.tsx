@@ -353,38 +353,24 @@ export const WhatsAppStatusTemplates = () => {
     [tenantId, store]
   )
 
-  // ✅ Validar loading state: se está carregando E nenhum template está pronto
-  const isLoading = store.loading && !tenantId
-  const hasTemplates = Object.values(store.templates).some((t) => t !== null)
-
-  if (isLoading) {
-    return (
-      <Card>
-        <CardContent className="py-16 flex flex-col items-center justify-center gap-4">
-          <Loader className="w-10 h-10 animate-spin text-muted-foreground" />
-          <div className="text-center">
-            <p className="text-lg font-medium">Carregando Templates...</p>
-            <p className="text-sm text-muted-foreground">Aguarde enquanto sincronizamos com seu banco de dados</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
+  // ✅ EARLY RETURN: Se não há tenantId, mostrar loading E SAIR
+  // NUNCA renderizar TemplateCard sem tenantId!
   if (!tenantId) {
     return (
       <Card>
         <CardContent className="py-16 flex flex-col items-center justify-center gap-4">
           <Loader className="w-10 h-10 animate-spin text-muted-foreground" />
           <div className="text-center">
-            <p className="text-lg font-medium">Identificando Tenant...</p>
-            <p className="text-sm text-muted-foreground">Por favor aguarde</p>
+            <p className="text-lg font-medium">Carregando...</p>
+            <p className="text-sm text-muted-foreground">Aguarde enquanto identificamos seu tenant</p>
           </div>
         </CardContent>
       </Card>
     )
   }
 
+  // ✅ AGORA SIM: TenantId existe, SEMPRE renderizar os 7 TemplateCards
+  // Mesma ordem sempre = sem erro #185
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -404,7 +390,7 @@ export const WhatsAppStatusTemplates = () => {
         <span className="font-semibold">⚡ Opção A - UI Fixa 7 Slots:</span> O(1) performance, cache eficiente, RLS simples, escalável para 10k+ tenants
       </div>
 
-      {/* 7 Status Cards Grid */}
+      {/*7 Status Cards Grid - SEMPRE renderizado (mesma ordem sempre) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max">
         {(Object.keys(STATUS_CONFIG) as WhatsAppStatus[]).map((status) => (
           <TemplateCard
