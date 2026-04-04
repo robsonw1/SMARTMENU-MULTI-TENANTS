@@ -281,6 +281,14 @@ interface WhatsAppStatusTemplatesProps {
  */
 export const WhatsAppStatusTemplates = ({ tenantId }: WhatsAppStatusTemplatesProps) => {
   const store = useWhatsappTemplatesStore()
+  
+  // 🛡️ GUARD CRÍTICO: Se tenantId não é válido, não renderizar nada
+  // Isso evita que hooks sejam chamados com tenantId inválido
+  if (!tenantId || tenantId.trim() === '') {
+    console.warn('⚠️ [TEMPLATES] tenantId inválido, aguardando...')
+    return null
+  }
+  
   const [editingStatus, setEditingStatus] = useState<WhatsAppStatus | null>(null)
   const [resetting, setResetting] = useState<WhatsAppStatus | null>(null)
 
@@ -296,7 +304,7 @@ export const WhatsAppStatusTemplates = ({ tenantId }: WhatsAppStatusTemplatesPro
     })
 
     return () => unsubscribe()
-  }, [tenantId, store])
+  }, [tenantId])
 
   // Handlers
   const handleEdit = useCallback((status: WhatsAppStatus) => {
