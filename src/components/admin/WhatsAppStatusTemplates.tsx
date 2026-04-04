@@ -266,48 +266,34 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
   )
 }
 
+interface WhatsAppStatusTemplatesProps {
+  tenantId: string
+}
+
 /**
  * WhatsAppStatusTemplates: Painel Admin com 7 cards fixos
  * Grid responsivo: 1 coluna mobile, 2 colunas tablet, 3 colunas desktop
+ * ⚠️ CRÍTICO: Recebe tenantId como prop (não busca internamente)
+ * Isso evita re-renders com hooks em ordem diferente
  */
-export const WhatsAppStatusTemplates = () => {
+export const WhatsAppStatusTemplates = ({ tenantId }: WhatsAppStatusTemplatesProps) => {
   const store = useWhatsappTemplatesStore()
-  const [tenantId, setTenantId] = useState<string>('')
   const [editingStatus, setEditingStatus] = useState<WhatsAppStatus | null>(null)
   const [resetting, setResetting] = useState<WhatsAppStatus | null>(null)
 
-  // Obter tenant_id e carregar templates
+  // ✅ Carregar templates quando tenantId muda (vem como prop)
   useEffect(() => {
-    // ✅ Buscar tenantId com prioridade exata
-    const id =
-      sessionStorage.getItem('sb-auth-tenant-id') ||
-      sessionStorage.getItem('sb-tenant-id-by-slug') ||
-      localStorage.getItem('admin-tenant-id')
+    console.log('🔑 [TEMPLATES] Carregando para tenant:', tenantId.substring(0, 8) + '...')
+    store.loadTemplates(tenantId)
 
-    // ✅ Se não há tenantId, apenas log e aguarda
-    if (!id || id.trim() === '') {
-      console.warn('⚠️ [NOTIFICATIONS] tenantId não disponível ainda')
-      return
-    }
-
-    // ✅ TenantId identificado - carregar IMEDIATAMENTE
-    console.log('🔑 [NOTIFICATIONS] Tenant identificado:', id.substring(0, 8) + '...')
-    setTenantId(id)
-    
-    // ✅ Carregar templates DIRETAMENTE (sem delay)
-    store.loadTemplates(id)
-
-    // ✅ Subscrever a mudanças realtime
-    const unsubscribe = store.subscribeToChanges(id, () => {
-      console.log('🔄 [NOTIFICATIONS] Templates atualizados em tempo real')
-      toast.info('💡 Templates atualizados em tempo real')
+    // Subscrever a mudanças realtime
+    const unsubscribe = store.subscribeToChanges(tenantId, () => {
+      console.log('🔄 [TEMPLATES] Atualizados em realtime')
+      toast.info('💡 Templates atualizados')
     })
 
-    return () => {
-      console.log('🧹 [NOTIFICATIONS] Limpando subscriptions')
-      unsubscribe()
-    }
-  }, [store])
+    return () => unsubscribe()
+  }, [tenantId, store])
 
   // Handlers
   const handleEdit = useCallback((status: WhatsAppStatus) => {
@@ -320,11 +306,6 @@ export const WhatsAppStatusTemplates = () => {
 
   const handleSave = useCallback(
     async (status: WhatsAppStatus, message: string, enabled: boolean) => {
-      if (!tenantId) {
-        toast.error('Tenant não identificado')
-        return
-      }
-
       const success = await store.updateTemplate(tenantId, status, message, enabled)
       if (success) {
         setEditingStatus(null)
@@ -336,14 +317,8 @@ export const WhatsAppStatusTemplates = () => {
 
   const handleReset = useCallback(
     async (status: WhatsAppStatus) => {
-      if (!tenantId) {
-        toast.error('Tenant não identificado')
-        return
-      }
-
       setResetting(status)
       try {
-        // Soft delete + recri ate with default
         await store.resetTemplate(tenantId, status)
         toast.success(`✅ Template ${STATUS_CONFIG[status].label} resetado para padrão`)
       } finally {
@@ -353,24 +328,7 @@ export const WhatsAppStatusTemplates = () => {
     [tenantId, store]
   )
 
-  // ✅ EARLY RETURN: Se não há tenantId, mostrar loading E SAIR
-  // NUNCA renderizar TemplateCard sem tenantId!
-  if (!tenantId) {
-    return (
-      <Card>
-        <CardContent className="py-16 flex flex-col items-center justify-center gap-4">
-          <Loader className="w-10 h-10 animate-spin text-muted-foreground" />
-          <div className="text-center">
-            <p className="text-lg font-medium">Carregando...</p>
-            <p className="text-sm text-muted-foreground">Aguarde enquanto identificamos seu tenant</p>
-          </div>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // ✅ AGORA SIM: TenantId existe, SEMPRE renderizar os 7 TemplateCards
-  // Mesma ordem sempre = sem erro #185
+  // ✅ SEMPRE renderiza (tenantId passou como prop, logo é válido)
   return (
     <div className="space-y-6">
       {/* Header */}
