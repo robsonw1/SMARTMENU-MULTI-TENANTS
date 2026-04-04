@@ -48,7 +48,7 @@ export const NotificationsTab = () => {
   const [generatingQR, setGeneratingQR] = useState<string | null>(null);
   const [qrCodeData, setQrCodeData] = useState<{ [key: string]: string }>({});
   
-  // Usar hook de sincronização
+  // ✅ Usar hook de sincronização APENAS se autenticado
   useWhatsAppInstanceSync();
 
   // ✅ NOVO: Usar hook seguro para tenant_id validado
