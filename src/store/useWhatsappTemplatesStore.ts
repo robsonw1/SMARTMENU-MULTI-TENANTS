@@ -65,6 +65,13 @@ export const useWhatsappTemplatesStore = create<WhatsappTemplatesStore>((set, ge
   // Carregar todos os 7 templates
   loadTemplates: async (tenantId: string) => {
     try {
+      // ✅ Validação: tenantId obrigatório
+      if (!tenantId || tenantId.trim() === '') {
+        console.warn('⚠️ [TEMPLATES] tenantId vazio, abortando loadTemplates')
+        set({ loading: false, error: 'tenantId não fornecido' })
+        return
+      }
+
       set({ loading: true, error: null })
 
       // ✅ Buscar templates com fetch + auth token Supabase
@@ -125,6 +132,13 @@ export const useWhatsappTemplatesStore = create<WhatsappTemplatesStore>((set, ge
   // Atualizar template (UPSERT via Edge Function)
   updateTemplate: async (tenantId: string, status: WhatsAppStatus, message: string, enabled?: boolean) => {
     try {
+      // ✅ Validação: tenantId obrigatório
+      if (!tenantId || tenantId.trim() === '') {
+        console.error('❌ [TEMPLATES] tenantId vazio em updateTemplate')
+        set({ saving: false, error: 'tenantId não fornecido' })
+        return false
+      }
+
       set({ saving: true, error: null })
 
       // ✅ Atualizar via fetch + auth token
@@ -177,6 +191,13 @@ export const useWhatsappTemplatesStore = create<WhatsappTemplatesStore>((set, ge
   // Reset template para padrão (soft delete + recreate)
   resetTemplate: async (tenantId: string, status: WhatsAppStatus) => {
     try {
+      // ✅ Validação: tenantId obrigatório
+      if (!tenantId || tenantId.trim() === '') {
+        console.error('❌ [TEMPLATES] tenantId vazio em resetTemplate')
+        set({ saving: false, error: 'tenantId não fornecido' })
+        return false
+      }
+
       set({ saving: true, error: null })
 
       // ✅ Soft delete via fetch + auth token
