@@ -5,6 +5,7 @@ import { useLoyaltyStore } from '@/store/useLoyaltyStore';
 import { CustomerProfileDropdown } from '@/components/CustomerProfileDropdown';
 import { ScheduleDialog } from '@/components/ScheduleDialog';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { useAppUrl } from '@/hooks/useAppUrl';
 import logoForneiro from '@/assets/logo-forneiro.jpg';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
@@ -30,7 +31,7 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
   const categoriesConfig = useSettingsStore((s) => s.settings.categories_config);
   const storeLogo = useSettingsStore((s) => s.settings.store_logo_url);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
-  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  const appUrl = useAppUrl(); // ✅ NOVO: Hook que detecta dinamicamente a URL
 
   // 💾 Carregar categorias de localStorage NO PRIMEIRO RENDER (antes do BD)
   const cachedCategoriesConfig = useMemo(() => {
