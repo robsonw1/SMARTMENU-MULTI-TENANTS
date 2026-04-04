@@ -274,21 +274,32 @@ export const WhatsAppStatusTemplates = () => {
 
   // Obter tenant_id e carregar templates
   useEffect(() => {
+    // ✅ Validação: buscar tenantId com prioridade
     const id =
       sessionStorage.getItem('sb-auth-tenant-id') ||
       sessionStorage.getItem('sb-tenant-id-by-slug') ||
       localStorage.getItem('admin-tenant-id')
 
-    if (id) {
+    // ✅ Validar que tenantId é válido
+    if (id && id.trim() !== '') {
+      console.log('🔑 [NOTIFICATIONS] Tenant identificado:', id.substring(0, 8) + '...')
       setTenantId(id)
-      store.loadTemplates(id)
+      
+      // ✅ Carregar templates com delay mínimo para garantir estado
+      setTimeout(() => {
+        store.loadTemplates(id)
+      }, 100)
 
       // Subscrever a mudanças realtime
       const unsubscribe = store.subscribeToChanges(id, () => {
+        console.log('🔄 [NOTIFICATIONS] Templates atualizados em tempo real')
         toast.info('💡 Templates atualizados em tempo real')
       })
 
       return () => unsubscribe()
+    } else {
+      console.warn('⚠️ [NOTIFICATIONS] tenantId não encontrado em sessionStorage/localStorage')
+      setTenantId('')
     }
   }, [store])
 
