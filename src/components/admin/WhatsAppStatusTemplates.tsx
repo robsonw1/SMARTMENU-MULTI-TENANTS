@@ -98,16 +98,20 @@ const TemplateCard: React.FC<TemplateCardProps> = ({
   onReset,
 }) => {
   const config = STATUS_CONFIG[status]
-  const [editMessage, setEditMessage] = useState(template?.message_template ?? DEFAULT_TEMPLATES[status])
-  const [editEnabled, setEditEnabled] = useState(template?.enabled ?? true)
+  const [editMessage, setEditMessage] = useState<string>(template?.message_template ?? DEFAULT_TEMPLATES[status])
+  const [editEnabled, setEditEnabled] = useState<boolean>(template?.enabled ?? true)
 
   // Sincronizar quando template muda (realtime updates)
   useEffect(() => {
-    if (template) {
+    if (template && template.message_template) {
       setEditMessage(template.message_template)
-      setEditEnabled(template.enabled)
+      setEditEnabled(template.enabled ?? true)
+    } else {
+      // Se template é null, usar padrão
+      setEditMessage(DEFAULT_TEMPLATES[status])
+      setEditEnabled(true)
     }
-  }, [template])
+  }, [template, status])
 
   const handleSave = async () => {
     if (!editMessage.trim()) {
@@ -274,32 +278,34 @@ export const WhatsAppStatusTemplates = () => {
 
   // Obter tenant_id e carregar templates
   useEffect(() => {
-    // ✅ Validação: buscar tenantId com prioridade
+    // ✅ Buscar tenantId com prioridade exata
     const id =
       sessionStorage.getItem('sb-auth-tenant-id') ||
       sessionStorage.getItem('sb-tenant-id-by-slug') ||
       localStorage.getItem('admin-tenant-id')
 
-    // ✅ Validar que tenantId é válido
-    if (id && id.trim() !== '') {
-      console.log('🔑 [NOTIFICATIONS] Tenant identificado:', id.substring(0, 8) + '...')
-      setTenantId(id)
-      
-      // ✅ Carregar templates com delay mínimo para garantir estado
-      setTimeout(() => {
-        store.loadTemplates(id)
-      }, 100)
+    // ✅ Se não há tenantId, apenas log e aguarda
+    if (!id || id.trim() === '') {
+      console.warn('⚠️ [NOTIFICATIONS] tenantId não disponível ainda')
+      return
+    }
 
-      // Subscrever a mudanças realtime
-      const unsubscribe = store.subscribeToChanges(id, () => {
-        console.log('🔄 [NOTIFICATIONS] Templates atualizados em tempo real')
-        toast.info('💡 Templates atualizados em tempo real')
-      })
+    // ✅ TenantId identificado - carregar IMEDIATAMENTE
+    console.log('🔑 [NOTIFICATIONS] Tenant identificado:', id.substring(0, 8) + '...')
+    setTenantId(id)
+    
+    // ✅ Carregar templates DIRETAMENTE (sem delay)
+    store.loadTemplates(id)
 
-      return () => unsubscribe()
-    } else {
-      console.warn('⚠️ [NOTIFICATIONS] tenantId não encontrado em sessionStorage/localStorage')
-      setTenantId('')
+    // ✅ Subscrever a mudanças realtime
+    const unsubscribe = store.subscribeToChanges(id, () => {
+      console.log('🔄 [NOTIFICATIONS] Templates atualizados em tempo real')
+      toast.info('💡 Templates atualizados em tempo real')
+    })
+
+    return () => {
+      console.log('🧹 [NOTIFICATIONS] Limpando subscriptions')
+      unsubscribe()
     }
   }, [store])
 
@@ -347,7 +353,11 @@ export const WhatsAppStatusTemplates = () => {
     [tenantId, store]
   )
 
-  if (store.loading && Object.values(store.templates).every((t) => !t)) {
+  // ✅ Validar loading state: se está carregando E nenhum template está pronto
+  const isLoading = store.loading && !tenantId
+  const hasTemplates = Object.values(store.templates).some((t) => t !== null)
+
+  if (isLoading) {
     return (
       <Card>
         <CardContent className="py-16 flex flex-col items-center justify-center gap-4">
@@ -355,6 +365,20 @@ export const WhatsAppStatusTemplates = () => {
           <div className="text-center">
             <p className="text-lg font-medium">Carregando Templates...</p>
             <p className="text-sm text-muted-foreground">Aguarde enquanto sincronizamos com seu banco de dados</p>
+          </div>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!tenantId) {
+    return (
+      <Card>
+        <CardContent className="py-16 flex flex-col items-center justify-center gap-4">
+          <Loader className="w-10 h-10 animate-spin text-muted-foreground" />
+          <div className="text-center">
+            <p className="text-lg font-medium">Identificando Tenant...</p>
+            <p className="text-sm text-muted-foreground">Por favor aguarde</p>
           </div>
         </CardContent>
       </Card>
