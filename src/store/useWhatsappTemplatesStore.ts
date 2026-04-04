@@ -1,6 +1,8 @@
 import { create } from 'zustand'
 import { supabase } from '@/integrations/supabase/client'
 
+const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL || ''
+
 export interface WhatsAppTemplate {
   id: string
   tenant_id: string
@@ -65,20 +67,29 @@ export const useWhatsappTemplatesStore = create<WhatsappTemplatesStore>((set, ge
     try {
       set({ loading: true, error: null })
 
-      // ✅ Buscar templates da Edge Function com supabase.functions.invoke
-      const { data: templates, error } = await supabase.functions.invoke('whatsapp-templates', {
-        body: {},
-        headers: {
-          'x-tenant-id': tenantId,
-        },
-      })
+      // ✅ Buscar templates com fetch + auth token Supabase
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
 
-      if (error) {
-        console.error('❌ [TEMPLATES] Erro ao carregar:', error)
-        throw error
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/whatsapp-templates`,
+        {
+          method: 'GET',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'x-tenant-id': tenantId,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error('❌ [TEMPLATES] Erro HTTP:', response.status, errorText)
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
-      const data: WhatsAppTemplate[] = Array.isArray(templates) ? templates : []
+      const data: WhatsAppTemplate[] = await response.json()
 
       // Normalizar para Record<Status, Template>
       const normalized: Record<WhatsAppStatus, WhatsAppTemplate | null> = {
@@ -116,26 +127,33 @@ export const useWhatsappTemplatesStore = create<WhatsappTemplatesStore>((set, ge
     try {
       set({ saving: true, error: null })
 
-      // ✅ Atualizar via supabase.functions.invoke
-      const { data: updated, error } = await supabase.functions.invoke('whatsapp-templates', {
-        body: {
-          message_template: message,
-          enabled: enabled !== undefined ? enabled : true,
-        },
-        headers: {
-          'x-tenant-id': tenantId,
-          'x-status': status,
-        },
-      })
+      // ✅ Atualizar via fetch + auth token
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
 
-      if (error) {
-        console.error(`❌ [TEMPLATES] Erro ao atualizar ${status}:`, error)
-        throw error
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/whatsapp-templates?status=${status}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'x-tenant-id': tenantId,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({
+            message_template: message,
+            enabled: enabled !== undefined ? enabled : true,
+          }),
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ [TEMPLATES] Erro ao atualizar ${status}:`, response.status, errorText)
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
-      if (!updated) {
-        throw new Error(`Erro ao atualizar template`)
-      }
+      const updated: WhatsAppTemplate = await response.json()
 
       // Atualizar estado local
       set((state) => ({
@@ -161,18 +179,26 @@ export const useWhatsappTemplatesStore = create<WhatsappTemplatesStore>((set, ge
     try {
       set({ saving: true, error: null })
 
-      // ✅ Soft delete via Edge Function
-      const { error } = await supabase.functions.invoke('whatsapp-templates', {
-        body: { method: 'DELETE' },
-        headers: {
-          'x-tenant-id': tenantId,
-          'x-status': status,
-        },
-      })
+      // ✅ Soft delete via fetch + auth token
+      const { data: sessionData } = await supabase.auth.getSession()
+      const token = sessionData?.session?.access_token
 
-      if (error) {
-        console.error(`❌ [TEMPLATES] Erro ao deletar ${status}:`, error)
-        throw error
+      const response = await fetch(
+        `${SUPABASE_URL}/functions/v1/whatsapp-templates?status=${status}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': token ? `Bearer ${token}` : '',
+            'x-tenant-id': tenantId,
+            'Content-Type': 'application/json',
+          },
+        }
+      )
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        console.error(`❌ [TEMPLATES] Erro ao deletar ${status}:`, response.status, errorText)
+        throw new Error(`HTTP ${response.status}: ${errorText}`)
       }
 
       // Recrear com padrão
