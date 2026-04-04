@@ -4,6 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Download, QrCode } from 'lucide-react';
 import { useRef } from 'react';
 import { toast } from 'sonner';
+import { useAppUrl } from '@/hooks/useAppUrl';
 
 interface QRCodeDisplayProps {
   size?: 100 | 200 | 300 | 500 | 1000;
@@ -14,7 +15,7 @@ interface QRCodeDisplayProps {
 export function QRCodeDisplay({ size = 200, showControls = true, label }: QRCodeDisplayProps) {
   const qrCanvasRef = useRef<HTMLDivElement>(null);
   const qrSvgRef = useRef<HTMLDivElement>(null);
-  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  const appUrl = useAppUrl(); // ✅ NOVO: Hook que detecta dinamicamente a URL
 
   const downloadQR = async (format: 'png' | 'svg') => {
     try {
