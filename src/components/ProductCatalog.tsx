@@ -1,10 +1,11 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/ProductCard';
-import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Heart, Zap, Utensils, Leaf, Coffee, Truck, Store, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Heart, Zap, Utensils, Leaf, Coffee, Truck, Store, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCategoryCarousel } from '@/hooks/use-category-carousel';
+import { Skeleton } from '@/components/ui/skeleton';
 
 const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>>> = {
   Gift,
@@ -20,6 +21,57 @@ const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>
   Leaf,
   Coffee,
 };
+
+// ✅ NOVO: Skeleton visual bonito enquanto carrega
+function ProductCatalogSkeleton() {
+  return (
+    <section id="cardapio" className="py-12 md:py-20">
+      <div className="container mx-auto px-4">
+        {/* Header Skeleton */}
+        <div className="text-center mb-10 space-y-4">
+          <Skeleton className="h-10 w-3/4 mx-auto rounded-lg" />
+          <Skeleton className="h-5 w-2/3 mx-auto rounded-lg" />
+          
+          {/* Badges Skeleton */}
+          <div className="flex flex-wrap items-center justify-center gap-3">
+            <Skeleton className="h-8 w-32 rounded-full" />
+            <Skeleton className="h-8 w-32 rounded-full" />
+          </div>
+        </div>
+
+        {/* Category Tabs Skeleton */}
+        <div className="mb-8 hidden md:flex gap-2">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-10 w-28 rounded-lg" />
+          ))}
+        </div>
+
+        {/* Mobile Carousel Skeleton */}
+        <div className="md:hidden mb-8">
+          <Skeleton className="h-10 w-full rounded-lg" />
+        </div>
+
+        {/* Products Grid Skeleton */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
+            <div key={i} className="space-y-3">
+              <Skeleton className="h-40 w-full rounded-lg" />
+              <Skeleton className="h-4 w-3/4" />
+              <Skeleton className="h-4 w-1/2" />
+              <Skeleton className="h-8 w-full rounded-lg" />
+            </div>
+          ))}
+        </div>
+
+        {/* Loading Message */}
+        <div className="flex items-center justify-center gap-3 mt-12 text-muted-foreground">
+          <Loader2 className="w-5 h-5 animate-spin" />
+          <p>Buscando seu cardápio...</p>
+        </div>
+      </div>
+    </section>
+  );
+}
 
 export function ProductCatalog() {
   const [activeTab, setActiveTab] = useState('combos');
@@ -120,6 +172,10 @@ export function ProductCatalog() {
     }
   }, [activeTab]);
 
+  // ✅ NOVO: Se não tem categoriesConfig E não tem cache, mostrar skeleton bonito
+  if (!categoriesConfig && !cachedCategoriesConfig) {
+    return <ProductCatalogSkeleton />;
+  }
 
   return (
     <section id="cardapio" className="py-12 md:py-20">
