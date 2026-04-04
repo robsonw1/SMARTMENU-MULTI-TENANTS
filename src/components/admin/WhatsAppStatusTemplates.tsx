@@ -9,6 +9,9 @@ import { Loader, MessageCircle, RotateCcw, Save } from 'lucide-react'
 import { toast } from 'sonner'
 
 // 7 Status fixos com ícones, cores e labels
+// ✅ Ordem GARANTIDA - Nunca muda, previne React error #185
+const STATUS_ORDER: WhatsAppStatus[] = ['pending', 'confirmed', 'preparing', 'delivering', 'delivered', 'cancelled', 'agendado']
+
 const STATUS_CONFIG: Record<WhatsAppStatus, { icon: string; label: string; color: string; description: string }> = {
   pending: {
     icon: '📋',
@@ -350,7 +353,7 @@ export const WhatsAppStatusTemplates = ({ tenantId }: WhatsAppStatusTemplatesPro
 
       {/*7 Status Cards Grid - SEMPRE renderizado (mesma ordem sempre) */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 auto-rows-max">
-        {(Object.keys(STATUS_CONFIG) as WhatsAppStatus[]).map((status) => (
+        {STATUS_ORDER.map((status) => (
           <TemplateCard
             key={status}
             status={status}
