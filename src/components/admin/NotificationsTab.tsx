@@ -526,8 +526,17 @@ export const NotificationsTab = () => {
         </div>
       </div>
 
-      {/* Configurar Templates */}
-      <WhatsAppStatusTemplates />
+      {/* Configurar Templates - Apenas se authTenantId está disponível */}
+      {authTenantId && !tenantLoading ? (
+        <WhatsAppStatusTemplates key={authTenantId} tenantId={authTenantId} />
+      ) : (
+        <Card>
+          <CardContent className="py-12 flex flex-col items-center justify-center gap-4">
+            <Loader className="w-8 h-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Carregando templates...</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };
