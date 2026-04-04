@@ -78,7 +78,6 @@
   import { SchedulingSettings } from '@/components/admin/SchedulingSettings';
   import { PrintNodeSettings } from '@/components/admin/PrintNodeSettings';
   import { NotificationsTab } from '@/components/admin/NotificationsTab';
-  import { WhatsAppStatusTemplates } from '@/components/admin/WhatsAppStatusTemplates';
   import { LoyaltySettingsPanel } from '@/components/admin/LoyaltySettingsPanel';
   import { FaithfulCustomersAdmin } from '@/components/admin/FaithfulCustomersAdmin';
   import { CouponManagementPanel } from '@/components/admin/CouponManagementPanel';
@@ -1493,14 +1492,6 @@
                     </TabsTrigger>
 
                     <TabsTrigger
-                      value="whatsapp-templates"
-                      className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
-                    >
-                      <MessageCircle className="w-4 h-4" />
-                      <span className="text-sm font-medium">WhatsApp Templates</span>
-                    </TabsTrigger>
-
-                    <TabsTrigger
                       value="analytics"
                       className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
                     >
@@ -2554,11 +2545,6 @@
             {/* Notifications Tab */}
             <TabsContent value="notifications">
               <NotificationsTab />
-            </TabsContent>
-
-            {/* WhatsApp Templates Tab */}
-            <TabsContent value="whatsapp-templates">
-              <WhatsAppStatusTemplates />
             </TabsContent>
 
             {/* Analytics Tab */}
