@@ -135,6 +135,12 @@ export function CheckoutModal() {
   const [showNeighborhoodDropdown, setShowNeighborhoodDropdown] = useState(false);
   const [isCreatingNeighborhood, setIsCreatingNeighborhood] = useState(false);
   const neighborhoodInitializedRef = useRef(false);
+  
+  // PHASE 2: Fallback Button - Verificar Pagamento após 30s
+  const [showFallbackButton, setShowFallbackButton] = useState(false);
+  const [pixStartTime, setPixStartTime] = useState<number | null>(null);
+  const [isCheckingPayment, setIsCheckingPayment] = useState(false);
+  const [secondsRemaining, setSecondsRemaining] = useState(30);
 
   const validateAndUseCoupon = useCouponManagementStore((s) => s.validateAndUseCoupon);
   const markCouponAsUsed = useCouponManagementStore((s) => s.markCouponAsUsed);
@@ -1303,7 +1309,7 @@ export function CheckoutModal() {
           body: {
             orderId,
             amount: finalTotal,
-            description: `Pedido ${orderId} - Forneiro Éden`,
+            description: `Pedido ${orderId} - AEZap Smart Menu`,
             payerEmail: 'cliente@forneiroeden.com',
             payerName: customer.name,
             payerPhone: customer.phone,
@@ -1592,6 +1598,86 @@ export function CheckoutModal() {
     }
   };
 
+  // PHASE 2: Fallback Payment Verification (manual check after 30s waiting)
+  const handleFallbackPaymentCheck = async () => {
+    if (!pixData?.paymentId || !lastOrderId) {
+      toast.error('Dados de pagamento incompletos');
+      return;
+    }
+
+    setIsCheckingPayment(true);
+    try {
+      console.log('🔍 FALLBACK: Verificando status do pagamento manualmente...', {
+        paymentId: pixData.paymentId,
+        orderId: lastOrderId
+      });
+
+      // Chamar API validate-pix-payment para verificar status
+      const { data: validationData, error: validationError } = await supabase.functions.invoke(
+        'validate-pix-payment',
+        {
+          body: {
+            paymentId: pixData.paymentId,
+            orderId: lastOrderId
+          }
+        }
+      );
+
+      if (validationError || !validationData?.success) {
+        const errorMsg = validationData?.error || validationError?.message || 'Pagamento ainda não confirmado';
+        toast.error(errorMsg);
+        console.warn('⚠️ FALLBACK: Pagamento ainda não foi confirmado:', { validationData, validationError });
+        return;
+      }
+
+      console.log('✅ FALLBACK: Pagamento confirmado manualmente!', validationData);
+      
+      // 2️⃣ PEDIDO CRIADO COM SUCESSO - Processar pontos
+      await processPointsAndCoupons(lastPointsRedeemed, lastFinalTotal, lastAppliedCoupon);
+      
+      toast.success('✅ Pagamento confirmado com sucesso!');
+      
+      setStep('confirmation');
+      setTimeout(() => setIsLoyaltyModalOpen(true), 500);
+
+    } catch (error) {
+      console.error('❌ Erro no fallback check:', error);
+      toast.error('Erro ao verificar pagamento. Tente novamente ou clique no botão acima.');
+    } finally {
+      setIsCheckingPayment(false);
+    }
+  };
+
+  // PHASE 2: Countdown timer (30 seconds) to show fallback payment check button
+  useEffect(() => {
+    if (step !== 'pix' || !pixData) {
+      setShowFallbackButton(false);
+      setPixStartTime(null);
+      setSecondsRemaining(30);
+      return;
+    }
+
+    // Marcar o início quando entra em pix step
+    if (pixStartTime === null) {
+      setPixStartTime(Date.now());
+      return;
+    }
+
+    // Setup timer para contar 30 segundos
+    const interval = setInterval(() => {
+      const elapsed = Math.floor((Date.now() - (pixStartTime || Date.now())) / 1000);
+      const remaining = Math.max(0, 30 - elapsed);
+      setSecondsRemaining(remaining);
+
+      if (remaining === 0) {
+        setShowFallbackButton(true);
+        clearInterval(interval);
+      }
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [step, pixData, pixStartTime]);
+
   const handleClose = () => {
     if (step === 'confirmation') {
       clearCart();
@@ -1613,6 +1699,9 @@ export function CheckoutModal() {
     setCouponDiscount(0);
     setAppliedCoupon('');
     setCouponValidationMessage('');
+    setShowFallbackButton(false);
+    setPixStartTime(null);
+    setSecondsRemaining(30);
     setCheckoutOpen(false);
   };
 
@@ -2470,6 +2559,46 @@ export function CheckoutModal() {
                     <CheckCircle className="w-4 h-4 mr-2" />
                     Já fiz o pagamento
                   </Button>
+
+                  {/* PHASE 2: Fallback Payment Verification Button (appears after 30s) */}
+                  {showFallbackButton && (
+                    <motion.div
+                      initial={{ opacity: 0, y: 10 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      className="space-y-3"
+                    >
+                      <Alert className="bg-blue-50 border-blue-200">
+                        <AlertCircle className="h-4 w-4 text-blue-600" />
+                        <AlertDescription className="text-sm text-blue-800">
+                          ⏱️ Se o pagamento ainda não foi confirmado automaticamente, clique abaixo para verificar.
+                        </AlertDescription>
+                      </Alert>
+                      <Button 
+                        className="w-full bg-orange-500 hover:bg-orange-600"
+                        onClick={handleFallbackPaymentCheck}
+                        disabled={isCheckingPayment}
+                      >
+                        {isCheckingPayment ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Verificando...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            Verificar Pagamento
+                          </>
+                        )}
+                      </Button>
+                    </motion.div>
+                  )}
+
+                  {/* Show countdown timer while waiting for fallback button */}
+                  {!showFallbackButton && step === 'pix' && (
+                    <div className="text-center text-xs text-muted-foreground">
+                      Se não aparecer confirmação em {secondsRemaining}s, clique em "Já fiz o pagamento" acima
+                    </div>
+                  )}
                 </motion.div>
               )}
 
