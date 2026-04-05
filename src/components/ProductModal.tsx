@@ -342,6 +342,28 @@ export function ProductModal() {
     console.log('📦 [ProductModal] comboItems antes de salvar:', comboItems);
     console.log('📦 [ProductModal] comboProductsData antes de salvar:', comboProductsData);
 
+    // Build itemData with all order details for rendering in cart/print
+    const itemData: CartItem['itemData'] = {
+      itemType: isHalfHalf ? 'meia-meia' : 'inteira',
+      sabor1: selectedProduct?.name,
+      sabor2: secondHalf?.name || null,
+      halfOne: selectedProduct?.name,
+      halfTwo: secondHalf?.name || null,
+      drink: selectedDrink?.name || null,
+      border: border?.name || null,
+      extras: extras.map(e => e.name),
+      customIngredients,
+      paidIngredients,
+      comboItems: isCombo ? comboProductsData.map(p => ({
+        itemId: p.itemId,
+        itemName: p.itemName,
+        isHalfHalf: p.isHalfHalf,
+        halfOne: p.itemName,
+        halfTwo: p.secondHalfName || null,
+      })) : undefined,
+      notes: undefined,
+    };
+
     const cartItem: CartItem = {
       id: '',
       product: selectedProduct,
@@ -358,6 +380,7 @@ export function ProductModal() {
       customIngredients: isCustomizable ? customIngredients : undefined,
       paidIngredients: isCustomizable && paidIngredients.length > 0 ? paidIngredients : undefined,
       totalPrice: calculateTotal(),
+      itemData,
     };
 
     addItem(cartItem);
@@ -776,7 +799,7 @@ export function ProductModal() {
                       </Select>
                       
                       {/* Half-Half for Pizza 1 in Combo Família or Combo Casal */}
-                      {(isComboFamilia || isComboCasal) && comboPizza1Id && (
+                      {meia_meia_enabled && (isComboFamilia || isComboCasal) && comboPizza1Id && (
                         <div className="mt-3">
                           <div className="flex items-center justify-between mb-2">
                             <Label className="text-sm">Meia-Meia?</Label>
@@ -826,7 +849,7 @@ export function ProductModal() {
                         </Select>
                         
                         {/* Half-Half for Pizza 2 */}
-                        {comboPizza2Id && (
+                        {meia_meia_enabled && comboPizza2Id && (
                           <div className="mt-3">
                             <div className="flex items-center justify-between mb-2">
                               <Label className="text-sm">Meia-Meia?</Label>
