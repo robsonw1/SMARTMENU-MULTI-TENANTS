@@ -1638,24 +1638,28 @@
 
             {/* Products Tab */}
             <TabsContent value="products">
-              {/* SEÇÃO 1: GERENCIAR CARDÁPIO (Topo com Produtos) */}
-              <Card className="mb-6">
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Gerenciar Cardápio</CardTitle>
-                  <Button
-                    className="gap-2"
-                    onClick={() => {
-                      setEditingProduct(null);
-                      setIsNewProductOpen(true);
-                    }}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Novo Produto
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  {/* Filtros e Busca */}
-                  <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+              <Accordion type="single" collapsible defaultValue="produtos" className="space-y-2">
+                {/* SEÇÃO 1: GERENCIAR CARDÁPIO */}
+                <AccordionItem value="produtos" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    📦 Gerenciar Cardápio
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="gap-2 ml-auto"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingProduct(null);
+                        setIsNewProductOpen(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Novo Produto
+                    </Button>
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4">
+                    {/* Filtros e Busca */}
+                    <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
                     <div className="lg:col-span-1">
                       <Input
                         value={search}
@@ -1775,19 +1779,15 @@
                     product={editingProduct}
                     tenantId={tenantId}
                   />
-                </CardContent>
-              </Card>
+                  </AccordionContent>
+                </AccordionItem>
 
-              {/* SEÇÃO 2: CONFIGURAÇÕES AVANÇADAS (Abaixo com Toggles) */}
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2">
-                    <Settings className="w-4 h-4" />
-                    Configurações Avançadas de Cardápio
-                  </CardTitle>
-                  <CardDescription>Ative ou desative recursos disponíveis no menu dos clientes</CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-6">
+                {/* SEÇÃO 2: CONFIGURAÇÕES AVANÇADAS */}
+                <AccordionItem value="config-avancada" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    ⚙️ Configurações Avançadas de Cardápio
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-6">
                   {/* Toggles */}
                   <div className="space-y-3">
                     <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
@@ -1911,17 +1911,19 @@
                       <p className="text-xs text-amber-800">Você tem alterações não salvas. Clique em "Salvar Alterações" para confirmar.</p>
                     </div>
                   )}
-                </CardContent>
-              </Card>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
             </TabsContent>
 
             {/* Orders Tab */}
             <TabsContent value="orders">
-              <Card>
-                <CardHeader>
-                  <CardTitle>Histórico de Pedidos</CardTitle>
-                </CardHeader>
-                <CardContent>
+              <Accordion type="single" collapsible defaultValue="pedidos" className="space-y-2">
+                <AccordionItem value="pedidos" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    📋 Histórico de Pedidos
+                  </AccordionTrigger>
+                  <AccordionContent>
                   <div className="mb-4">
                     <DateRangeFilter onRangeChange={(start, end) => setDateRange({ start, end })} />
                   </div>
@@ -2042,8 +2044,9 @@
                       </TableBody>
                     </Table>
                   )}
-                </CardContent>
-              </Card>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <OrderDetailsDialog
                 open={isOrderDialogOpen}
@@ -2054,38 +2057,42 @@
 
             {/* Neighborhoods Tab */}
             <TabsContent value="neighborhoods">
-              <Card>
-                <CardHeader className="flex flex-row items-center justify-between">
-                  <CardTitle>Bairros e Taxas de Entrega</CardTitle>
-                  <Button 
-                    className="gap-2"
-                    onClick={() => {
-                      setEditingNeighborhood(null);
-                      setIsNeighborhoodDialogOpen(true);
-                    }}
-                  >
-                    <Plus className="w-4 h-4" />
-                    Novo Bairro
-                  </Button>
-                </CardHeader>
-                <CardContent>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead>Bairro</TableHead>
-                        <TableHead>Taxa de Entrega</TableHead>
-                        <TableHead>Status</TableHead>
-                        <TableHead>Ações</TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {(neighborhoods ?? []).filter(Boolean).map((nb: any) => {
-                        if (!nb?.id) return null;
-                        
-                        // Garantir que isActive sempre é boolean (evita erro controlled/uncontrolled)
-                        const isActive = nb?.isActive === true;
-                        
-                        return (
+              <Accordion type="single" collapsible defaultValue="bairros" className="space-y-2">
+                <AccordionItem value="bairros" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    🏘️ Bairros e Taxas de Entrega
+                    <Button 
+                      variant="ghost"
+                      size="sm"
+                      className="gap-2 ml-auto"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setEditingNeighborhood(null);
+                        setIsNeighborhoodDialogOpen(true);
+                      }}
+                    >
+                      <Plus className="w-4 h-4" />
+                      Novo Bairro
+                    </Button>
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <Table>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead>Bairro</TableHead>
+                          <TableHead>Taxa de Entrega</TableHead>
+                          <TableHead>Status</TableHead>
+                          <TableHead>Ações</TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {(neighborhoods ?? []).filter(Boolean).map((nb: any) => {
+                          if (!nb?.id) return null;
+                          
+                          // Garantir que isActive sempre é boolean (evita erro controlled/uncontrolled)
+                          const isActive = nb?.isActive === true;
+                          
+                          return (
                         <TableRow key={nb.id} className={!isActive ? 'opacity-50' : ''}>
                           <TableCell className="font-medium">{nb.name}</TableCell>
                           <TableCell>
@@ -2140,8 +2147,9 @@
                       })}
                     </TableBody>
                   </Table>
-                </CardContent>
-              </Card>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
               <NeighborhoodFormDialog
                 open={isNeighborhoodDialogOpen}
@@ -2517,12 +2525,27 @@
                     </Button>
                   </AccordionContent>
                 </AccordionItem>
+
+                <AccordionItem value="loyalty" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    💎 Configurações de Fidelização
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <LoyaltySettingsPanel />
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="printnode" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    🖨️ Configuração de Impressão
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <PrintNodeSettings />
+                  </AccordionContent>
+                </AccordionItem>
               </Accordion>
 
               <div className="space-y-6 mt-6">
-                <LoyaltySettingsPanel />
-
-                <PrintNodeSettings />
               </div>
             </TabsContent>
 
