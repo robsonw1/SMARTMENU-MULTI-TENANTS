@@ -144,7 +144,6 @@ export function SizeManagementDialog({
     if (onSaveAsync) {
       setIsSaving(true);
       try {
-        toast.loading('💾 Salvando tamanhos...');
         await onSaveAsync(editingSizes);
         toast.success('✅ Tamanhos salvos com sucesso em tempo real!');
         onOpenChange(false);
