@@ -134,27 +134,27 @@ export function CartDrawer() {
                               </p>
                             )}
                             {/* Show combo pizza flavors */}
-                            {item.comboPizzaFlavors && item.comboPizzaFlavors.length > 0 && (
+                            {item.itemData?.comboItems && item.itemData.comboItems.length > 0 && (
                               <div className="text-xs text-muted-foreground">
-                                {item.comboPizzaFlavors.length === 1 ? (
+                                {item.itemData.comboItems.length === 1 ? (
                                   <span>
-                                    🔵 Sabor: {item.comboPizzaFlavors[0].name}
-                                    {(item.comboPizzaFlavors[0] as any).isHalfHalf && item.comboPizzaFlavors[0] && (
-                                      <span> / {(item.comboPizzaFlavors[0] as any).secondHalf?.name}</span>
+                                    🔵 Sabor: {(item.itemData.comboItems[0] as any).halfOne}
+                                    {(item.itemData.comboItems[0] as any).isHalfHalf && (item.itemData.comboItems[0] as any).halfTwo && (
+                                      <span> / {(item.itemData.comboItems[0] as any).halfTwo}</span>
                                     )}
                                   </span>
                                 ) : (
                                   <>
                                     <div>
-                                      🔵 Pizza 1: {item.comboPizzaFlavors[0].name}
-                                      {(item.comboPizzaFlavors[0] as any).isHalfHalf && (
-                                        <span> / {(item.comboPizzaFlavors[0] as any).secondHalf?.name}</span>
+                                      🔵 Item 1: {(item.itemData.comboItems[0] as any).halfOne}
+                                      {(item.itemData.comboItems[0] as any).isHalfHalf && (
+                                        <span> / {(item.itemData.comboItems[0] as any).halfTwo}</span>
                                       )}
                                     </div>
                                     <div>
-                                      🔵 Pizza 2: {item.comboPizzaFlavors[1].name}
-                                      {(item.comboPizzaFlavors[1] as any).isHalfHalf && (
-                                        <span> / {(item.comboPizzaFlavors[1] as any).secondHalf?.name}</span>
+                                      🔵 Item 2: {(item.itemData.comboItems[1] as any).halfOne}
+                                      {(item.itemData.comboItems[1] as any).isHalfHalf && (
+                                        <span> / {(item.itemData.comboItems[1] as any).halfTwo}</span>
                                       )}
                                     </div>
                                   </>
