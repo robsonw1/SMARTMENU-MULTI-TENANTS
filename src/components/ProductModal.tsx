@@ -774,7 +774,7 @@ export function ProductModal() {
                   <Separator />
                   <div>
                     <Label className="text-base font-semibold mb-3 block">
-                      {isComboFamilia ? 'Escolha os sabores das pizzas' : 'Escolha o sabor da pizza'}
+                      {isComboFamilia ? 'Escolha seus sabores ' : 'Escolha seu sabor'}
                     </Label>
                     <p className="text-sm text-muted-foreground mb-3">
                       * Disponível apenas sabores promocionais
