@@ -273,8 +273,8 @@ export function ProductModal() {
       : undefined;
 
     // Build combo pizza flavors array with half-half info
-    const comboPizzaFlavors: any[] = [];
-    const comboPizzasData: any[] = [];
+    const comboItems: any[] = [];
+    const comboProductsData: any[] = [];
     if (isCombo) {
       if (comboPizza1Id) {
         const pizza1 = promotionalPizzas.find(p => p.id === comboPizza1Id);
@@ -294,13 +294,13 @@ export function ProductModal() {
             pizza1HalfName: pizza1Half?.name,
             savedObject: pizza1Item,
           });
-          comboPizzaFlavors.push(pizza1Item);
+          comboItems.push(pizza1Item);
           
           // Also save explicit data structure for serialization reliability
-          comboPizzasData.push({
-            pizzaNumber: 1,
-            pizzaId: pizza1.id,
-            pizzaName: pizza1.name,
+          comboProductsData.push({
+            itemNumber: 1,
+            itemId: pizza1.id,
+            itemName: pizza1.name,
             isHalfHalf: isPizza1HalfHalf,
             secondHalfId: pizza1Half?.id,
             secondHalfName: pizza1Half?.name,
@@ -325,13 +325,13 @@ export function ProductModal() {
             pizza2HalfName: pizza2Half?.name,
             savedObject: pizza2Item,
           });
-          comboPizzaFlavors.push(pizza2Item);
+          comboItems.push(pizza2Item);
           
           // Also save explicit data structure for serialization reliability
-          comboPizzasData.push({
-            pizzaNumber: 2,
-            pizzaId: pizza2.id,
-            pizzaName: pizza2.name,
+          comboProductsData.push({
+            itemNumber: 2,
+            itemId: pizza2.id,
+            itemName: pizza2.name,
             isHalfHalf: isPizza2HalfHalf,
             secondHalfId: pizza2Half?.id,
             secondHalfName: pizza2Half?.name,
@@ -339,8 +339,8 @@ export function ProductModal() {
         }
       }
     }
-    console.log('📦 [ProductModal] comboPizzaFlavors antes de salvar:', comboPizzaFlavors);
-    console.log('📦 [ProductModal] comboPizzasData antes de salvar:', comboPizzasData);
+    console.log('📦 [ProductModal] comboItems antes de salvar:', comboItems);
+    console.log('📦 [ProductModal] comboProductsData antes de salvar:', comboProductsData);
 
     const cartItem: CartItem = {
       id: '',
@@ -353,8 +353,8 @@ export function ProductModal() {
       extras,
       drink: selectedDrink,
       isDrinkFree: isCombo,
-      comboPizzaFlavors: comboPizzaFlavors.length > 0 ? comboPizzaFlavors : undefined,
-      comboPizzasData: comboPizzasData.length > 0 ? comboPizzasData : undefined,
+      comboProductsData: comboProductsData.length > 0 ? comboProductsData : undefined,
+      comboProductFlavors: comboItems.length > 0 ? comboItems : undefined,
       customIngredients: isCustomizable ? customIngredients : undefined,
       paidIngredients: isCustomizable && paidIngredients.length > 0 ? paidIngredients : undefined,
       totalPrice: calculateTotal(),
