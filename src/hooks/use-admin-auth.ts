@@ -9,63 +9,99 @@ interface AdminAuthState {
   error: string | null;
 }
 
-export const useAdminAuth = () => {
+interface UseAdminAuthOptions {
+  /**
+   * Se true: Restaura sessão existente ao montar (para AdminDashboard)
+   * Se false: Apenas login, sem restauração (para AdminLogin)
+   */
+  enableAutoRestore?: boolean;
+}
+
+export const useAdminAuth = (options: UseAdminAuthOptions = {}) => {
+  const { enableAutoRestore = false } = options;
+  
   const [authState, setAuthState] = useState<AdminAuthState>({
     user: null,
     tenantId: null,
-    isLoading: true,
+    isLoading: enableAutoRestore ? true : false, // apenas carrega se restauração ativa
     error: null,
   });
 
-  // Restaurar sessão ao montar
+  // Restaurar sessão ao montar (OPCIONAL)
   useEffect(() => {
+    if (!enableAutoRestore) {
+      console.log('[useAdminAuth] ⏭️ Auto-restore desabilitado (página de login)');
+      return; // Skip restauração em AdminLogin
+    }
+
     const restoreSession = async () => {
       try {
         setAuthState(prev => ({ ...prev, isLoading: true }));
 
-        // Tentar obter sessão atual
-        const {
-          data: { session },
-          error: sessionError,
-        } = await supabase.auth.getSession();
-
-        if (sessionError) throw sessionError;
-
-        if (session?.user) {
-          // Buscar tenant_id do admin_users
-          const { data: adminUser, error: adminError } = await (supabase as any)
-            .from('admin_users')
-            .select('tenant_id')
-            .eq('id', session.user.id)
-            .single();
-
-          if (adminError) {
-            console.error('Error fetching admin user:', adminError);
-            setAuthState(prev => ({
-              ...prev,
-              user: session.user,
-              tenantId: null,
-              error: 'Usuário não é admin',
-            }));
-            return;
-          }
-
+        // ✅ STEP 1: Verificar sessionStorage PRIMEIRO (mais rápido)
+        const cachedUserId = sessionStorage.getItem('sb-auth-user-id');
+        const cachedTenantId = sessionStorage.getItem('sb-auth-tenant-id');
+        
+        if (cachedUserId && cachedTenantId) {
+          console.log('[useAdminAuth] ✅ Restaurando de sessionStorage:', { cachedUserId, cachedTenantId });
           setAuthState({
-            user: session.user,
-            tenantId: (adminUser as any)?.tenant_id,
+            user: { id: cachedUserId },
+            tenantId: cachedTenantId,
             isLoading: false,
             error: null,
           });
-        } else {
-          setAuthState(prev => ({
-            ...prev,
+          return;
+        }
+
+        // ✅ STEP 2: Se sessionStorage vazio, tentar restaurar do Supabase Auth
+        console.log('[useAdminAuth] ⏳ sessionStorage vazio, tentando restaurar do Supabase Auth...');
+        const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+
+        if (sessionError) {
+          throw new Error(`Session error: ${sessionError.message}`);
+        }
+
+        if (!session?.user?.id) {
+          console.log('[useAdminAuth] ❌ Nenhuma sessão ativa no Supabase Auth');
+          setAuthState({
             user: null,
             tenantId: null,
             isLoading: false,
-          }));
+            error: null,
+          });
+          return;
         }
+
+        // ✅ STEP 3: Sessão existe no Supabase! Buscar tenant_id
+        console.log('[useAdminAuth] ✅ Sessão ativa encontrada, buscando tenant_id...');
+        const { data: adminUser, error: adminError } = await (supabase as any)
+          .from('admin_users')
+          .select('tenant_id')
+          .eq('id', session.user.id)
+          .single();
+
+        if (adminError) {
+          throw new Error(`User não é admin: ${adminError.message}`);
+        }
+
+        const tenantId = (adminUser as any)?.tenant_id;
+        if (!tenantId) {
+          throw new Error('Admin user não tem tenant_id atribuído');
+        }
+
+        // ✅ SUCESSO! Salvar em sessionStorage e retornar estado autenticado
+        sessionStorage.setItem('sb-auth-user-id', session.user.id);
+        sessionStorage.setItem('sb-auth-tenant-id', tenantId);
+
+        console.log('[useAdminAuth] ✅ Restaurado do Supabase Auth:', { userId: session.user.id, tenantId });
+        setAuthState({
+          user: session.user,
+          tenantId,
+          isLoading: false,
+          error: null,
+        });
       } catch (err) {
-        console.error('Session restore error:', err);
+        console.error('[useAdminAuth] ❌ Erro ao restaurar sessão:', err);
         setAuthState(prev => ({
           ...prev,
           isLoading: false,
@@ -81,19 +117,42 @@ export const useAdminAuth = () => {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
       if (event === 'SIGNED_IN' && session?.user) {
-        const { data: adminUser } = await (supabase as any)
-          .from('admin_users')
-          .select('tenant_id')
-          .eq('id', session.user.id)
-          .single();
+        // 🔒 OTIMIZAÇÃO: Evitar race condition na query admin_users
+        // Verificar se login() já salvou tenant_id em sessionStorage
+        let tenantId = sessionStorage.getItem('sb-auth-tenant-id');
+        
+        // Se sessionStorage ainda vazio (ex: direto da URL após refresh),
+        // fazer query para obter tenant_id
+        if (!tenantId) {
+          console.log('[onAuthStateChange] 🔄 Fetchando tenant_id de admin_users...');
+          const { data: adminUser } = await (supabase as any)
+            .from('admin_users')
+            .select('tenant_id')
+            .eq('id', session.user.id)
+            .single();
+          
+          tenantId = (adminUser as any)?.tenant_id || null;
+          
+          if (tenantId) {
+            sessionStorage.setItem('sb-auth-user-id', session.user.id);
+            sessionStorage.setItem('sb-auth-tenant-id', tenantId);
+          }
+        } else {
+          // ✅ tenant_id já estava em sessionStorage = login() fez a query
+          console.log('[onAuthStateChange] ✅ tenant_id já em sessionStorage, usando cache');
+        }
 
         setAuthState({
           user: session.user,
-          tenantId: (adminUser as any)?.tenant_id || null,
+          tenantId,
           isLoading: false,
           error: null,
         });
       } else if (event === 'SIGNED_OUT') {
+        // Limpar sessionStorage ao desautenticar
+        sessionStorage.removeItem('sb-auth-user-id');
+        sessionStorage.removeItem('sb-auth-tenant-id');
+        
         setAuthState({
           user: null,
           tenantId: null,
@@ -127,23 +186,32 @@ export const useAdminAuth = () => {
         }
 
         if (data.user) {
-          // Buscar tenant_id
+          // Buscar tenant_id - UMA TENTATIVA (não fazer retry)
           const { data: adminUser, error: adminError } = await (supabase as any)
             .from('admin_users')
-            .select('tenant_id')
+            .select('tenant_id, id, email')
             .eq('id', data.user.id)
             .single();
 
-          if (adminError) {
-            throw new Error('Usuário não é admin de nenhuma loja');
+          if (adminError || !adminUser?.tenant_id) {
+            const errorMsg = adminError?.message || 'Tenant não encontrado';
+            console.error('[LOGIN] ❌ Admin user not found:', {
+              userId: data.user.id,
+              error: errorMsg,
+            });
+            throw new Error(`Acesso negado: usuário não é admin. ${errorMsg}`);
           }
 
           setAuthState({
             user: data.user,
-            tenantId: (adminUser as any).tenant_id,
+            tenantId: adminUser.tenant_id,
             isLoading: false,
             error: null,
           });
+          
+          // ✅ Salvar em sessionStorage
+          sessionStorage.setItem('sb-auth-user-id', data.user.id);
+          sessionStorage.setItem('sb-auth-tenant-id', adminUser.tenant_id);
 
           toast.success('Login realizado com sucesso!');
           return true;
@@ -170,6 +238,10 @@ export const useAdminAuth = () => {
       const { error } = await supabase.auth.signOut();
 
       if (error) throw error;
+      
+      // ✅ NOVO (30/03/2026): Limpar sessionStorage ao logout
+      sessionStorage.removeItem('sb-auth-user-id');
+      sessionStorage.removeItem('sb-auth-tenant-id');
 
       setAuthState({
         user: null,

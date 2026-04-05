@@ -68,7 +68,7 @@ serve(async (req: Request) => {
 <body>
     <div class="container">
         <div class="header">
-            <div class="logo">🍕 AEZap SmartMenu</div>
+            <div class="logo">🔵 AEZap SmartMenu</div>
             <div class="brand">Sua plataforma de pedidos online</div>
         </div>
 

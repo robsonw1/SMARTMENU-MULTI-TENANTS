@@ -51,9 +51,18 @@ export function useSettingsRealtimeSync() {
           
           // ✅ CRITICAL: Recarregar apenas se o settings foi atualizado
           console.log('⚡⚡⚡ [SETTINGS-SYNC] MUDANÇA DETECTADA EM TEMPO REAL ⚡⚡⚡');
+          console.log('[SETTINGS-SYNC] Payload recebido:', {
+            schema: payload.schema,
+            table: payload.table,
+            eventType: payload.eventType,
+            newRecord: payload.new,
+            oldRecord: payload.old,
+          });
           
-          // ✅ CRÍTICO: Recarregar FRESH em vez de confiar no payload (pode estar em cache)
-          await loadSettingsFromSupabase();
+          // ✅ CRÍTICO: Chamar com forceRefresh = true para bypassar cache de 5min
+          // Webhook Realtime SEMPRE deve trazer dados frescos
+          console.log('[SETTINGS-SYNC] 🔄 Chamando loadSettingsFromSupabase(true) com forceRefresh=true');
+          await loadSettingsFromSupabase(true);
         }
       )
       .subscribe((status) => {
@@ -64,13 +73,13 @@ export function useSettingsRealtimeSync() {
         }
       });
 
-    // Polling fallback (30 segundos)
+    // Polling fallback (5 segundos - atualiza quando mudança não chega por webhook)
     pollInterval = setInterval(async () => {
       if (isSubscribed) {
-        console.log('🔄 [SETTINGS-SYNC] POLLING (fallback)');
+        console.log('🔄 [SETTINGS-SYNC] POLLING (fallback - 5s)');
         await loadSettingsFromSupabase();
       }
-    }, 30000);
+    }, 5000);
 
     return () => {
       isSubscribed = false;

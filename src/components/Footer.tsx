@@ -5,9 +5,11 @@ import { useLoyaltyStore } from '@/store/useLoyaltyStore';
 import { CustomerProfileDropdown } from '@/components/CustomerProfileDropdown';
 import { ScheduleDialog } from '@/components/ScheduleDialog';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
+import { useAppUrl } from '@/hooks/useAppUrl';
 import logoForneiro from '@/assets/logo-forneiro.jpg';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
+import { useMemo } from 'react';
 
 interface FooterProps {
   onLoginClick?: () => void;
@@ -26,17 +28,43 @@ const dayLabels: Record<keyof WeekSchedule, string> = {
 
 export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
   const settings = useSettingsStore((s) => s.settings);
+  const categoriesConfig = useSettingsStore((s) => s.settings.categories_config);
+  const storeLogo = useSettingsStore((s) => s.settings.store_logo_url);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
-  const appUrl = import.meta.env.VITE_APP_URL || window.location.origin;
+  const appUrl = useAppUrl(); // ✅ NOVO: Hook que detecta dinamicamente a URL
+
+  // 💾 Carregar categorias de localStorage NO PRIMEIRO RENDER (antes do BD)
+  const cachedCategoriesConfig = useMemo(() => {
+    try {
+      const cached = localStorage.getItem('cached_categories_config');
+      if (cached) {
+        return JSON.parse(cached);
+      }
+    } catch (error) {
+      console.warn('⚠️ Erro ao carregar categories_config do localStorage:', error);
+    }
+    return null;
+  }, []);
+
+  // 📍 Se não tem dados no store E não tem cache, mostrar "Carregando..."
+  if (!categoriesConfig && !cachedCategoriesConfig) {
+    return (
+      <footer className="bg-card border-t py-12">
+        <div className="container mx-auto px-4 text-center">
+          <p className="text-lg text-foreground">Carregando...</p>
+        </div>
+      </footer>
+    );
+  }
 
   const handleShareQR = async () => {
-    const shareText = `Peça sua pizza no ${settings.name}! 🍕 ${appUrl}`;
+    const shareText = `Peça seu pedido no ${settings.name}! 🔵 ${appUrl}`;
 
     // Tentar usar Web Share API (mobile, mais bonito)
     if (navigator.share) {
       try {
         await navigator.share({
-          title: `${settings.name} - Pedir Pizza Online`,
+          title: `${settings.name} - Pedir Online`,
           text: shareText,
           url: appUrl,
         });
@@ -89,16 +117,16 @@ export function Footer({ onLoginClick, onAdminClick }: FooterProps) {
           <div>
             <div className="flex items-center gap-2 mb-4">
               <img
-                src={logoForneiro}
+                src={storeLogo || logoForneiro}
                 alt={settings.name}
                 className="w-10 h-10 rounded-full object-cover"
               />
               <div>
                 <span className="font-display text-lg font-bold">
-                  {settings.name.split(' ')[0] || 'Forneiro'}
+                  {settings.name.split(' ')[0] || 'AEZap Smartmenu'}
                 </span>
                 <span className="font-display text-sm text-primary block -mt-1">
-                  {settings.name.split(' ').slice(1).join(' ') || 'Éden'}
+                  {settings.name.split(' ').slice(1).join(' ') || 'AEZap Smartmenu'}
                 </span>
               </div>
             </div>

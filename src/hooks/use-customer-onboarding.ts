@@ -48,7 +48,7 @@ const ONBOARDING_STEPS: OnboardingStep[] = [
   {
     id: 'end',
     title: '🎉 Pronto!',
-    description: 'Agora você já conhece o painel! Boa sorte com seus pedidos e aproveite as promoções! 🍕',
+    description: 'Agora você já conhece o painel! Boa sorte com seus pedidos e aproveite as promoções! 🔵',
   },
 ];
 

@@ -292,7 +292,7 @@ export function SchedulingSettings({ onScheduleChange, onManualOpenToggle }: Sch
             <p style={{ fontSize: '14px', fontWeight: '500', lineHeight: '1.6' }}>
               <strong>💡 Dicas para Configuração:</strong>
               <br />
-              • Para pizzaria: tempo mínimo <strong>60-120 minutos</strong> (preparação e entrega)
+              • Para delivery: tempo mínimo <strong>30-60 minutos</strong> (preparação e entrega)
               <br />
               • Máximo de <strong>0 dias</strong> = agendamento no mesmo dia apenas
               <br />

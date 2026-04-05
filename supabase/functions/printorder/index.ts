@@ -112,10 +112,18 @@ Deno.serve(async (req: Request) => {
     // 4. Buscar items do pedido (ou usar fake para teste)
     let orderItems = [];
     if (orderId !== "TEST-ORDER") {
-      const { data: items } = await supabase
+      // Adicionar filtro tenant_id para garantir isolamento multi-tenant e performance
+      let itemsQuery = supabase
         .from("order_items")
         .select("*")
         .eq("order_id", orderId);
+      
+      // Filtro extra de segurança: order.tenant_id
+      if (order.tenant_id) {
+        itemsQuery = itemsQuery.eq("tenant_id", order.tenant_id);
+      }
+      
+      const { data: items } = await itemsQuery;
       orderItems = items || [];
     } else {
       orderItems = [
@@ -126,7 +134,7 @@ Deno.serve(async (req: Request) => {
           item_data: {
             size: "Grande",
             border: "Catupiry",
-            comboPizzas: [],
+            comboItems: [],
             sabor1: "Margherita",
             sabor2: null,
             drink: "Coca-Cola 2L",
@@ -302,34 +310,34 @@ function buildReceipt(order: any, items: any[]): Uint8Array {
     const itemSize = item.size || itemData.size;
 
     // Se não é combo e tem tamanho, adiciona no nome do item
-    if (itemSize && (!itemData.comboPizzas || itemData.comboPizzas.length === 0)) {
+    if (itemSize && (!itemData.comboItems || itemData.comboItems.length === 0)) {
       itemName = `${itemName} (${itemSize})`;
     }
 
     add(linhas, `- ${itemQty}x ${itemName}`);
 
     // Tamanho (só mostra se for combo)
-    if (itemSize && itemData.comboPizzas && Array.isArray(itemData.comboPizzas) && itemData.comboPizzas.length > 0) {
+    if (itemSize && itemData.comboItems && Array.isArray(itemData.comboItems) && itemData.comboItems.length > 0) {
       add(linhas, `  Tamanho: ${itemSize}`);
     }
 
-    // ── comboPizzas: meia-meia mostra "Meia:" por sabor, inteira mostra "Sabor:" ──
-    if (itemData.comboPizzas && Array.isArray(itemData.comboPizzas) && itemData.comboPizzas.length > 0) {
-      itemData.comboPizzas.forEach((pizza: any) => {
-        const tipo = pizza.isHalfHalf ? "Meia-Meia" : "Inteira";
-        add(linhas, `  Pizza ${pizza.pizzaNumber} (${tipo})`);
+    // ── comboItems: meia-meia mostra "Meia:" por sabor, inteira mostra "Sabor:" ──
+    if (itemData.comboItems && Array.isArray(itemData.comboItems) && itemData.comboItems.length > 0) {
+      itemData.comboItems.forEach((item: any) => {
+        const tipo = item.isHalfHalf ? "Meia-Meia" : "Inteira";
+        add(linhas, `  Item ${item.itemNumber} (${tipo})`);
 
-        if (pizza.isHalfHalf) {
-          if (pizza.halfOne) add(linhas, `    Meia: ${pizza.halfOne}`);
-          if (pizza.halfTwo) add(linhas, `    Meia: ${pizza.halfTwo}`);
+        if (item.isHalfHalf) {
+          if (item.halfOne) add(linhas, `    Meia: ${item.halfOne}`);
+          if (item.halfTwo) add(linhas, `    Meia: ${item.halfTwo}`);
         } else {
-          if (pizza.halfOne) add(linhas, `    Sabor: ${pizza.halfOne}`);
+          if (item.halfOne) add(linhas, `    Sabor: ${item.halfOne}`);
         }
       });
     }
 
-    // ── sabor1/sabor2 só quando NÃO há comboPizzas ──
-    if (itemData.sabor1 && (!itemData.comboPizzas || itemData.comboPizzas.length === 0)) {
+    // ── sabor1/sabor2 só quando NÃO há comboItems ──
+    if (itemData.sabor1 && (!itemData.comboItems || itemData.comboItems.length === 0)) {
       if (itemData.sabor2) {
         add(linhas, `    Meia: ${itemData.sabor1}`);
         add(linhas, `    Meia: ${itemData.sabor2}`);

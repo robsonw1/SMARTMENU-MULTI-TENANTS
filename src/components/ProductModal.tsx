@@ -17,6 +17,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { useUIStore, useCartStore } from '@/store/useStore';
 import { availableIngredients, meatIngredients, paidExtraIngredients, Product, CartItem } from '@/data/products';
 import { useCatalogStore } from '@/store/useCatalogStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { GlassWater, ChefHat } from 'lucide-react';
 import { Plus, Minus, Leaf, Star, Sparkles, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
@@ -91,6 +92,17 @@ export function ProductModal() {
   const isCombo = selectedProduct && selectedProduct.category === 'combos';
   const isCustomizable = selectedProduct?.isCustomizable || selectedProduct?.id === 'prem-moda-cliente';
   const showDrinkSelection = isPizza || isCombo;
+
+  // ✅ Importar toggles do settings para sincronizar com admin
+  const {
+    meia_meia_enabled = true,
+    bordas_enabled = true,
+    adicionais_enabled = true,
+    bebidas_enabled = true,
+    imagens_enabled = true,
+    broto_enabled = true,
+    grande_enabled = true,
+  } = useSettingsStore((s) => s.settings);
 
   const handleClose = () => {
     setProductModalOpen(false);
@@ -275,7 +287,7 @@ export function ProductModal() {
             isHalfHalf: isPizza1HalfHalf,
             secondHalf: pizza1Half,
           };
-          console.log('🍕 [ProductModal] Combo Pizza 1:', {
+          console.log('🔵 [ProductModal] Combo Pizza 1:', {
             pizzaName: pizza1.name,
             isPizza1HalfHalf,
             comboPizza1HalfId,
@@ -306,7 +318,7 @@ export function ProductModal() {
             isHalfHalf: isPizza2HalfHalf,
             secondHalf: pizza2Half,
           };
-          console.log('🍕 [ProductModal] Combo Pizza 2:', {
+          console.log('🔵 [ProductModal] Combo Pizza 2:', {
             pizzaName: pizza2.name,
             isPizza2HalfHalf,
             comboPizza2HalfId,
@@ -421,8 +433,8 @@ export function ProductModal() {
             </DialogHeader>
 
             <div className="mt-6 space-y-6">
-              {/* Size Selection for Pizzas */}
-              {isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge && (
+              {/* Size Selection for Pizzas - Renderiza dinamicamente baseado em toggles */}
+              {isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge && (broto_enabled || grande_enabled) && (
                 <div>
                   <Label className="text-base font-semibold mb-3 block">Tamanho</Label>
                   <RadioGroup value={size} onValueChange={(v) => {
@@ -432,37 +444,41 @@ export function ProductModal() {
                       setIsHalfHalf(false);
                     }
                   }}>
-                    <div className="grid grid-cols-2 gap-3">
-                      <div className="relative">
-                        <RadioGroupItem value="grande" id="grande" className="peer sr-only" />
-                        <Label
-                          htmlFor="grande"
-                          className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
-                            peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
-                            hover:bg-secondary transition-colors"
-                        >
-                          <span className="font-semibold">Grande</span>
-                          <span className="text-lg font-bold text-primary">
-                            {formatPrice(selectedProduct.priceLarge)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">8 fatias</span>
-                        </Label>
-                      </div>
-                      <div className="relative">
-                        <RadioGroupItem value="broto" id="broto" className="peer sr-only" />
-                        <Label
-                          htmlFor="broto"
-                          className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
-                            peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
-                            hover:bg-secondary transition-colors"
-                        >
-                          <span className="font-semibold">Broto</span>
-                          <span className="text-lg font-bold text-primary">
-                            {formatPrice(selectedProduct.priceSmall)}
-                          </span>
-                          <span className="text-xs text-muted-foreground">4 fatias</span>
-                        </Label>
-                      </div>
+                    <div className={`grid gap-3 ${grande_enabled && broto_enabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                      {grande_enabled && (
+                        <div className="relative">
+                          <RadioGroupItem value="grande" id="grande" className="peer sr-only" />
+                          <Label
+                            htmlFor="grande"
+                            className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
+                              peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
+                              hover:bg-secondary transition-colors"
+                          >
+                            <span className="font-semibold">Grande</span>
+                            <span className="text-lg font-bold text-primary">
+                              {formatPrice(selectedProduct.priceLarge)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">8 fatias</span>
+                          </Label>
+                        </div>
+                      )}
+                      {broto_enabled && (
+                        <div className="relative">
+                          <RadioGroupItem value="broto" id="broto" className="peer sr-only" />
+                          <Label
+                            htmlFor="broto"
+                            className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
+                              peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
+                              hover:bg-secondary transition-colors"
+                          >
+                            <span className="font-semibold">Broto</span>
+                            <span className="text-lg font-bold text-primary">
+                              {formatPrice(selectedProduct.priceSmall)}
+                            </span>
+                            <span className="text-xs text-muted-foreground">4 fatias</span>
+                          </Label>
+                        </div>
+                      )}
                     </div>
                   </RadioGroup>
                 </div>
@@ -623,7 +639,7 @@ export function ProductModal() {
               )}
 
               {/* Half-Half Option - Only for Grande size and non-customizable */}
-              {isPizza && size === 'grande' && !isCustomizable && (
+              {isPizza && size === 'grande' && !isCustomizable && meia_meia_enabled && (
                 <>
                   <Separator />
                   <div>
@@ -667,7 +683,7 @@ export function ProductModal() {
               )}
 
               {/* Border Selection */}
-              {isPizza && (
+              {isPizza && bordas_enabled && (
                 <>
                   <Separator />
                   <div>
@@ -692,7 +708,7 @@ export function ProductModal() {
               )}
 
               {/* Extras - Only for non-customizable pizzas */}
-              {isPizza && !isCustomizable && (
+              {isPizza && !isCustomizable && adicionais_enabled && (
                 <>
                   <Separator />
                   <div>
@@ -845,7 +861,7 @@ export function ProductModal() {
               )}
 
               {/* Drink Selection */}
-              {showDrinkSelection && (
+              {showDrinkSelection && bebidas_enabled && (
                 <>
                   <Separator />
                   <div>

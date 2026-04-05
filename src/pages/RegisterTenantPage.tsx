@@ -65,7 +65,7 @@ const RegisterTenantPage = () => {
                 </Label>
                 <Input
                   id="name"
-                  placeholder="Ex: Pizzaria Forneiro Eden"
+                  placeholder="Ex: Meu Estabelecimento"
                   value={name}
                   onChange={(e) => {
                     setName(e.target.value);
@@ -83,7 +83,7 @@ const RegisterTenantPage = () => {
                 <div className="flex items-center">
                   <Input
                     id="slug"
-                    placeholder="ex: pizzaria-forneiro"
+                    placeholder="ex: meuestablecimento"
                     value={slug}
                     onChange={(e) => {
                       setSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''));

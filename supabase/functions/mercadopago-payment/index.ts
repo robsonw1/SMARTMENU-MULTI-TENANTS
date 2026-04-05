@@ -62,6 +62,7 @@ serve(async (req) => {
     const body = await req.json();
     const { 
       orderId,
+      tenantId,
       amount, 
       description, 
       payerEmail,
@@ -90,7 +91,7 @@ serve(async (req) => {
             number: cleanCpf
           }
         },
-        external_reference: orderId,
+        external_reference: `${tenantId}|${orderId}`, // ✅ MULTI-TENANT: Include tenant_id for webhook validation
         notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`
       };
 
@@ -144,14 +145,14 @@ serve(async (req) => {
           number: payerPhone?.replace(/\D/g, '') || ''
         }
       },
-      external_reference: orderId,
+      external_reference: `${tenantId}|${orderId}`, // ✅ MULTI-TENANT: Include tenant_id for webhook validation
       back_urls: {
-        success: `${req.headers.get('origin') || 'https://localhost:3001'}/?status=approved&order=${orderId}`,
-        failure: `${req.headers.get('origin') || 'https://localhost:3001'}/?status=rejected&order=${orderId}`,
-        pending: `${req.headers.get('origin') || 'https://localhost:3001'}/?status=pending&order=${orderId}`
+        success: `${req.headers.get('origin') || 'https://localhost:3000'}/?status=approved&order=${orderId}`,
+        failure: `${req.headers.get('origin') || 'https://localhost:3000'}/?status=rejected&order=${orderId}`,
+        pending: `${req.headers.get('origin') || 'https://localhost:3000'}/?status=pending&order=${orderId}`
       },
       auto_return: 'approved',
-      statement_descriptor: 'SMARTMENU AEZAP',
+      statement_descriptor: 'FORNEIRO EDEN',
       notification_url: `${Deno.env.get('SUPABASE_URL')}/functions/v1/mercadopago-webhook`
     };
 

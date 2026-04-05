@@ -91,10 +91,26 @@ serve(async (req) => {
     }
 
     const paymentData = await paymentResponse.json();
+    
+    // ✅ MULTI-TENANT FIX: Parse external_reference para extrair tenantId e orderId
+    const externalRef = paymentData.external_reference || '';
+    const [tenantId, paymentOrderId] = externalRef.includes('|') 
+      ? externalRef.split('|') 
+      : ['', externalRef];
+    
+    if (!tenantId) {
+      console.warn(`⚠️ external_reference sem tenant_id: ${externalRef}`);
+      return new Response(
+        JSON.stringify({ error: 'Invalid external_reference format (missing tenant_id)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     console.log('💳 Payment validation check:', {
       paymentId: paymentData.id,
       status: paymentData.status,
-      orderId: paymentData.external_reference
+      tenantId,
+      orderId: paymentOrderId
     });
 
     // ============================================================
@@ -129,12 +145,22 @@ serve(async (req) => {
     console.log(`✅ Pagamento ${paymentId} aprovado! Criando pedido...`);
 
     const orderId = orderPayload.id;
+    
+    // ✅ MULTI-TENANT: Validar que tenant_id do orderPayload matches external_reference
+    if (orderPayload.tenant_id !== tenantId) {
+      console.error(`❌ [SECURITY] Tenant mismatch! Payload: ${orderPayload.tenant_id}, External ref: ${tenantId}`);
+      return new Response(
+        JSON.stringify({ error: 'Tenant ID mismatch - security violation' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
 
     // Criar o pedido no banco de dados
     const { data: createdOrder, error: orderError } = await supabase
       .from('orders')
       .insert([{
         ...orderPayload,
+        tenant_id: tenantId, // ✅ MULTI-TENANT: Garantir tenant_id explicitamente
         status: 'confirmed', // PIX aprovado = pedido confirmado
         payment_status: 'approved',
         payment_confirmed_at: new Date().toISOString(),

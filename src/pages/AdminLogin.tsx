@@ -6,11 +6,15 @@ import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Lock, User, AlertCircle } from 'lucide-react';
 import { useAdminAuth } from '@/hooks/use-admin-auth';
-import logoForneiro from '@/assets/logo-forneiro.jpg';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 const AdminLogin = () => {
+  const settings = useSettingsStore((s) => s.settings);
   const navigate = useNavigate();
-  const { login, isLoading, error: authError } = useAdminAuth();
+  // 🔒 CRÍTICO: Desabilitar auto-restore aqui
+  // AdminLogin não precisa restaurar, apenas fazer login
+  // Restauração acontece em AdminDashboard
+  const { login, isLoading, error: authError } = useAdminAuth({ enableAutoRestore: false });
   
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -37,11 +41,11 @@ const AdminLogin = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img 
-            src={logoForneiro} 
-            alt="Forneiro Éden" 
+            src={settings?.store_logo_url || require('@/assets/logo.jpg')}
+            alt={settings?.name || 'Login'} 
             className="w-16 h-16 rounded-full object-cover mx-auto mb-4"
           />
-          <CardTitle className="font-display text-2xl">Forneiro Éden</CardTitle>
+          <CardTitle className="font-display text-2xl">SmartMenu</CardTitle>
           <CardDescription>Painel Administrativo</CardDescription>
         </CardHeader>
         <CardContent>

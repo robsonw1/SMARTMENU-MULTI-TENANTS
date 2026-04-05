@@ -14,6 +14,7 @@ interface TenantData {
   id: string;
   mercadopago_access_token: string | null;
   mercadopago_user_id: string | null;
+  webhook_secret: string | null;
 }
 
 export function PaymentSettingsPanel() {
@@ -21,12 +22,16 @@ export function PaymentSettingsPanel() {
   const [token, setToken] = useState<string>('');
   const [savedToken, setSavedToken] = useState<string>('');
   const [displayToken, setDisplayToken] = useState<string>('');
+  const [webhookSecret, setWebhookSecret] = useState<string>('');
+  const [savedWebhookSecret, setSavedWebhookSecret] = useState<string>('');
+  const [displayWebhookSecret, setDisplayWebhookSecret] = useState<string>('');
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showTokenInput, setShowTokenInput] = useState(false);
+  const [showWebhookSecretInput, setShowWebhookSecretInput] = useState(false);
 
-  // Carregar token existente do tenant autenticado
+  // Carregar token e webhook_secret existentes do tenant autenticado
   useEffect(() => {
     const loadTokenInfo = async () => {
       try {
@@ -37,12 +42,12 @@ export function PaymentSettingsPanel() {
           return;
         }
         
-        // Buscar token APENAS do tenant autenticado (seguro!)
+        // Buscar token e webhook_secret APENAS do tenant autenticado (seguro!)
         const { data: tenant, error } = await supabase
           .from('tenants')
-          .select('mercadopago_access_token')
+          .select('id, mercadopago_access_token, webhook_secret, mercadopago_user_id')
           .eq('id', authTenantId)
-          .single();
+          .single() as { data: TenantData | null; error: any };
 
         if (error) {
           console.error('Error loading tenant token:', error);
@@ -55,6 +60,13 @@ export function PaymentSettingsPanel() {
           setSavedToken(fullToken);
           setToken(fullToken);
           setDisplayToken(`...${fullToken.slice(-20)}`);
+        }
+
+        if (tenant?.webhook_secret) {
+          const secret = tenant.webhook_secret;
+          setSavedWebhookSecret(secret);
+          setWebhookSecret(secret);
+          setDisplayWebhookSecret(`...${secret.slice(-16)}`);
         }
       } catch (error) {
         console.error('Error loading tenant:', error);
@@ -92,7 +104,7 @@ export function PaymentSettingsPanel() {
       // Atualizar APENAS o tenant autenticado (RLS valida)
       const { error } = await supabase
         .from('tenants')
-        .update({ mercadopago_access_token: token })
+        .update({ mercadopago_access_token: token } as any)
         .eq('id', authTenantId);
 
       if (error) throw error;
@@ -125,7 +137,7 @@ export function PaymentSettingsPanel() {
       // Deletar APENAS do tenant autenticado
       const { error } = await supabase
         .from('tenants')
-        .update({ mercadopago_access_token: null })
+        .update({ mercadopago_access_token: null } as any)
         .eq('id', authTenantId);
 
       if (error) throw error;
@@ -148,6 +160,81 @@ export function PaymentSettingsPanel() {
     if (token) {
       navigator.clipboard.writeText(token);
       toast.success('Token copiado!');
+    }
+  };
+
+  const handleCopyWebhookSecret = () => {
+    if (webhookSecret) {
+      navigator.clipboard.writeText(webhookSecret);
+      toast.success('Webhook Secret copiado!');
+    }
+  };
+
+  const handleSaveWebhookSecret = async () => {
+    if (!webhookSecret.trim()) {
+      toast.error('Webhook Secret não pode estar vazio');
+      return;
+    }
+
+    if (!authTenantId) {
+      toast.error('Autenticação perdida. Faça login novamente');
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      // Salvar secret no banco
+      const { error } = await supabase
+        .from('tenants')
+        .update({ webhook_secret: webhookSecret } as any)
+        .eq('id', authTenantId);
+
+      if (error) throw error;
+
+      setSavedWebhookSecret(webhookSecret);
+      setDisplayWebhookSecret(`...${webhookSecret.slice(-16)}`);
+      setShowWebhookSecretInput(false);
+      toast.success('Webhook Secret salvo com sucesso!');
+      console.log('✅ Webhook Secret salvo para tenant:', authTenantId);
+    } catch (error) {
+      console.error('Error saving webhook secret:', error);
+      toast.error('Erro ao salvar Webhook Secret. Tente novamente.');
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  const handleDeleteWebhookSecret = async () => {
+    if (!authTenantId) {
+      toast.error('Autenticação perdida');
+      return;
+    }
+
+    if (!window.confirm('Tem certeza que deseja remover o Webhook Secret?')) {
+      return;
+    }
+
+    setIsDeleting(true);
+    try {
+      // Remover secret do banco
+      const { error } = await supabase
+        .from('tenants')
+        .update({ webhook_secret: null } as any)
+        .eq('id', authTenantId);
+
+      if (error) throw error;
+
+      setSavedWebhookSecret('');
+      setWebhookSecret('');
+      setDisplayWebhookSecret('');
+      setShowWebhookSecretInput(false);
+      toast.success('Webhook Secret removido');
+      console.log('✅ Webhook Secret removido do tenant:', authTenantId);
+    } catch (error) {
+      console.error('Error deleting webhook secret:', error);
+      toast.error('Erro ao remover Webhook Secret. Tente novamente.');
+    } finally {
+      setIsDeleting(false);
     }
   };
 
@@ -316,6 +403,172 @@ export function PaymentSettingsPanel() {
           </Alert>
         </CardContent>
       </Card>
+
+      {/* ============================================================
+          WEBHOOK SECRET SECTION
+          ============================================================ */}
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                🔐 Webhook Secret
+              </CardTitle>
+              <CardDescription>
+                Secret do Mercado Pago para validar webhooks de pagamento
+              </CardDescription>
+            </div>
+            <Badge variant={savedWebhookSecret ? 'default' : 'secondary'} className={savedWebhookSecret ? 'bg-blue-600' : ''}>
+              {savedWebhookSecret ? '🟢 Configurado' : '⚪ Não configurado'}
+            </Badge>
+          </div>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {savedWebhookSecret ? (
+            <>
+              <Alert>
+                <CheckCircle2 className="h-4 w-4 text-green-600" />
+                <AlertDescription>
+                  Seu Webhook Secret está configurado. Este secret vem do Mercado Pago e é usado para 
+                  validar as assinaturas dos webhooks que chegam em sua conta.
+                </AlertDescription>
+              </Alert>
+
+              <div className="grid grid-cols-1 gap-4 rounded-lg border p-4 bg-muted/50">
+                <div>
+                  <p className="text-xs text-muted-foreground mb-1">Webhook Secret</p>
+                  <div className="flex items-center gap-2">
+                    <p className="font-mono text-sm font-semibold flex-1 break-all">{displayWebhookSecret}</p>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={handleCopyWebhookSecret}
+                      className="h-8 w-8 p-0"
+                    >
+                      <Copy className="w-4 h-4" />
+                    </Button>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={() => setShowWebhookSecretInput(!showWebhookSecretInput)}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Atualizar Secret
+                </Button>
+                <Button
+                  onClick={handleDeleteWebhookSecret}
+                  disabled={isDeleting}
+                  variant="destructive"
+                  className="flex-1"
+                >
+                  {isDeleting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Removendo...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="w-4 h-4 mr-2" />
+                      Remover
+                    </>
+                  )}
+                </Button>
+              </div>
+            </>
+          ) : (
+            <>
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>
+                  Nenhum Webhook Secret configurado. Você precisa obter o secret do Mercado Pago e adicionar aqui.
+                </AlertDescription>
+              </Alert>
+
+              {!showWebhookSecretInput && (
+                <Button
+                  onClick={() => setShowWebhookSecretInput(true)}
+                  className="w-full"
+                >
+                  Adicionar Webhook Secret
+                </Button>
+              )}
+            </>
+          )}
+
+          {showWebhookSecretInput && (
+            <div className="space-y-3 rounded-lg border-2 border-dashed p-4">
+              <div>
+                <Label htmlFor="webhook-secret">Webhook Secret Mercado Pago</Label>
+                <Input
+                  id="webhook-secret"
+                  type="password"
+                  placeholder="Cole o webhook secret do Mercado Pago aqui..."
+                  value={webhookSecret}
+                  onChange={(e) => setWebhookSecret(e.target.value)}
+                  className="mt-2 font-mono text-sm"
+                />
+                <p className="text-xs text-muted-foreground mt-2">
+                  Obtém em: Mercado Pago → Seu negócio → Webhooks → Clique no webhook → Copie o secret
+                </p>
+              </div>
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleSaveWebhookSecret}
+                  disabled={isSaving || !webhookSecret.trim()}
+                  className="flex-1"
+                >
+                  {isSaving ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      Salvando...
+                    </>
+                  ) : (
+                    <>
+                      <CheckCircle2 className="w-4 h-4 mr-2" />
+                      Salvar Secret
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => {
+                    setShowWebhookSecretInput(false);
+                    setWebhookSecret(savedWebhookSecret); // Reset ao secret salvo
+                  }}
+                  variant="outline"
+                  className="flex-1"
+                >
+                  Cancelar
+                </Button>
+              </div>
+            </div>
+          )}
+
+          <Alert>
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>
+              <strong>ℹ️ Como funciona:</strong>
+              <ul className="mt-2 list-inside list-disc space-y-1 text-xs">
+                <li>O webhook secret vem do Mercado Pago (não é gerado localmente)</li>
+                <li>A plataforma usa este secret para validar assinatura dos webhooks</li>
+                <li>Garante que os webhooks vêm realmente do Mercado Pago (segurança)</li>
+              </ul>
+            </AlertDescription>
+          </Alert>
+        </CardContent>
+      </Card>
+
+      <Alert className="bg-blue-50 border-blue-200">
+        <AlertCircle className="h-4 w-4 text-blue-600" />
+        <AlertDescription className="text-blue-800">
+          <strong>🚀 Modelo de Pagamento:</strong> Cada estabelecimento utiliza sua própria conta Mercado Pago. 
+          Você não intermedia pagamentos, apenas fornece a plataforma + suporte técnico.
+        </AlertDescription>
+      </Alert>
     </div>
   );
 }

@@ -55,13 +55,14 @@ import {
   Eye,
 } from 'lucide-react';
 import { useTheme } from '@/hooks/use-theme';
-import logoForneiro from '@/assets/logo-forneiro.jpg';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 
 const SuperAdminDashboard = () => {
   const navigate = useNavigate();
   const { theme, toggleTheme } = useTheme();
+  const settings = useSettingsStore((s) => s.settings);
   const { tenants, isLoading: tenantsLoading } = useTenantsRealtime();
   const { getTenantDetails, deleteTenant, suspendTenant, activateTenant, isLoading } = useTenantManagement();
 
@@ -117,8 +118,8 @@ const SuperAdminDashboard = () => {
         <div className="container mx-auto px-4 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             <img
-              src={logoForneiro}
-              alt="Super Admin"
+              src={settings?.store_logo_url || require('@/assets/logo.jpg')}
+              alt={settings?.name || 'Super Admin'}
               className="w-10 h-10 rounded-full object-cover border-2 border-primary"
             />
             <div>

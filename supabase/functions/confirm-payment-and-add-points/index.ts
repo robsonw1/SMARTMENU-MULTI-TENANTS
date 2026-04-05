@@ -284,6 +284,10 @@ Deno.serve(async (req) => {
       });
 
       // Registrar transação de débito
+      // Obter tenant_id do pedido
+      const debitTransTenantId = orderData?.tenant_id || 
+                                (await supabase.from('tenants').select('id').limit(1).then((r: any) => r.data?.[0]?.id));
+      
       const { error: debitTransError } = await supabase.from('loyalty_transactions').insert([{
         customer_id: resolvedCustomerId,
         order_id: orderId,
@@ -291,6 +295,7 @@ Deno.serve(async (req) => {
         transaction_type: 'redemption',
         description: `Resgate de ${pointsRedeemedInOrder} pontos - Desconto na compra de R$ ${amount.toFixed(2)}`,
         created_at: localISO,
+        tenant_id: debitTransTenantId,  // Multi-tenant isolation
       }]);
 
       if (debitTransError) {
@@ -407,6 +412,10 @@ Deno.serve(async (req) => {
           }
 
           // Registrar transação com os pending_points
+          // Obter tenant_id do pedido
+          const earnTransTenantId = orderData?.tenant_id || 
+                                    (await supabase.from('tenants').select('id').limit(1).then((r: any) => r.data?.[0]?.id));
+          
           const { error: transactionError, data: transactionData } = await supabase.from('loyalty_transactions').insert([{
             customer_id: resolvedCustomerId,
             order_id: orderId,
@@ -415,6 +424,7 @@ Deno.serve(async (req) => {
             description: `Compra no valor de R$ ${amount.toFixed(2)} (${pendingPoints} pontos)`,
             created_at: localISO,
             expires_at: expiresAtISO,
+            tenant_id: earnTransTenantId,  // Multi-tenant isolation
           }]);
 
           if (transactionError) {

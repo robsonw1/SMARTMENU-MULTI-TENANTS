@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from 'sonner';
+import { useSecureTenantId } from '@/hooks/use-secure-tenant-id';
 
 interface WhatsAppInstance {
   id: string;
@@ -11,17 +12,25 @@ interface WhatsAppInstance {
 }
 
 export const useWhatsAppInstanceSync = () => {
+  const { tenantId } = useSecureTenantId();
   const [instances, setInstances] = useState<WhatsAppInstance[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
   // Monitorar status de conexão de instâncias
   useEffect(() => {
+    // ✅ Não executar se não tem tenantId autenticado
+    if (!tenantId) {
+      console.log('[WHATSAPP-SYNC] Aguardando autenticação...');
+      return;
+    }
+
     const interval = setInterval(async () => {
       try {
-        // Buscar instâncias não conectadas
+        // ✅ Buscar instâncias não conectadas FILTRADAS POR TENANT
         const { data: unconnectedInstances, error } = await (supabase as any)
           .from('whatsapp_instances')
           .select('*')
+          .eq('tenant_id', tenantId)  // ← ADD TENANT FILTER
           .eq('is_connected', false)
           .order('created_at', { ascending: false });
 
@@ -63,7 +72,7 @@ export const useWhatsAppInstanceSync = () => {
     }, 5000); // Verificar a cada 5 segundos
 
     return () => clearInterval(interval);
-  }, []);
+  }, [tenantId]);  // ← Add tenantId as dependency
 
   return { instances, isLoading };
 };

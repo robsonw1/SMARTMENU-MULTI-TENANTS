@@ -4,16 +4,15 @@ import { useEffect } from "react";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
-import { useRealtimeSync } from "@/hooks/use-realtime-sync";
-import { useAdminRealtimeSync } from "@/hooks/use-admin-realtime-sync";
-import { useSettingsRealtimeSync } from "@/hooks/use-settings-realtime-sync";
-import { useSettingsInitialLoad } from "@/hooks/use-settings-initial-load";
 import { useScheduleSync } from "@/hooks/use-schedule-sync";
-import { useSettingsUpdateListener } from "@/hooks/use-settings-update-listener";
+// ✅ Hooks removidos da raiz (evita lock stealing no login):
+// - useRealtimeSync → Index (cliente vê catálogo)
+// - useAdminRealtimeSync → AdminDashboard (admin vê pedidos)
+// - useSettingsRealtimeSync → AdminDashboard (admin edita settings)
+// - useSettingsInitialLoad → AdminDashboard (admin carrega settings)
+// - useSettingsUpdateListener → AdminDashboard (admin monitora updates)
+// - loadSettings (loyaltySettings) → Index (cliente)
 import { useHostInfo } from "@/hooks/use-host-info";
-import { initTenantResolver } from "@/lib/tenant-resolver";
-import { useLoyaltySettingsStore } from "@/store/useLoyaltySettingsStore";
-import { useSettingsStore } from "@/store/useSettingsStore";
 import { PWAInstallBanner } from "@/components/PWAInstallBanner";
 import Index from "./pages/Index";
 import AdminLogin from "./pages/AdminLogin";
@@ -30,38 +29,13 @@ const queryClient = new QueryClient();
 const AppContent = () => {
   const { type: hostType } = useHostInfo();
   
-  // ✅ NOVO (30/03/2026): Inicializar resolver de tenant_id
-  // Isso resolve tenant_id UMA VEZ ao inicializar o app
-  // Depois todos os hooks/components usam o cache (SEM fetch adicional)
-  useEffect(() => {
-    console.log('🚀 [APP-INIT] Inicializando tenant resolver...');
-    initTenantResolver().then((tenantId) => {
-      if (tenantId) {
-        console.log(`✅ [APP-INIT] Tenant resolver inicializado: ${tenantId}`);
-      } else {
-        console.warn('⚠️ [APP-INIT] Não foi possível resolver tenant_id');
-      }
-    });
-  }, []);
+  // ✅ initTenantResolver() REMOVIDO da raiz (evita lock stealing)
+  // Agora está em:
+  // - Index.tsx (cliente vê catálogo)
+  // - AdminDashboard.tsx (admin dentro do seu context autenticado)
   
-  // ✅ Sincronização global de dados (produtos, bairros, etc)
-  useRealtimeSync();
-  
-  // ✅ NOVO: Sincronização específica para admins (pedidos em tempo real)
-  // Garante que TODOS os admins vejam pedidos novos/alterados
-  useAdminRealtimeSync();
-  
-  // Demais sincronizações
-  useSettingsInitialLoad();
-  useSettingsRealtimeSync();
+  // ✅ useScheduleSync() é seguro aqui (não usa auth)
   useScheduleSync();
-  useSettingsUpdateListener(); // ✅ Monitorar atualizações do admin
-  const { loadSettings } = useLoyaltySettingsStore();
-
-  // Carregar configurações de fidelização ao iniciar
-  useEffect(() => {
-    loadSettings();
-  }, [loadSettings]);
 
   // 🎯 Renderização condicional baseada no subdomain
   if (hostType === 'admin') {

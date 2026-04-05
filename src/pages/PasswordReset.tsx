@@ -7,9 +7,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Lock, ArrowLeft, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import { supabase } from '@/integrations/supabase/client';
-import logoForneiro from '@/assets/logo-forneiro.jpg';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 const PasswordReset = () => {
+  const settings = useSettingsStore((s) => s.settings);
   const navigate = useNavigate();
   const [email, setEmail] = useState('');
   const [isLoading, setIsLoading] = useState(false);
@@ -86,8 +87,8 @@ const PasswordReset = () => {
       <Card className="w-full max-w-md">
         <CardHeader className="text-center">
           <img
-            src={logoForneiro}
-            alt="Forneiro Éden"
+            src={settings?.store_logo_url || require('@/assets/logo.jpg')}
+            alt={settings?.name || 'Reset'}
             className="w-16 h-16 rounded-full object-cover mx-auto mb-4"
           />
           <CardTitle className="font-display text-2xl">Recuperar Senha</CardTitle>

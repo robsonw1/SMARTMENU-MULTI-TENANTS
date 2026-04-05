@@ -52,6 +52,16 @@ export const useCouponManagementStore = create<CouponManagementState>((set, get)
     try {
       set({ loading: true, error: null });
 
+      // ✅ NOVO (30/03/2026): Obter tenant_id do admin para isolamento multi-tenant
+      const adminTenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      if (!adminTenantId) {
+        const errorMsg = 'Erro: tenant_id do admin não encontrado';
+        set({ error: errorMsg });
+        console.error('[COUPON] ' + errorMsg);
+        return null;
+      }
+      console.log('[COUPON] Criando cupom para tenant:', adminTenantId);
+
       const couponCode = `PROMO${Math.random().toString(36).substring(2, 10).toUpperCase()}`;
       const expiresAt = new Date();
       expiresAt.setDate(expiresAt.getDate() + validDays);
@@ -68,6 +78,7 @@ export const useCouponManagementStore = create<CouponManagementState>((set, get)
             customer_id: null, // Cupom geral, não é para cliente específico
             discount_amount: null,
             points_threshold: null,
+            tenant_id: adminTenantId, // ✅ CRÍTICO: Isolamento por tenant
           },
         ])
         .select()
@@ -113,9 +124,20 @@ export const useCouponManagementStore = create<CouponManagementState>((set, get)
     try {
       set({ loading: true, error: null });
 
+      // ✅ NOVO (30/03/2026): Filtrar cupons por tenant_id do admin
+      const adminTenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      if (!adminTenantId) {
+        const errorMsg = 'Erro: tenant_id do admin não encontrado';
+        set({ error: errorMsg });
+        console.error('[COUPON] ' + errorMsg);
+        return;
+      }
+      console.log('[COUPON] Buscando cupons para tenant:', adminTenantId);
+
       const { data, error } = await (supabase as any)
         .from('loyalty_coupons')
         .select('*')
+        .eq('tenant_id', adminTenantId) // ✅ FILTRO: Apenas cupons deste tenant
         .is('customer_id', null) // Apenas cupons gerais (não automáticos por cliente)
         .order('created_at', { ascending: false });
 
@@ -154,10 +176,20 @@ export const useCouponManagementStore = create<CouponManagementState>((set, get)
     try {
       set({ loading: true, error: null });
 
+      // ✅ NOVO (30/03/2026): Validar tenant_id antes de deletar
+      const adminTenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      if (!adminTenantId) {
+        const errorMsg = 'Erro: tenant_id do admin não encontrado';
+        set({ error: errorMsg });
+        console.error('[COUPON] ' + errorMsg);
+        return false;
+      }
+
       const { error } = await (supabase as any)
         .from('loyalty_coupons')
         .delete()
-        .eq('id', couponId);
+        .eq('id', couponId)
+        .eq('tenant_id', adminTenantId); // ✅ SEGURANÇA: Só deleta cupom do seu tenant
 
       if (error) {
         const errorMsg = `Erro ao deletar cupom: ${error.message}`;
@@ -182,11 +214,28 @@ export const useCouponManagementStore = create<CouponManagementState>((set, get)
 
   validateAndUseCoupon: async (couponCode: string, customerId?: string) => {
     try {
-      const { data, error } = await (supabase as any)
+      // ✅ NOVO (30/03/2026): Obter tenant_id do cliente para validar cupom
+      let tenantId = sessionStorage.getItem('sb-tenant-id-by-slug');
+      if (!tenantId) {
+        tenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      }
+      
+      if (!tenantId) {
+        console.warn('[COUPON] tenant_id não encontrado para validação de cupom');
+        // Continuar mesmo sem tenant para backward compatibility
+      }
+
+      // Construir query com filtro de tenant se disponível
+      let query = (supabase as any)
         .from('loyalty_coupons')
         .select('*')
-        .eq('coupon_code', couponCode.toUpperCase())
-        .single();
+        .eq('coupon_code', couponCode.toUpperCase());
+      
+      if (tenantId) {
+        query = query.eq('tenant_id', tenantId); // ✅ Filtro: Cupom do tenant do cliente
+      }
+      
+      const { data, error } = await query.single();
 
       if (error || !data) {
         return {
@@ -242,9 +291,15 @@ export const useCouponManagementStore = create<CouponManagementState>((set, get)
     try {
       const now = new Date().toISOString();
 
-      // 🔒 SEGURANÇA: Usar UPDATE com WHERE is_used = false
-      // Isso garante que apenas cupons não utilizados sejam marcados (evita race condition)
-      const { error } = await (supabase as any)
+      // ✅ NOVO (30/03/2026): Validar tenant_id do cliente
+      let tenantId = sessionStorage.getItem('sb-tenant-id-by-slug');
+      if (!tenantId) {
+        tenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      }
+
+      // 🔒 SEGURANÇA: Usar UPDATE com WHERE is_used = false e tenant_id
+      // Isso garante que apenas cupons não utilizados E do tenant correto sejam marcados
+      const query = (supabase as any)
         .from('loyalty_coupons')
         .update({
           is_used: true,
@@ -252,6 +307,9 @@ export const useCouponManagementStore = create<CouponManagementState>((set, get)
         })
         .eq('coupon_code', couponCode.toUpperCase())
         .eq('is_used', false);  // ⚠️ CRÍTICO: Só marca se ainda não foi usado
+      
+      const finalQuery = tenantId ? query.eq('tenant_id', tenantId) : query; // ✅ Adiciona filtro de tenant se disponível
+      const { error } = await finalQuery;
 
       if (error) {
         console.error('Erro ao marcar cupom como usado:', error);
@@ -270,10 +328,18 @@ export const useCouponManagementStore = create<CouponManagementState>((set, get)
 
   deactivateCoupon: async (couponId: string) => {
     try {
+      // ✅ NOVO (30/03/2026): Validar tenant_id antes de desativar
+      const adminTenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      if (!adminTenantId) {
+        console.error('[COUPON] tenant_id do admin não encontrado');
+        return false;
+      }
+
       const { error } = await (supabase as any)
         .from('loyalty_coupons')
         .update({ is_active: false })
-        .eq('id', couponId);
+        .eq('id', couponId)
+        .eq('tenant_id', adminTenantId); // ✅ SEGURANÇA: Só desativa cupom do seu tenant
 
       if (error) {
         console.error('Erro ao desativar cupom:', error);

@@ -639,24 +639,52 @@ export function SchedulingCheckoutModal() {
       const DEFAULT_DELIVERY_FEE = 8.0; // Taxa padrão em reais
       const newNeighborhoodId = `user-${neighborhoodInput.toLowerCase().replace(/\s+/g, '-')}-${Date.now()}`;
       const trimmedName = neighborhoodInput.trim();
+      
+      // ✅ NOVO (30/03/2026): Obter tenant_id do sessionStorage
+      const tenantIdFromStorage = sessionStorage.getItem('sb-tenant-id-by-slug') || sessionStorage.getItem('sb-auth-tenant-id') || tenantId;
+      console.log('[SCHEDULING] Criando bairro via Edge Function com tenant_id:', tenantIdFromStorage);
 
-      // Salvar novo bairro no Supabase
-      const { error } = await (supabase as any)
-        .from('neighborhoods')
-        .insert([
-          {
-            id: newNeighborhoodId,
-            name: trimmedName,
-            delivery_fee: DEFAULT_DELIVERY_FEE,
-            is_active: true,
+      if (!tenantIdFromStorage) {
+        console.error('❌ [SCHEDULING] tenant_id não encontrado no sessionStorage');
+        toast.error('Erro: tenant_id não identificado');
+        setIsCreatingNeighborhood(false);
+        return;
+      }
+
+      // ✅ NOVO: Chamar Edge Function para criar bairro (bypassa RLS client-side)
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('VITE_SUPABASE_URL not configured');
+      }
+
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/create-neighborhood`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
           },
-        ]);
+          body: JSON.stringify({
+            tenantId: tenantIdFromStorage,
+            neighborhood: {
+              id: newNeighborhoodId,
+              name: trimmedName,
+              delivery_fee: DEFAULT_DELIVERY_FEE,
+              is_active: true,
+            },
+          }),
+        }
+      );
 
-      if (error) {
-        console.error('❌ Erro ao criar bairro:', error);
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ Erro ao criar bairro via Edge Function:', responseData);
         toast.error('Erro ao adicionar bairro');
         return;
       }
+
+      console.log('✅ [SCHEDULING] Bairro criado com sucesso via Edge Function:', responseData);
 
       // ✅ CRITICAL FIX: Setar selectedNeighborhood IMEDIATAMENTE após criar
       const newNeighborhood = {
@@ -1054,7 +1082,7 @@ export function SchedulingCheckoutModal() {
           // Usar comboPizzasData se disponível (dados explícitos mais confiáveis)
           if (item.comboPizzasData && item.comboPizzasData.length > 0) {
             item.comboPizzasData.forEach((pizzaData) => {
-              console.log(`🍕 [CheckoutModal] Pizza ${pizzaData.pizzaNumber} (from data):`, pizzaData);
+              console.log(`🔵 [CheckoutModal] Pizza ${pizzaData.pizzaNumber} (from data):`, pizzaData);
               
               const pizzaLabel = pizzaData.isHalfHalf
                 ? `Pizza ${pizzaData.pizzaNumber} (Meia Meia): ${pizzaData.pizzaName} / ${pizzaData.secondHalfName || 'N/A'}`
@@ -1068,7 +1096,7 @@ export function SchedulingCheckoutModal() {
               // Verificar se é meia-meia
               const isHalfHalf = (pizza as any).isHalfHalf;
               const secondHalfName = (pizza as any).secondHalf?.name;
-              console.log(`🍕 [CheckoutModal] Pizza ${index + 1} (from flavors):`, {
+              console.log(`🔵 [CheckoutModal] Pizza ${index + 1} (from flavors):`, {
                 pizzaName: pizza.name,
                 isHalfHalf,
                 secondHalfName,
@@ -1331,8 +1359,8 @@ export function SchedulingCheckoutModal() {
           body: {
             orderId,
             amount: finalTotal,
-            description: `Pedido ${orderId} - Forneiro Éden`,
-            payerEmail: 'cliente@forneiroeden.com',
+            description: `Pedido ${orderId} - AEZap Smart Menu`,
+            payerEmail: 'robsonw.negocios@gmail.com',
             payerName: customer.name,
             payerPhone: customer.phone,
             payerCpf: customer.cpf,

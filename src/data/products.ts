@@ -1,4 +1,4 @@
-// Complete product catalog for Forneiro Éden Pizzeria
+// Complete product catalog for AEZap SmartMenu - Multi-Tenant Platform
 
 export interface Product {
   id: string;
@@ -17,15 +17,15 @@ export interface Product {
   isCustomizable?: boolean; // For Moda do Cliente
 }
 
-export interface ComboPizza extends Product {
+export interface ComboProduct extends Product {
   isHalfHalf?: boolean;
   secondHalf?: Product;
 }
 
-export interface ComboPizzaData {
-  pizzaNumber: number;
-  pizzaId: string;
-  pizzaName: string;
+export interface ComboProductData {
+  itemNumber: number;
+  itemId: string;
+  itemName: string;
   isHalfHalf: boolean;
   secondHalfId?: string;
   secondHalfName?: string;
@@ -42,15 +42,15 @@ export interface CartItem {
   extras?: Product[];
   drink?: Product;
   isDrinkFree?: boolean;
-  comboPizzaFlavors?: ComboPizza[]; // Selected pizza flavors for combos with half-half support
-  comboPizzasData?: ComboPizzaData[]; // Explicit combo pizza data (more reliable for serialization)
+  comboProductFlavors?: ComboProduct[]; // Selected product flavors for combos with half-half support
+  comboProductsData?: ComboProductData[]; // Explicit combo product data (more reliable for serialization)
   customIngredients?: string[]; // For Moda do Cliente (free ingredients)
   paidIngredients?: string[]; // For Moda do Cliente (paid extras)
   notes?: string;
   totalPrice: number;
   // 🎯 JSONB do banco com todos os detalhes do item (para renderização no dashboard/print)
   itemData?: {
-    pizzaType?: 'inteira' | 'meia-meia';
+    itemType?: 'inteira' | 'meia-meia';
     sabor1?: string;
     sabor2?: string | null;
     halfOne?: string;
@@ -60,9 +60,9 @@ export interface CartItem {
     extras?: string[];
     customIngredients?: string[];
     paidIngredients?: string[];
-    comboPizzas?: Array<{
-      pizzaId?: string;
-      pizzaName?: string;
+    comboItems?: Array<{
+      itemId?: string;
+      itemName?: string;
       isHalfHalf?: boolean;
       halfOne?: string;
       halfTwo?: string;
@@ -186,8 +186,8 @@ export const paidExtraIngredients: string[] = [
 // Helper to get all products - AGORA CARREGA APENAS DO SUPABASE (não hardcoded)
 
 
-// PIZZAS PROMOCIONAIS
-export const pizzasPromocionais: Product[] = [
+// PRODUTOS PROMOCIONAIS
+export const produtosPromocionais: Product[] = [
   {
     id: 'promo-alema',
     name: 'Alemã',
@@ -294,8 +294,8 @@ export const pizzasPromocionais: Product[] = [
   },
 ];
 
-// PIZZAS TRADICIONAIS
-export const pizzasTradicionais: Product[] = [
+// PRODUTOS TRADICIONAIS
+export const produtosTradicionais: Product[] = [
   {
     id: 'trad-atum',
     name: 'Atum',
@@ -585,8 +585,8 @@ export const pizzasTradicionais: Product[] = [
   },
 ];
 
-// PIZZAS PREMIUM
-export const pizzasPremium: Product[] = [
+// PRODUTOS PREMIUM
+export const produtosPremium: Product[] = [
   {
     id: 'prem-carijo',
     name: 'Carijo',
@@ -725,8 +725,8 @@ export const pizzasPremium: Product[] = [
   },
 ];
 
-// PIZZAS ESPECIAIS
-export const pizzasEspeciais: Product[] = [
+// PRODUTOS ESPECIAIS
+export const produtosEspeciais: Product[] = [
   {
     id: 'esp-carne-seca',
     name: 'Carne Seca',
@@ -892,8 +892,8 @@ export const pizzasEspeciais: Product[] = [
   },
 ];
 
-// PIZZAS DOCES
-export const pizzasDoces: Product[] = [
+// PRODUTOS DOCES
+export const produtosDoces: Product[] = [
   {
     id: 'doce-brigadeiro',
     name: 'Brigadeiro',
@@ -1067,10 +1067,23 @@ export const neighborhoodsData: Neighborhood[] = [
 
 // ✅ Todos os produtos carregam APENAS do Supabase via realtime sync
 export const getAllProducts = (): Product[] => [];
-export const getAllPizzas = (): Product[] => [];
-export const getPromotionalPizzas = (): Product[] => [];
+export const getPromotionalProducts = (): Product[] => [];
 
-// Category labels
+// Legacy aliases for backward compatibility
+export const getAllPizzas = getAllProducts;
+export const getPromotionalPizzas = getPromotionalProducts;
+export const pizzasPromocionais = produtosPromocionais;
+export const pizzasTradicionais = produtosTradicionais;
+export const pizzasPremium = produtosPremium;
+export const pizzasEspeciais = produtosEspeciais;
+export const pizzasDoces = produtosDoces;
+
+// Type aliases (using 'type' keyword to avoid value export issues)
+export type ComboPizza = ComboProduct;
+export type ComboPizzaData = ComboProductData;
+
+// ⚠️ DEPRECATED: Use useSettingsStore((s) => s.settings.categories_config) instead
+// Este fallback é mantido apenas para backward compatibility
 export const categoryLabels: Record<string, string> = {
   combos: 'Combos',
   promocionais: 'Promocionais',

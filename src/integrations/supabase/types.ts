@@ -139,6 +139,7 @@ export type Database = {
           custom_ingredients: string | null
           paid_ingredients: string | null
           created_at: string
+          tenant_id: string
         }
         Insert: {
           id?: string
@@ -152,6 +153,7 @@ export type Database = {
           custom_ingredients?: string | null
           paid_ingredients?: string | null
           created_at?: string
+          tenant_id: string
         }
         Update: {
           id?: string
@@ -165,6 +167,7 @@ export type Database = {
           custom_ingredients?: string | null
           paid_ingredients?: string | null
           created_at?: string
+          tenant_id?: string
         }
         Relationships: [
           {
@@ -172,6 +175,13 @@ export type Database = {
             columns: ["order_id"]
             isOneToOne: false
             referencedRelation: "orders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_items_tenant_id_fkey"
+            columns: ["tenant_id"]
+            isOneToOne: false
+            referencedRelation: "tenants"
             referencedColumns: ["id"]
           }
         ]

@@ -1,5 +1,14 @@
 ﻿import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
+
+export interface CategoryConfig {
+  id: string;
+  label: string;
+  icon_name: string; // 'Gift' | 'Tag' | 'Pizza' | 'Crown' | 'Star' | 'Cake' | 'GlassWater'
+  enabled: boolean;
+  order: number; // Para reordenação
+}
+
 export interface DaySchedule {
   isOpen: boolean;
   openTime: string;
@@ -28,6 +37,7 @@ interface StoreSettings {
   pickupTimeMin: number;
   pickupTimeMax: number;
   adminPassword: string;
+  store_logo_url?: string | null; // ✅ NOVO: URL da logo do estabelecimento
   printnode_printer_id?: string | null;
   print_mode?: string;
   auto_print_pix?: boolean;
@@ -43,6 +53,16 @@ interface StoreSettings {
   respectBusinessHoursForScheduling?: boolean; // Se TRUE, s├│ exibe slots dentro do hor├írio
   allowSameDaySchedulingOutsideHours?: boolean; // Se TRUE, permite agendar para HOJE fora do hor├írio
   timezone?: string; // Fuso hor├írio do tenant (ex: America/Sao_Paulo)
+  // Configura├ß├Ķes de Card├ípio (toggles)
+  meia_meia_enabled?: boolean;
+  imagens_enabled?: boolean;
+  adicionais_enabled?: boolean;
+  bebidas_enabled?: boolean;
+  bordas_enabled?: boolean;
+  broto_enabled?: boolean;
+  grande_enabled?: boolean;
+  // Configurações de Categorias (dinâmicas)
+  categories_config?: CategoryConfig[];
 }
 
 interface SettingsStore {
@@ -52,7 +72,7 @@ interface SettingsStore {
   _lastLoadTime?: number;
   _isLoadingInProgress?: boolean;
   updateSettings: (settings: Partial<StoreSettings>) => Promise<void>;
-  loadSettingsFromSupabase: () => Promise<void>;
+  loadSettingsFromSupabase: (forceRefresh?: boolean) => Promise<void>;
   loadSettingsLocally: (settings: Partial<StoreSettings>) => void;
   setSetting: (key: keyof StoreSettings, value: any) => void;
   updateDaySchedule: (day: keyof WeekSchedule, schedule: Partial<DaySchedule>) => void;
@@ -78,20 +98,33 @@ const defaultWeekSchedule: WeekSchedule = {
   sunday: { isOpen: true, openTime: '17:00', closeTime: '23:00' },
 };
 
+const defaultCategoriesConfig: CategoryConfig[] = [
+  { id: 'combos', label: 'Combos', icon_name: 'Gift', enabled: true, order: 0 },
+  { id: 'promocionais', label: 'Promocionais', icon_name: 'Tag', enabled: true, order: 1 },
+  { id: 'tradicionais', label: 'Tradicionais', icon_name: 'ShoppingBag', enabled: true, order: 2 },
+  { id: 'premium', label: 'Premium', icon_name: 'Crown', enabled: true, order: 3 },
+  { id: 'especiais', label: 'Especiais', icon_name: 'Star', enabled: true, order: 4 },
+  { id: 'doces', label: 'Doces', icon_name: 'Cake', enabled: true, order: 5 },
+  { id: 'bebidas', label: 'Bebidas', icon_name: 'GlassWater', enabled: true, order: 6 },
+];
+
 const defaultSettings: StoreSettings = {
-  name: 'Forneiro ├ëden',
-  phone: '(11) 99999-9999',
-  address: 'Rua das Pizzas, 123 - Centro',
-  slogan: 'A Pizza mais recheada da cidade ­ƒç«­ƒç╣',
+  name: 'Carregando...',
+  phone: 'carregando...',
+  address: 'carregando',
+  slogan: 'carregando...',
   schedule: defaultWeekSchedule,
   isManuallyOpen: true,
   deliveryTimeMin: 60,
   deliveryTimeMax: 70,
   pickupTimeMin: 40,
   pickupTimeMax: 50,
-  adminPassword: 'forneiroeden123',
+  adminPassword: 'admin123456', // Default, should be changed per tenant
+  store_logo_url: null,
   orderAlertEnabled: true,
   sendOrderSummaryToWhatsApp: false,
+  broto_enabled: true,
+  grande_enabled: true,
   enableScheduling: false,
   minScheduleMinutes: 30,
   maxScheduleDays: 7,
@@ -100,6 +133,13 @@ const defaultSettings: StoreSettings = {
   respectBusinessHoursForScheduling: true,
   allowSameDaySchedulingOutsideHours: false,
   timezone: 'America/Sao_Paulo',
+  // Configura├ß├Ķes de Card├ípio (toggles)
+  meia_meia_enabled: true,
+  imagens_enabled: true,
+  adicionais_enabled: true,
+  bebidas_enabled: true,
+  bordas_enabled: true,
+  categories_config: undefined, // Vai carregar do Supabase / localStorage
 };
 
 const dayNames: (keyof WeekSchedule)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -110,42 +150,53 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   _lastLoadTime: undefined,
   _isLoadingInProgress: false,
 
-  loadSettingsFromSupabase: async () => {
+  loadSettingsFromSupabase: async (forceRefresh = false) => {
     try {
-      // ✅ NOVO (29/03/2026): Obter tenant_id do usuário autenticado
-      // Segue o padrão de isolamento multi-tenant
-      const { data: authData } = await supabase.auth.getSession();
-      const userSession = authData?.session;
+      // ✅ NOVO (30/03/2026): Obter tenant_id de sessionStorage ÚNICAMENTE
+      // SEM fallback getUser() - evita contention no auth
+      // Se vazio, skip - deixar que useSecureTenantId preencha
       
-      if (!userSession?.user?.id) {
-        console.warn('[LOAD-SUPABASE] Sessão não encontrada, aguardando...');
+      // 🔍 Procurar tenant_id em AMBAS as localizações:
+      // - 'sb-tenant-id-by-slug': Cliente via initTenantResolver (URL slug) ← PRIORIDADE
+      // - 'sb-auth-tenant-id': Admin autenticado via useAdminAuth
+      const authTenantId = sessionStorage.getItem('sb-auth-tenant-id');
+      const slugTenantId = sessionStorage.getItem('sb-tenant-id-by-slug');
+      // ✅ SLUG deve ter PRIORIDADE porque é sempre tenant_id (não user_id)
+      let tenantId = slugTenantId || authTenantId;
+      
+      // 🔍 DEBUG: Mostrar qual tenant_id está sendo usado
+      if (forceRefresh || authTenantId !== slugTenantId) {
+        console.log('[LOAD-SUPABASE] 🔍 DEBUG Tenant IDs:', {
+          authTenantId: authTenantId || '(não encontrado)',
+          slugTenantId: slugTenantId || '(não encontrado)',
+          utilizando: tenantId || '(nenhum!)',
+          forceRefresh,
+        });
+      }
+      
+      if (!tenantId) {
+        console.log('[LOAD-SUPABASE] tenant_id vazio (não encontrou em sb-auth-tenant-id nem em sb-tenant-id-by-slug)');
         return;
       }
-
-      // Obter tenant_id do usuario
-      const { data: adminUser } = await (supabase as any)
-        .from('admin_users')
-        .select('tenant_id')
-        .eq('id', userSession.user.id)
-        .single();
-
-      if (!adminUser?.tenant_id) {
-        console.warn('[LOAD-SUPABASE] tenant_id não encontrado para usuário');
-        return;
-      }
-
-      const tenantId = adminUser.tenant_id;
+      
+      console.log('[LOAD-SUPABASE] Usando tenant_id:', tenantId);
       const currentState = get();
 
       // 🔐 NOVO: Verificar cache isolado por tenant
       // Se já foi carregado para este tenant_id E está dentro de 5min, retornar
+      // EXCETO se forceRefresh = true (chamado pelo webhook Realtime)
       if (
+        !forceRefresh && // ✅ NOVO: Bypassar cache se forceRefresh = true
         currentState._loadedTenantId === tenantId &&
         currentState._lastLoadTime &&
         Date.now() - currentState._lastLoadTime < 5 * 60 * 1000 // 5 minutos
       ) {
         console.log(`✅ [LOAD-SUPABASE] Cache válido para tenant ${tenantId} - pulando fetch`);
         return;
+      }
+      
+      if (forceRefresh) {
+        console.log(`🔄 [LOAD-SUPABASE] forceRefresh = true - ignorando cache (webhook Realtime)`);
       }
 
       // 🔐 Evitar múltiplas requisições simultâneas
@@ -159,9 +210,10 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
       console.log('[LOAD-SUPABASE] Usando tenant_id:', tenantId);
       
-      // ✅ Buscar APENAS as settings deste tenant na tabela 'settings'
-      // Agora usando ID padrão: settings_${tenant_id} criado pela edge function
+      // ✅ CORRIGIDO (30/03/2026): Usar ID tenant-specific (antes era hardcoded 'store-settings')
       const settingsId = `settings_${tenantId}`;
+      
+      console.log('[LOAD-SUPABASE] 🔍 Query:', { settingsId, tenantId });
       
       const { data, error } = await (supabase as any)
         .from('settings')
@@ -171,7 +223,13 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         .single();
 
       if (error) {
-        console.warn('[LOAD-SUPABASE] Erro ao carregar settings (esperado se nova loja):', error.message);
+        console.error('[LOAD-SUPABASE] ❌ Erro ao carregar settings:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint,
+          searchParams: { settingsId, tenantId },
+        });
         // Se não encontrar, usar defaults - é normal para tentant novo
         set({ 
           _loadedTenantId: tenantId,
@@ -185,7 +243,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         const settingsData = data as any;
         const valueJson = settingsData.value || {};
         
-        console.log('✅ [LOAD-SUPABASE] Dados do banco carregados com sucesso');
+        // ✅ Extrair store_logo_url do value.store_logo_url
+        const storeLogoUrl = valueJson.store_logo_url || null;
+        console.log('✅ [LOAD-SUPABASE] Dados do banco carregados com sucesso:', {
+          id: settingsData.id,
+          tenant_id: settingsData.tenant_id,
+          name: valueJson.name,
+          phone: valueJson.phone,
+          slogan: valueJson.slogan,
+          store_logo_url: storeLogoUrl,
+          forceRefresh,
+        });
         
         // ✅ Carregar schedule com defaults se não tiver
         const loadedSchedule = valueJson.schedule || {
@@ -200,17 +268,18 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
         set({
           settings: {
-            name: valueJson.name || 'Forneiro Éden',
-            phone: valueJson.phone || '(11) 99999-9999',
-            address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
-            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade 🍕',
+            name: valueJson.name || 'carregando...',
+            phone: valueJson.phone || 'carregando...',
+            address: valueJson.address || 'carregando...',
+            slogan: valueJson.slogan || 'carregando...',
             schedule: loadedSchedule,
             isManuallyOpen: settingsData.is_manually_open !== null ? settingsData.is_manually_open : (valueJson.isManuallyOpen ?? true),
             deliveryTimeMin: valueJson.deliveryTimeMin ?? 60,
             deliveryTimeMax: valueJson.deliveryTimeMax ?? 70,
             pickupTimeMin: valueJson.pickupTimeMin ?? 40,
             pickupTimeMax: valueJson.pickupTimeMax ?? 50,
-            adminPassword: valueJson.adminPassword || 'forneiroeden123',
+            adminPassword: valueJson.adminPassword || 'admin123456',
+            store_logo_url: storeLogoUrl,
             printnode_printer_id: settingsData.printnode_printer_id || valueJson.printnode_printer_id || null,
             print_mode: settingsData.print_mode || valueJson.print_mode || 'auto',
             auto_print_pix: settingsData.auto_print_pix ?? (valueJson.auto_print_pix ?? false),
@@ -226,6 +295,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             respectBusinessHoursForScheduling: settingsData.respect_business_hours_for_scheduling ?? true,
             allowSameDaySchedulingOutsideHours: settingsData.allow_same_day_scheduling_outside_hours ?? false,
             timezone: valueJson.timezone || 'America/Sao_Paulo',
+            // ✅ Toggles de Cardápio (mapeados do BD)
+            meia_meia_enabled: settingsData.meia_meia_enabled ?? true,
+            imagens_enabled: settingsData.imagens_enabled ?? true,
+            adicionais_enabled: settingsData.adicionais_enabled ?? true,
+            bebidas_enabled: settingsData.bebidas_enabled ?? true,
+            bordas_enabled: settingsData.bordas_enabled ?? true,
+            broto_enabled: settingsData.broto_enabled ?? true,
+            grande_enabled: settingsData.grande_enabled ?? true,
+            // ✅ Configurações de Categorias (mapeadas do BD)
+            categories_config: settingsData.categories_config ?? defaultCategoriesConfig,
           },
           // 🔐 NOVO: Registrar que este tenant foi carregado com sucesso
           _loadedTenantId: tenantId,
@@ -243,26 +322,35 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
   updateSettings: async (newSettings) => {
     try {
-      // 1´©ÅÔâú ATUALIZAR ESTADO LOCAL PRIMEIRO
+      // ✅ CORRIGIDO (30/03/2026): Chamar Edge Function em vez de fazer UPDATE direto
+      // Isso garante que RLS service_role seja respeitada
+      
+      // 1. ATUALIZAR ESTADO LOCAL PRIMEIRO
       set((state) => ({
         settings: { ...state.settings, ...newSettings },
       }));
       
-      // 2´©ÅÔâú PEGAR ESTADO ATUALIZADO
+      // 2. PEGAR ESTADO ATUALIZADO
       const { settings: currentSettings } = get();
       
-      console.log('­ƒÆ¥ [UPDATE-SETTINGS] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
-      console.log('­ƒÆ¥ [UPDATE-SETTINGS] INICIANDO SALVAMENTO NO SUPABASE');
-      console.log('­ƒÆ¥ [UPDATE-SETTINGS] Schedule que ser├í salvo:', currentSettings.schedule);
+      // 3. OBTER tenant_id de sessionStorage APENAS
+      // 🔍 Priorizar slug porque é SEMPRE tenant_id (admin tem ambos, cliente só tem slug)
+      let tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                     sessionStorage.getItem('sb-auth-tenant-id');
+      
+      if (!tenantId) {
+        console.warn('[UPDATE-SETTINGS] tenant_id vazio - não pode atualizar');
+        return;
+      }
+      console.log('🔐 [UPDATE-SETTINGS] Usando Edge Function com tenant_id:', tenantId);
 
-      // 3´©ÅÔâú PREPARAR DADOS - SEPARAR COLUNAS NORMALIZADAS do JSONB
-      // Ô£à CR├ìTICO: Salvar JSONB em uma coluna separada para garantir persist├¬ncia
+      // 4. PREPARAR DADOS
       const jsonbValue = {
         name: currentSettings.name,
         phone: currentSettings.phone,
         address: currentSettings.address,
         slogan: currentSettings.slogan,
-        schedule: currentSettings.schedule, // Ô£à SCHEDULE COMPLETO NO JSONB
+        schedule: currentSettings.schedule,
         isManuallyOpen: currentSettings.isManuallyOpen,
         deliveryTimeMin: currentSettings.deliveryTimeMin,
         deliveryTimeMax: currentSettings.deliveryTimeMax,
@@ -270,88 +358,81 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         pickupTimeMax: currentSettings.pickupTimeMax,
         orderAlertEnabled: currentSettings.orderAlertEnabled,
         sendOrderSummaryToWhatsApp: currentSettings.sendOrderSummaryToWhatsApp,
+        // ✅ CRÍTICO: Sempre preservar logo - NUNCA deixar ser removido!
+        store_logo_url: currentSettings.store_logo_url || null,
       };
 
-      const updateData: any = {
-        // Ô£à JSONB completo com todos os dados complexos
-        value: jsonbValue,
-        // ­ƒû¿´©Å  COLUNAS NORMALIZADAS PARA BUSCA/PERFORMANCE
-        printnode_printer_id: currentSettings.printnode_printer_id || null,
-        print_mode: currentSettings.print_mode || 'auto',
-        auto_print_pix: currentSettings.auto_print_pix ?? false,
-        auto_print_card: currentSettings.auto_print_card ?? false,
-        auto_print_cash: currentSettings.auto_print_cash ?? false,
-        is_manually_open: currentSettings.isManuallyOpen,
-        enable_scheduling: currentSettings.enableScheduling,
-        min_schedule_minutes: currentSettings.minScheduleMinutes,
-        max_schedule_days: currentSettings.maxScheduleDays,
-        allow_scheduling_on_closed_days: currentSettings.allowSchedulingOnClosedDays,
-        allow_scheduling_outside_business_hours: currentSettings.allowSchedulingOutsideBusinessHours,
-        respect_business_hours_for_scheduling: currentSettings.respectBusinessHoursForScheduling,
-        allow_same_day_scheduling_outside_hours: currentSettings.allowSameDaySchedulingOutsideHours,
-        updated_at: new Date().toISOString(),
+      const updatePayload = {
+        tenantId,
+        updates: {
+          value: jsonbValue,
+          printnode_printer_id: currentSettings.printnode_printer_id || null,
+          print_mode: currentSettings.print_mode || 'auto',
+          auto_print_pix: currentSettings.auto_print_pix ?? false,
+          auto_print_card: currentSettings.auto_print_card ?? false,
+          auto_print_cash: currentSettings.auto_print_cash ?? false,
+          is_manually_open: currentSettings.isManuallyOpen,
+          enable_scheduling: currentSettings.enableScheduling,
+          min_schedule_minutes: currentSettings.minScheduleMinutes,
+          max_schedule_days: currentSettings.maxScheduleDays,
+          allow_scheduling_on_closed_days: currentSettings.allowSchedulingOnClosedDays,
+          allow_scheduling_outside_business_hours: currentSettings.allowSchedulingOutsideBusinessHours,
+          respect_business_hours_for_scheduling: currentSettings.respectBusinessHoursForScheduling,
+          allow_same_day_scheduling_outside_hours: currentSettings.allowSameDaySchedulingOutsideHours,
+          // ✅ Toggles de Cardápio
+          meia_meia_enabled: currentSettings.meia_meia_enabled ?? true,
+          imagens_enabled: currentSettings.imagens_enabled ?? true,
+          adicionais_enabled: currentSettings.adicionais_enabled ?? true,
+          bebidas_enabled: currentSettings.bebidas_enabled ?? true,
+          bordas_enabled: currentSettings.bordas_enabled ?? true,
+          broto_enabled: currentSettings.broto_enabled ?? true,
+          grande_enabled: currentSettings.grande_enabled ?? true,
+          // ✅ Configurações de Categorias
+          categories_config: currentSettings.categories_config ?? defaultCategoriesConfig,
+        },
       };
 
-      console.log('­ƒôñ [UPDATE-SETTINGS] JSONB value.schedule:', jsonbValue.schedule);
-      console.log('­ƒû¿´©Å  [UPDATE-SETTINGS] PrintNode Printer ID:', updateData.printnode_printer_id);
+      console.log('📤 [UPDATE-SETTINGS] Toggles que serão salvos:', {
+        meia_meia_enabled: updatePayload.updates.meia_meia_enabled,
+        imagens_enabled: updatePayload.updates.imagens_enabled,
+        adicionais_enabled: updatePayload.updates.adicionais_enabled,
+        bebidas_enabled: updatePayload.updates.bebidas_enabled,
+        bordas_enabled: updatePayload.updates.bordas_enabled,
+        broto_enabled: updatePayload.updates.broto_enabled,
+        grande_enabled: updatePayload.updates.grande_enabled,
+      });
 
-      // 4´©ÅÔâú FAZER UPDATE COM MERGE EXPL├ìCITO PARA GARANTIR JSONB SALVA
-      // ÔÜá´©Å  IMPORTANTE: Usar || null em campos opcionais para evitar undefined
-      const { data: updateResult, error: updateError } = await supabase
-        .from('settings')
-        .update({
-          value: JSON.stringify(jsonbValue) !== '{}' ? jsonbValue : updateData.value,
-          printnode_printer_id: updateData.printnode_printer_id,
-          print_mode: updateData.print_mode,
-          auto_print_pix: updateData.auto_print_pix,
-          auto_print_card: updateData.auto_print_card,
-          auto_print_cash: updateData.auto_print_cash,
-          is_manually_open: updateData.is_manually_open,
-          enable_scheduling: updateData.enable_scheduling,
-          min_schedule_minutes: updateData.min_schedule_minutes,
-          max_schedule_days: updateData.max_schedule_days,
-          allow_scheduling_on_closed_days: updateData.allow_scheduling_on_closed_days,
-          allow_scheduling_outside_business_hours: updateData.allow_scheduling_outside_business_hours,
-          respect_business_hours_for_scheduling: updateData.respect_business_hours_for_scheduling,
-          allow_same_day_scheduling_outside_hours: updateData.allow_same_day_scheduling_outside_hours,
-          updated_at: updateData.updated_at,
-        })
-        .eq('id', 'store-settings')
-        .select();
-
-      if (updateError) {
-        console.error('ÔØî [UPDATE-SETTINGS] ERRO NO UPDATE:', updateError);
-        throw updateError;
+      // 5. CHAMAR EDGE FUNCTION (que executa como service_role)
+      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+      if (!supabaseUrl) {
+        throw new Error('VITE_SUPABASE_URL not configured');
       }
 
-      // 5´©ÅÔâú VERIFICAR RESULTADO - MAS FAZER SELECT FRESH PARA GARANTIR
-      // ÔÜá´©Å  IMPORTANTE: O data do UPDATE pode ter valores antigos em cache
-      // Fazer um SELECT simples para garantir que foi realmente salvo
-      console.log('­ƒöì [UPDATE-SETTINGS] Fazendo SELECT fresh para GARANTIR persist├¬ncia...');
-      const { data: freshData, error: selectError } = await supabase
-        .from('settings')
-        .select('*')
-        .eq('id', 'store-settings')
-        .single();
+      // ✅ Edge Function pode ser chamada SEM token (RLS vai validar)
+      // Não chamar getSession() para evitar lock stealing
+      const response = await fetch(
+        `${supabaseUrl}/functions/v1/update-admin-settings`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify(updatePayload),
+        }
+      );
 
-      if (selectError || !freshData) {
-        console.error('ÔØî [UPDATE-SETTINGS] ERRO no SELECT fresh:', selectError);
-        throw selectError;
+      const responseData = await response.json();
+
+      if (!response.ok) {
+        console.error('❌ [UPDATE-SETTINGS] Edge Function erro:', responseData);
+        throw new Error(responseData.error || 'Failed to update settings via Edge Function');
       }
 
-      // 5´©ÅÔâú VERIFICAR RESULTADO COM DADOS FRESCOS
-      const savedData = freshData as any;
-      const savedValue = savedData.value || {};
-      const savedSchedule = savedValue.schedule;
-      
-      console.log('Ô£à [UPDATE-SETTINGS] CONFIRMADO! Dados salvos (FRESH):');
-      console.log('Ô£à [UPDATE-SETTINGS] Schedule.monday:', savedSchedule?.monday);
-      console.log('Ô£à [UPDATE-SETTINGS] Schedule.thursday:', savedSchedule?.thursday);
-      console.log('Ô£à [UPDATE-SETTINGS] is_manually_open:', savedData.is_manually_open);
-
-      console.log('­ƒÆ¥ [UPDATE-SETTINGS] ÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉÔòÉ');
+      console.log('✅ [UPDATE-SETTINGS] Edge Function retornou sucesso:', responseData.data);
+      console.log('✅ [UPDATE-SETTINGS] Schedule.monday:', responseData.data?.value?.schedule?.monday);
+      console.log('✅ [UPDATE-SETTINGS] is_manually_open:', responseData.data?.is_manually_open);
     } catch (error) {
-      console.error('ÔØî [UPDATE-SETTINGS] EXCE├ç├âO FATAL:', error);
+      console.error('❌ [UPDATE-SETTINGS] EXCEÇÃO FATAL:', error);
       throw error;
     }
   },
@@ -498,27 +579,17 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
     try {
       const { settings } = get();
 
-      // ✅ Obter tenant_id do usuário autenticado
-      const { data: authData } = await supabase.auth.getSession();
-      const userSession = authData?.session;
+      // ✅ OBTER tenant_id de sessionStorage APENAS (NUNCA chamar getUser()!)
+      // Evita lock stealing com useAdminAuth
+      // 🔍 Priorizar slug porque é SEMPRE tenant_id
+      let tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                     sessionStorage.getItem('sb-auth-tenant-id');
       
-      if (!userSession?.user?.id) {
-        console.warn('[SYNC-SUPABASE] Sessão não encontrada');
-        return { success: false, message: 'Sessão expirada' };
+      if (!tenantId) {
+        console.warn('[SYNC-SUPABASE] ❌ Sessão não autenticada em sessionStorage');
+        return { success: false, message: 'Sessão expirada - faça login novamente' };
       }
 
-      const { data: adminUser } = await (supabase as any)
-        .from('admin_users')
-        .select('tenant_id')
-        .eq('id', userSession.user.id)
-        .single();
-
-      if (!adminUser?.tenant_id) {
-        console.warn('[SYNC-SUPABASE] tenant_id não encontrado');
-        return { success: false, message: 'Erro ao identificar estabelecimento' };
-      }
-
-      const tenantId = adminUser.tenant_id;
       const settingsId = `settings_${tenantId}`;
 
       const updateData: any = {
@@ -547,9 +618,18 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       // ✅ Usar o ID dinâmico e filtrar por tenant_id
+      // ✅ Guardar logo em value.store_logo_url (JSONB)
+      const updateDataWithLogo = {
+        ...updateData,
+        value: {
+          ...(updateData.value || {}),
+          store_logo_url: settings.store_logo_url || null,
+        },
+      };
+      
       const { error } = await (supabase as any)
         .from('settings')
-        .update(updateData)
+        .update(updateDataWithLogo)
         .eq('id', settingsId)
         .eq('tenant_id', tenantId);
 

@@ -290,7 +290,7 @@ export const useOrdersStore = create<OrdersStore>()(
             // Ô£à IMPORTANTE: Incluir TODOS os dados do item no item_data JSONB
             const itemDataObj = {
               // Informa├º├Áes da pizza
-              pizzaType: item.isHalfHalf ? 'meia-meia' : 'inteira',
+              itemType: item.isHalfHalf ? 'meia-meia' : 'inteira',
               sabor1: item.product?.name || 'Sem sabor',
               sabor2: item.isHalfHalf && item.secondHalf ? item.secondHalf.name : null,
               
@@ -303,10 +303,10 @@ export const useOrdersStore = create<OrdersStore>()(
               drink: item.drink ? (typeof item.drink === 'string' ? item.drink : item.drink.name) : null,
               border: item.border ? (typeof item.border === 'string' ? item.border : item.border.name) : null,
               
-              // Combos - Mapear corretamente pizzaName e secondHalfName para halfOne/halfTwo
-              comboPizzas: Array.isArray(item.comboPizzasData) 
-                ? item.comboPizzasData.map((pizza: any) => ({
-                    pizzaId: pizza.pizzaId || `pizza-${pizza.pizzaNumber}`,
+              // Combos - Mapear corretamente itemName e secondHalfName para halfOne/halfTwo
+              comboItems: Array.isArray(item.comboProductsData) 
+                ? item.comboProductsData.map((product: any) => ({
+                    itemId: product.itemId || `item-${product.itemNumber}`,
                     pizzaName: pizza.pizzaName || pizza.name,
                     pizzaNumber: pizza.pizzaNumber,
                     isHalfHalf: pizza.isHalfHalf || false,
@@ -326,7 +326,7 @@ export const useOrdersStore = create<OrdersStore>()(
             const itemId = generateItemId();
             
             // ­ƒöº CORRIGIDO: Mapear para campos EXATOS da tabela order_items conforme schema
-            // Schema: id, order_id, product_id, product_name, quantity, size, total_price, item_data (jsonb), created_at
+            // Schema: id, order_id, product_id, product_name, quantity, size, total_price, item_data (jsonb), created_at, tenant_id
             const itemRecord = {
               id: itemId, // ­ƒÄ» ID obrigat├│rio bigint
               order_id: newOrder.id,
@@ -337,6 +337,7 @@ export const useOrdersStore = create<OrdersStore>()(
               total_price: item.totalPrice || 0,
               item_data: itemDataObj, // Ô£à JSONB com TODOS os dados do item (sem JSON.stringify - Supabase cuida)
               created_at: createdAtISO, // Usar timestamp do pedido
+              tenant_id: finalTenantId, // ­ƒóπ Multi-tenant isolation - cada item vinculado ao tenant do pedido
             };
             
             console.log(`Ô£à [ITEM-${itemId}] "${itemRecord.product_name}" (qty: ${item.quantity}, total: ${itemRecord.total_price}) -> inserindo na BD...`);
@@ -637,7 +638,25 @@ export const useOrdersStore = create<OrdersStore>()(
       removeOrder: async (id) => {
         try {
           // Deletar do Supabase
-          await supabase.from('order_items').delete().eq('order_id', id);
+          // Obter tenant_id do pedido para garantir isolamento multi-tenant
+          const { data: orderData } = await (supabase as any)
+            .from('orders')
+            .select('tenant_id')
+            .eq('id', id)
+            .single();
+          
+          // Deletar items apenas do tenant correto (defesa em profundidade)
+          if (orderData?.tenant_id) {
+            await supabase.from('order_items')
+              .delete()
+              .eq('order_id', id)
+              .eq('tenant_id', orderData.tenant_id);
+          } else {
+            console.warn('[REMOVE-ORDER] tenant_id nao encontrado para ordem', id);
+            // Fallback (sem garantia de isolamento)
+            await supabase.from('order_items').delete().eq('order_id', id);
+          }
+          
           const { error } = await supabase.from('orders').delete().eq('id', id);
 
           if (error) throw error;
@@ -664,28 +683,37 @@ export const useOrdersStore = create<OrdersStore>()(
         try {
           console.log('👁️ [SYNC] Iniciando sincronização de pedidos do Supabase...');
           
-          // ✅ NOVO (29/03/2026): Filtrar por tenant_id do usuário autenticado
-          const { data: authData } = await supabase.auth.getSession();
-          const userSession = authData?.session;
+          // ✅ NOVO (30/03/2026): Obter tenant_id de sessionStorage
+          // 🔍 Priorizar slug porque é SEMPRE tenant_id (não user_id)
+          let tenantId = sessionStorage.getItem('sb-tenant-id-by-slug') || 
+                         sessionStorage.getItem('sb-auth-tenant-id');
           
-          if (!userSession?.user?.id) {
-            console.warn('[SYNC] Sessão não encontrada');
-            return;
+          if (!tenantId) {
+            console.log('[SYNC] tenant_id não em sessionStorage. Tentando getUser()...');
+            
+            // Fallback: getUser() - mais leve que getSession()
+            const { data: userData, error: userError } = await supabase.auth.getUser();
+            
+            if (userError || !userData?.user?.id) {
+              console.warn('[SYNC] Não autenticado');
+              return;
+            }
+            
+            const { data: adminUser } = await (supabase as any)
+              .from('admin_users')
+              .select('tenant_id')
+              .eq('id', userData.user.id)
+              .single();
+              
+            if (!adminUser?.tenant_id) {
+              console.warn('[SYNC] tenant_id não encontrado para usuário');
+              return;
+            }
+            
+            tenantId = adminUser.tenant_id;
+            sessionStorage.setItem('sb-auth-tenant-id', tenantId);
           }
-
-          // Obter tenant_id do usuário
-          const { data: adminUser } = await (supabase as any)
-            .from('admin_users')
-            .select('tenant_id')
-            .eq('id', userSession.user.id)
-            .single();
-
-          if (!adminUser?.tenant_id) {
-            console.warn('[SYNC] tenant_id não encontrado para usuário');
-            return;
-          }
-
-          const tenantId = adminUser.tenant_id;
+          
           console.log('[SYNC] Usando tenant_id:', tenantId);
           
           // ✅ Buscar APENAS os pedidos deste tenant
@@ -707,10 +735,12 @@ export const useOrdersStore = create<OrdersStore>()(
             const ordersWithItems = await Promise.all(
               data.map(async (row: any) => {
                 console.log(`📦 [SYNC] Carregando items para ${row.id}...`);
+                // Adicionar filtro tenant_id para garantir isolamento e performance
                 const { data: items, error: itemsError } = await (supabase as any)
                   .from('order_items')
                   .select('*')
-                  .eq('order_id', row.id);
+                  .eq('order_id', row.id)
+                  .eq('tenant_id', tenantId);  // Filtro de isolamento multi-tenant
                   
                 if (itemsError) {
                   console.warn(`⚠️ [SYNC] Erro ao carregar items para ${row.id}:`, itemsError);

@@ -23,6 +23,7 @@ export function Header({ onLoginClick }: HeaderProps) {
   const pickupTimeMin = useSettingsStore((s) => s.settings.pickupTimeMin);
   const pickupTimeMax = useSettingsStore((s) => s.settings.pickupTimeMax);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
+  const storeLogo = useSettingsStore((s) => s.settings.store_logo_url);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const { theme, toggleTheme } = useTheme();
   const itemCount = getItemCount();
@@ -34,7 +35,7 @@ export function Header({ onLoginClick }: HeaderProps) {
           {/* Logo */}
           <Link to="/" className="flex items-center gap-2">
             <img
-              src={logoForneiro}
+              src={storeLogo || logoForneiro}
               alt="Forneiro Éden Pizzaria"
               className="w-12 h-12 md:w-14 md:h-14 rounded-full object-cover border-2 border-primary"
             />

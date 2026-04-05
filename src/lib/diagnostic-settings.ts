@@ -9,7 +9,7 @@
    */
   async clearCacheAndReload() {
     console.log('🧹 Limpando cache local...');
-    localStorage.removeItem('forneiro-eden-settings');
+    localStorage.removeItem('app-settings');
     console.log('✅ Cache limpo! Recarregando página...');
     window.location.reload();
   },
@@ -18,7 +18,7 @@
    * Mostrar configurações atuais do localStorage
    */
   showLocalStorage() {
-    const settings = localStorage.getItem('forneiro-eden-settings');
+    const settings = localStorage.getItem('app-settings');
     if (settings) {
       const parsed = JSON.parse(settings);
       console.log('📦 LocalStorage Settings:', parsed.state);

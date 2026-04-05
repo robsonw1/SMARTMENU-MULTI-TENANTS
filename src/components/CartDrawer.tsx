@@ -138,7 +138,7 @@ export function CartDrawer() {
                               <div className="text-xs text-muted-foreground">
                                 {item.comboPizzaFlavors.length === 1 ? (
                                   <span>
-                                    🍕 Sabor: {item.comboPizzaFlavors[0].name}
+                                    🔵 Sabor: {item.comboPizzaFlavors[0].name}
                                     {(item.comboPizzaFlavors[0] as any).isHalfHalf && item.comboPizzaFlavors[0] && (
                                       <span> / {(item.comboPizzaFlavors[0] as any).secondHalf?.name}</span>
                                     )}
@@ -146,13 +146,13 @@ export function CartDrawer() {
                                 ) : (
                                   <>
                                     <div>
-                                      🍕 Pizza 1: {item.comboPizzaFlavors[0].name}
+                                      🔵 Pizza 1: {item.comboPizzaFlavors[0].name}
                                       {(item.comboPizzaFlavors[0] as any).isHalfHalf && (
                                         <span> / {(item.comboPizzaFlavors[0] as any).secondHalf?.name}</span>
                                       )}
                                     </div>
                                     <div>
-                                      🍕 Pizza 2: {item.comboPizzaFlavors[1].name}
+                                      🔵 Pizza 2: {item.comboPizzaFlavors[1].name}
                                       {(item.comboPizzaFlavors[1] as any).isHalfHalf && (
                                         <span> / {(item.comboPizzaFlavors[1] as any).secondHalf?.name}</span>
                                       )}

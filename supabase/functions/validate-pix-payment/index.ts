@@ -92,10 +92,26 @@ serve(async (req) => {
     }
 
     const paymentData = await paymentResponse.json();
+    
+    // ✅ MULTI-TENANT FIX: Parse external_reference para extrair tenantId e orderId
+    const externalRef = paymentData.external_reference || '';
+    const [tenantId, orderId] = externalRef.includes('|') 
+      ? externalRef.split('|') 
+      : ['', externalRef];
+    
+    if (!tenantId) {
+      console.warn(`⚠️ external_reference sem tenant_id: ${externalRef}`);
+      return new Response(
+        JSON.stringify({ error: 'Invalid external_reference format (missing tenant_id)' }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
+      );
+    }
+    
     console.log('💳 Payment validation check:', {
       paymentId: paymentData.id,
       status: paymentData.status,
-      orderId: paymentData.external_reference
+      tenantId,
+      orderId
     });
 
     // ============================================================
@@ -138,6 +154,7 @@ serve(async (req) => {
           payment_confirmed_at: new Date().toISOString(),
           mercado_pago_id: paymentId.toString(),
         })
+        .eq('tenant_id', tenantId) // ✅ MULTI-TENANT: Validar tenant_id
         .eq('id', orderId);
 
       if (updateError) {

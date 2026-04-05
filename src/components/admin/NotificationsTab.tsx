@@ -21,7 +21,7 @@ import { WhatsAppStatusTemplates } from '@/components/admin/WhatsAppStatusTempla
 // ✅ Templates padrão em inglês (CORRETO)
 const DEFAULT_WHATSAPP_MESSAGES = {
   pending: '📋 Oi {nome}! Recebemos seu pedido #{pedido}. Você receberá uma confirmação em breve!',
-  confirmed: '🍕 Oi {nome}! Seu pedido #{pedido} foi confirmado! ⏱️ Saindo do forno em ~25min',
+  confirmed: '🔵 Oi {nome}! Seu pedido #{pedido} foi confirmado! ⏱️ Saindo do forno em ~25min',
   preparing: '👨‍🍳 Seu pedido #{pedido} está sendo preparado com capricho!',
   delivering: '🚗 Seu pedido #{pedido} está a caminho! 📍 Chega em ~15min',
   delivered: '✅ Pedido #{pedido} entregue! Valeu pela compra 🙏',
@@ -48,7 +48,7 @@ export const NotificationsTab = () => {
   const [generatingQR, setGeneratingQR] = useState<string | null>(null);
   const [qrCodeData, setQrCodeData] = useState<{ [key: string]: string }>({});
   
-  // Usar hook de sincronização
+  // ✅ Usar hook de sincronização APENAS se autenticado
   useWhatsAppInstanceSync();
 
   // ✅ NOVO: Usar hook seguro para tenant_id validado
@@ -358,7 +358,7 @@ export const NotificationsTab = () => {
                   <Label htmlFor="establishment">Nome do Estabelecimento</Label>
                   <Input
                     id="establishment"
-                    placeholder="Ex: Pizzaria Santos, Forneiro Centro"
+                    placeholder="Ex: Loja Centro, Filial Norte"
                     value={establishmentName}
                     onChange={(e) => setEstablishmentName(e.target.value)}
                     disabled={creatingInstance}
@@ -526,8 +526,17 @@ export const NotificationsTab = () => {
         </div>
       </div>
 
-      {/* Configurar Templates */}
-      <WhatsAppStatusTemplates />
+      {/* Configurar Templates - Apenas se authTenantId está disponível */}
+      {authTenantId && !tenantLoading ? (
+        <WhatsAppStatusTemplates key={authTenantId} tenantId={authTenantId} />
+      ) : (
+        <Card>
+          <CardContent className="py-12 flex flex-col items-center justify-center gap-4">
+            <Loader className="w-8 h-8 animate-spin text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">Carregando templates...</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

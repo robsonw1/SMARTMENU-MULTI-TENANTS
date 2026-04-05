@@ -4,7 +4,7 @@
  */
 
 interface ItemData {
-  pizzaType?: 'inteira' | 'meia-meia';
+  itemType?: 'inteira' | 'meia-meia';
   sabor1?: string;
   sabor2?: string | null;
   halfOne?: string;
@@ -14,9 +14,9 @@ interface ItemData {
   extras?: string[];
   customIngredients?: string[];
   paidIngredients?: string[];
-  comboPizzas?: Array<{
-    pizzaId?: string;
-    pizzaName?: string;
+  comboItems?: Array<{
+    itemId?: string;
+    itemName?: string;
     isHalfHalf?: boolean;
     halfOne?: string;
     halfTwo?: string;
@@ -76,16 +76,16 @@ export const renderDashboardItem = (props: OrderItemProps): React.ReactNode => {
       {/* Detalhes do Item */}
       {itemData && (
         <div className="space-y-3 border-t border-slate-300 pt-3">
-          {/* COMBO PIZZAS - Cada pizza com seu tipo claramente indicado */}
-          {itemData.comboPizzas && itemData.comboPizzas.length > 0 && (
-            <div className="space-y-4">
-              {itemData.comboPizzas.map((pizza, idx) => {
+          {/* COMBO ITENS - Cada item com seu tipo claramente indicado */}
+          {itemData.comboItems && itemData.comboItems.length > 0 && (
+            <div className="space-y-1">
+              {itemData.comboItems.map((item, idx) => {
                 // Determinar tipo desta pizza específica
-                const pizzaType = pizza.isHalfHalf ? 'Meia-Meia' : 'Inteira';
+                const pizzaType = item.isHalfHalf ? 'Meia-Meia' : 'Inteira';
                 
-                // Fallback: se halfOne/halfTwo não existem, usar pizzaName/secondHalfName
-                const sabor1 = pizza.halfOne || pizza.pizzaName || '-';
-                const sabor2 = pizza.halfTwo || pizza.secondHalfName || null;
+                // Sabores do combo item
+                const sabor1 = item.halfOne || '-';
+                const sabor2 = item.halfTwo || null;
                 
                 return (
                   <div key={idx} className="pb-3 border-b border-slate-300 last:border-0 last:pb-0">
@@ -95,7 +95,7 @@ export const renderDashboardItem = (props: OrderItemProps): React.ReactNode => {
                     </p>
                     
                     {/* Conteúdo da pizza */}
-                    {pizza.isHalfHalf ? (
+                    {item.isHalfHalf ? (
                       <>
                         <p className="text-sm text-slate-700 ml-2">
                           • Sabor 1: {extractName(sabor1)}
@@ -116,7 +116,7 @@ export const renderDashboardItem = (props: OrderItemProps): React.ReactNode => {
           )}
 
           {/* PIZZA SIMPLES (não combo) */}
-          {itemData.sabor1 && !itemData.comboPizzas?.length && (
+          {itemData.sabor1 && !itemData.comboItems?.length && (
             <div className="space-y-1">
               {/* Detectar corretamente se é meia-meia ou inteira */}
               {itemData.sabor2 ? (
@@ -141,7 +141,7 @@ export const renderDashboardItem = (props: OrderItemProps): React.ReactNode => {
           )}
 
           {/* MEIA-MEIA (halfOne/halfTwo) - fallback raro */}
-          {(itemData.halfOne || itemData.halfTwo) && !itemData.comboPizzas?.length && !itemData.sabor1 && (
+          {(itemData.halfOne || itemData.halfTwo) && !itemData.comboItems?.length && !itemData.sabor1 && (
             <div className="space-y-1">
               <p className="font-bold text-slate-900 mb-2">Tipo: Meia-Meia</p>
               <p className="text-sm text-slate-700 ml-2">
@@ -211,11 +211,11 @@ export const renderPrintItem = (props: OrderItemProps): string => {
 
   if (itemData) {
     // Combo Pizzas
-    if (itemData.comboPizzas && itemData.comboPizzas.length > 0) {
+    if (itemData.comboItems && itemData.comboItems.length > 0) {
       html += `<div style="margin-left: 10px; font-size: 11px; margin-bottom: 6px;">
         <strong>Pizzas:</strong>`;
-      itemData.comboPizzas.forEach((pizza, idx) => {
-        html += `<div style="margin-left: 8px;">Pizza ${idx + 1}: ${extractName(pizza.pizzaName)}`;
+      itemData.comboItems.forEach((pizza, idx) => {
+        html += `<div style="margin-left: 8px;">Pizza ${idx + 1}: ${extractName(pizza.halfOne)}`;
         if (pizza.isHalfHalf) {
           html += `<br style="margin-left: 16px;">• ${extractName(pizza.halfOne)} / ${extractName(pizza.halfTwo)}`;
         }
@@ -225,7 +225,7 @@ export const renderPrintItem = (props: OrderItemProps): string => {
     }
 
     // Pizza simples
-    if (itemData.sabor1 && !itemData.comboPizzas?.length) {
+    if (itemData.sabor1 && !itemData.comboItems?.length) {
       html += `<div style="margin-left: 10px; font-size: 11px; margin-bottom: 6px;">
         Pizza: ${extractName(itemData.sabor1)}`;
       if (itemData.sabor2) {

@@ -4,7 +4,7 @@
   import { useAdminAuth } from '@/hooks/use-admin-auth';
   import { initTenantResolver, getTenantIdSync } from '@/lib/tenant-resolver';
   import { Button } from '@/components/ui/button';
-  import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+  import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
   import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
   import { Badge } from '@/components/ui/badge';
   import { Input } from '@/components/ui/input';
@@ -31,7 +31,6 @@
     Flame,
     LogOut,
     Home,
-    Pizza,
     ShoppingBag,
     MapPin,
     Settings,
@@ -54,6 +53,10 @@
     Clock,
     Power,
     QrCode,
+    Save,
+    AlertCircle,
+    Upload,
+    X,
   } from 'lucide-react';
   import {
     Product,
@@ -69,6 +72,7 @@
   import { OrderDetailsDialog } from '@/components/admin/OrderDetailsDialog';
   import { NeighborhoodFormDialog } from '@/components/admin/NeighborhoodFormDialog';
   import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
+  import { CategoryManagementDialog } from '@/components/admin/CategoryManagementDialog';
   import { DateRangeFilter } from '@/components/admin/DateRangeFilter';
   import { SchedulingSettings } from '@/components/admin/SchedulingSettings';
   import { PrintNodeSettings } from '@/components/admin/PrintNodeSettings';
@@ -78,7 +82,6 @@
   import { CouponManagementPanel } from '@/components/admin/CouponManagementPanel';
   import { PaymentSettingsPanel } from '@/components/admin/PaymentSettingsPanel';
   import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
-  import { TenantSettingsPanel } from '@/components/admin/TenantSettingsPanel';
   import { QRCodeDisplay } from '@/components/QRCodeDisplay';
   import { toast } from 'sonner';
   import { format, startOfDay, endOfDay } from 'date-fns';
@@ -86,9 +89,11 @@
   import { useTheme } from '@/hooks/use-theme';
   import { useOrderAlertSound } from '@/hooks/use-order-alert-sound';
   import { useSettingsRealtimeSync } from '@/hooks/use-settings-realtime-sync';
+  import { useAdminRealtimeSync } from '@/hooks/use-admin-realtime-sync';
   import { useRealtimeSync } from '@/hooks/use-realtime-sync';
   import { useSettingsInitialLoad } from '@/hooks/use-settings-initial-load';
-  import { useDomainValidation } from '@/hooks/use-domain-validation'; // ✅ Nova validação de domain
+  import { useSettingsUpdateListener } from '@/hooks/use-settings-update-listener';
+  import { useDomainValidation } from '@/hooks/use-domain-validation';
   import logoForneiro from '@/assets/logo-forneiro.jpg';
 
   const dayLabels: Record<keyof any, string> = {
@@ -115,7 +120,8 @@
     const navigate = useNavigate();
     
     // ✅ NOVO: Autenticação multi-tenant segura
-    const { user, tenantId, isLoading: authLoading, logout: authLogout, error: authError } = useAdminAuth();
+    // enableAutoRestore: true porque AdminDashboard PRECISA restaurar sessão
+    const { user, tenantId, isLoading: authLoading, logout: authLogout, error: authError } = useAdminAuth({ enableAutoRestore: true });
 
     // ✅ NOVO (29/03/2026): Validação de domain e tenant_id
     // Redireciona se URL não corresponder ao tenant do usuário
@@ -185,11 +191,18 @@
     // ✅ NOVO (29/03/2026): Passar tenantId como prop para evitar chamadas duplicadas a getSession()
     useRealtimeSync(tenantId || undefined);
 
+    // ✅ Sincronização específica para admins (pedidos em tempo real)
+    // Garante que TODOS os admins vejam pedidos novos/alterados
+    useAdminRealtimeSync();
+
     // Carregamento inicial das settings do Supabase
     useSettingsInitialLoad();
 
     // Sincronização em tempo real de configurações entre abas/navegadores
     useSettingsRealtimeSync();
+
+    // ✅ Monitorar atualizações de settings em tempo real
+    useSettingsUpdateListener();
 
     // Local state for settings form
     const [settingsForm, setSettingsForm] = useState(settings);
@@ -204,6 +217,7 @@
     const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
     const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
     const [isNeighborhoodDialogOpen, setIsNeighborhoodDialogOpen] = useState(false);
+    const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
     const [editingNeighborhood, setEditingNeighborhood] = useState<any>(null);
     const [deleteDialog, setDeleteDialog] = useState<{
       open: boolean;
@@ -211,6 +225,12 @@
       id: string;
       name: string;
     }>({ open: false, type: 'product', id: '', name: '' });
+
+    // ✅ NOVO: Estados para upload de logo (SEPARADOS do formulário principal)
+    const [selectedLogoFile, setSelectedLogoFile] = useState<File | null>(null);
+    const [previewLogoUrl, setPreviewLogoUrl] = useState<string | null>(null);
+    const [logoUploading, setLogoUploading] = useState(false);
+    const [logoHasUnsavedChanges, setLogoHasUnsavedChanges] = useState(false);
 
     // Date range for stats
     const [dateRange, setDateRange] = useState({
@@ -224,6 +244,19 @@
 
     // ✅ NOVA SOLUÇÃO: Sincronizar settingsForm APENAS no mount
     // NÃO sincroniza enquanto admin está editando (mesmo que realtime traga atualizações)
+
+    // 🔄 Mapeamento dinâmico de categorias (lê de settings.categories_config)
+    const dynamicCategoryLabels = useMemo(() => {
+      const mapping: Record<string, string> = { ...categoryLabels };
+      
+      if (settingsForm.categories_config && Array.isArray(settingsForm.categories_config)) {
+        settingsForm.categories_config.forEach((cat) => {
+          mapping[cat.id] = cat.label;
+        });
+      }
+      
+      return mapping;
+    }, [settingsForm.categories_config]);
     // Isso garante que edições do admin não sejam perdidas
     // ⚡ CRÍTICO: Sincronizar settingsForm QUANDO `settings` do Zustand mudar
     // Isso garante que quando `loadSettingsFromSupabase()` carrega dados, o formulário mostra
@@ -246,8 +279,15 @@
 
     // ✅ Função auxiliar para atualizar settingsForm E marcar como não salvo
     const updateSettingsFormWithFlag = (updates: Partial<typeof settingsForm>) => {
-      setSettingsForm(prev => ({ ...prev, ...updates }));
+      console.log('🎯 [UPDATE-FLAG] updateSettingsFormWithFlag chamada com:', updates);
+      setSettingsForm(prev => {
+        const newState = { ...prev, ...updates };
+        console.log('🎯 [UPDATE-FLAG] settingsForm atualizado para:', newState);
+        return newState;
+      });
+      console.log('🎯 [UPDATE-FLAG] Setando hasUnsavedChanges = true');
       setHasUnsavedChanges(true);
+      console.log('✅ [UPDATE-FLAG] ESTADO MARCADO COMO NÃO SALVO - Botão "Salvar" deve estar HABILITADO agora!');
     };
 
     // 📲 Função para notificar OUTRAS abas do mesmo navegador que houve alteração
@@ -264,6 +304,152 @@
         console.log('📲 [NOTIFY-TABS] Enviado broadcast para outras abas');
       } catch (error) {
         console.warn('⚠️  BroadcastChannel não disponível neste navegador:', error);
+      }
+    };
+
+    // ✅ NOVO: Manipular seleção de arquivo de logo (ISOLADO, sem afetar main form)
+    const handleLogoFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.currentTarget.files?.[0];
+      if (!file) return;
+
+      if (!file.type.startsWith('image/')) {
+        toast.error('Por favor, selecione uma imagem (PNG ou JPEG)');
+        return;
+      }
+
+      setSelectedLogoFile(file);
+      const url = URL.createObjectURL(file);
+      setPreviewLogoUrl(url);
+      // ✅ NOVO: Marcar APENAS logo como unsaved (não afeta formulário geral)
+      setLogoHasUnsavedChanges(true);
+      console.log('🎨 [LOGO-SELECT] Logo selecionado, marcado como unsaved (isolado)');
+    };
+
+    // ✅ NOVO: Upload de logo para Supabase Storage
+    const uploadLogoToStorage = async (file: File): Promise<string | null> => {
+      if (!tenantId) {
+        toast.error('Tenant ID não encontrado');
+        return null;
+      }
+
+      try {
+        setLogoUploading(true);
+        const timestamp = Date.now();
+        const fileExt = file.name.split('.').pop();
+        const fileName = `logo-${timestamp}.${fileExt}`;
+        const filePath = `logos/${tenantId}/${fileName}`;
+
+        console.log(`📤 [LOGO-UPLOAD] Iniciando upload: ${filePath}`);
+
+        // Upload file
+        const { error: uploadError } = await supabase.storage
+          .from('tenant-products')
+          .upload(filePath, file, { upsert: true });
+
+        if (uploadError) {
+          console.error('❌ [LOGO-UPLOAD] Erro ao enviar:', uploadError);
+          toast.error(`Erro ao enviar logo: ${uploadError.message}`);
+          setLogoUploading(false);
+          return null;
+        }
+
+        // Get public URL
+        const { data } = supabase.storage
+          .from('tenant-products')
+          .getPublicUrl(filePath);
+
+        const publicUrl = data?.publicUrl;
+        console.log(`✅ [LOGO-UPLOAD] Sucesso! URL: ${publicUrl}`);
+        setLogoUploading(false);
+        return publicUrl || null;
+      } catch (error) {
+        console.error('❌ [LOGO-UPLOAD] Erro:', error);
+        toast.error('Erro ao fazer upload da logo');
+        setLogoUploading(false);
+        return null;
+      }
+    };
+
+    // ✅ NOVO: Remover logo selecionada
+    const handleRemoveLogoImage = () => {
+      setSelectedLogoFile(null);
+      setPreviewLogoUrl(null);
+    };
+
+    // ✅ NOVO: Salvar APENAS logo (função 100% isolada - NÃO afeta formulário geral)
+    const handleSaveLogoOnly = async () => {
+      try {
+        if (!selectedLogoFile) {
+          toast.error('Selecione uma imagem primeiro');
+          return;
+        }
+
+        setLogoUploading(true);
+        console.log('🎨 [LOGO-SAVE] Iniciando salvamento isolado de logo...');
+
+        // Upload de logo
+        const uploadedLogoUrl = await uploadLogoToStorage(selectedLogoFile);
+        if (!uploadedLogoUrl) {
+          setLogoUploading(false);
+          return;
+        }
+
+        console.log('🎨 [LOGO-SAVE] Upload bem-sucedido, salvando em settings.value.store_logo_url...');
+
+        // ✅ SOLUÇÃO: Armazenar logo em value.store_logo_url (JSONB)
+        // Passo 1: Ler o value atual para não perder outros dados
+        const settingsId = `settings_${tenantId}`;
+        const { data: currentSettings, error: readError } = await (supabase as any)
+          .from('settings')
+          .select('value')
+          .eq('id', settingsId)
+          .eq('tenant_id', tenantId)
+          .single();
+
+        if (readError) {
+          console.error('❌ [LOGO-SAVE] Erro ao ler settings atual:', readError);
+          throw readError;
+        }
+
+        // Passo 2: Adicionar store_logo_url ao value
+        const updatedValue = {
+          ...(currentSettings?.value || {}),
+          store_logo_url: uploadedLogoUrl,
+        };
+
+        // Passo 3: Salvar com logo adicionado ao value
+        const { error: updateError } = await (supabase as any)
+          .from('settings')
+          .update({ value: updatedValue })
+          .eq('id', settingsId)
+          .eq('tenant_id', tenantId);
+
+        if (updateError) {
+          console.error('❌ [LOGO-SAVE] Erro ao atualizar settings:', updateError);
+          throw updateError;
+        }
+
+        console.log('🎨 [LOGO-SAVE] settings.value atualizado, recarregando do Supabase...');
+
+        // Aguardar e recarregar
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await loadSettingsFromSupabase(true);
+
+        // Sincronizar settingsForm (sem ativar hasUnsavedChanges global)
+        const reloadedState = useSettingsStore.getState();
+        console.log('✅ [LOGO-SAVE] Logo salvo com sucesso! URL:', reloadedState.settings.store_logo_url);
+
+        // Limpar UI de logo APENAS
+        setSelectedLogoFile(null);
+        setPreviewLogoUrl(null);
+        setLogoHasUnsavedChanges(false);
+        setLogoUploading(false);
+
+        toast.success('✅ Logo salva! Aparecendo em Header, Footer, PWA e WhatsApp');
+      } catch (error) {
+        console.error('❌ [LOGO-SAVE] Erro:', error);
+        toast.error('Erro ao salvar logo');
+        setLogoUploading(false);
       }
     };
 
@@ -295,13 +481,13 @@
       console.log('📡 [ADMIN-SUBSCRIBE] Iniciando subscription para mudanças em settings...');
 
       const settingsChannel = supabase
-        .channel('public:settings')
+        .channel(`public:settings:${tenantId}`)
         .on(
           'postgres_changes',
           { event: 'UPDATE', schema: 'public', table: 'settings' },
           async (payload) => {
             // ✅ FILTRO MANUAL: Apenas se for store-settings
-            if (payload.new.id !== 'store-settings') return;
+            if (payload.new.id !== `settings_${tenantId}` || payload.new.tenant_id !== tenantId) return;
             
             console.log('🔔 [ADMIN-SUBSCRIBE] Mudan ça em settings detectada! Outro gerente salvou dados.');
             console.log('🔔 [ADMIN-SUBSCRIBE] Payload:', payload);
@@ -831,6 +1017,7 @@
     }, [orders, dateRange, orderStatusFilter, orderSort]);
 
     const handleSaveSettings = async () => {
+      console.log('🚀🚀🚀 [HANDLECLIKC] BOTÃO CLICADO - handleSaveSettings COMEÇOU');
       try {
         // ✅ CRÍTICO: Usar o settingsForm (que tem as edições locais do admin)
         // Inicializar com defaults se estiver vazio (proteção extra)
@@ -854,9 +1041,18 @@
           });
         }
 
+        // ✅ CRÍTICO: Garantir que os 5 toggles novos estão no payload
         const finalSettingsToSave = {
           ...settingsForm,
           schedule: validatedSchedule,
+          // ✅ Adicionar explicitamente os 7 toggles de cardápio
+          meia_meia_enabled: settingsForm.meia_meia_enabled ?? true,
+          imagens_enabled: settingsForm.imagens_enabled ?? true,
+          adicionais_enabled: settingsForm.adicionais_enabled ?? true,
+          bebidas_enabled: settingsForm.bebidas_enabled ?? true,
+          bordas_enabled: settingsForm.bordas_enabled ?? true,
+          broto_enabled: settingsForm.broto_enabled ?? true,
+          grande_enabled: settingsForm.grande_enabled ?? true,
         };
         
         console.log('💾 [ADMIN-SAVE] ════════════════════════════════════════');
@@ -865,22 +1061,54 @@
         console.log('💾 [ADMIN-SAVE] thursday que será salvo:', finalSettingsToSave.schedule.thursday);
         console.log('💾 [ADMIN-SAVE] Enviando para updateSettings()...');
         
-        // Atualizar com TODOS os settings (incluindo schedule VALIDADO)
-        await updateSettings(finalSettingsToSave);
+        // ✅ NOVO: Upload de logo se arquivo foi selecionado
+        let logoUrlToSave = settingsForm.store_logo_url;
+        if (selectedLogoFile) {
+          console.log('📤 [ADMIN-SAVE] Logo file selecionado, fazendo upload...');
+          const uploadedLogoUrl = await uploadLogoToStorage(selectedLogoFile);
+          if (uploadedLogoUrl) {
+            logoUrlToSave = uploadedLogoUrl;
+            console.log('✅ [ADMIN-SAVE] Logo upload bem-sucedido:', logoUrlToSave);
+          }
+        }
         
-        console.log('✅ [ADMIN-SAVE] updateSettings() completou com sucesso!');
+        // Atualizar com TODOS os settings (incluindo schedule VALIDADO)
+        await updateSettings({
+          ...finalSettingsToSave,
+          store_logo_url: logoUrlToSave,
+        });
+        
+        console.log('💾 [ADMIN-SAVE] updateSettings() completou com sucesso!');
         
         // 🔍 STEP EXTRA: VERIFICAR QUE FOI REALMENTE SALVO no Supabase
         console.log('🔍 [ADMIN-SAVE] Aguardando 1 segundo e recarregando do Supabase para VERIFICAÇÃO...');
         await new Promise(resolve => setTimeout(resolve, 1000));
         
-        await loadSettingsFromSupabase();
+        // ✅ forceRefresh: true para ignorar cache e recarregar TODOS os dados
+        await loadSettingsFromSupabase(true);
         
         // ⚡ CRÍTICO: Sincronizar settingsForm com os dados que acabaram de ser carregados
         // Assim o formulário mostra os dados salvos, não os antigos
         const reloadedState = useSettingsStore.getState();
         setSettingsForm(reloadedState.settings);
         console.log('✅ [ADMIN-SAVE] settingsForm sincronizado com dados carregados do Supabase');
+        console.log('✅ [ADMIN-SAVE] store_logo_url sincronizado:', reloadedState.settings.store_logo_url);
+        
+        // ✅ NOVO: Limpar UI de upload APENAS APÓS confirmação que foi salvo
+        if (selectedLogoFile) {
+          setSelectedLogoFile(null);
+          setPreviewLogoUrl(null);
+          console.log('✅ [ADMIN-SAVE] Logo file clearing - URL salva no Supabase');
+        }
+        console.log('✅ [ADMIN-SAVE] Toggles sincronizados:', {
+          meia_meia_enabled: reloadedState.settings.meia_meia_enabled,
+          imagens_enabled: reloadedState.settings.imagens_enabled,
+          adicionais_enabled: reloadedState.settings.adicionais_enabled,
+          bebidas_enabled: reloadedState.settings.bebidas_enabled,
+          bordas_enabled: reloadedState.settings.bordas_enabled,
+          broto_enabled: reloadedState.settings.broto_enabled,
+          grande_enabled: reloadedState.settings.grande_enabled,
+        });
         
         // Comparar: o que foi enviado vs. o que está no estado agora
         const currentState = useSettingsStore.getState();
@@ -892,6 +1120,14 @@
         console.log('📊 Agora no estado thursday:', savedThursday);
         console.log('📊 MATCH?', JSON.stringify(sentThursday) === JSON.stringify(savedThursday) ? '✅ PERFEITO' : '❌ NÃO CORRESPONDENTE');
         
+        // ✅ NOVO: Verificar que store_logo_url NÃO foi perdida!
+        const currentLogo = currentState.settings.store_logo_url;
+        const sentLogo = finalSettingsToSave.store_logo_url;
+        console.log('🖼️  [ADMIN-SAVE] LOGO VERIFICATION:');
+        console.log('🖼️  Logo enviado:', sentLogo);
+        console.log('🖼️  Logo após save:', currentLogo);
+        console.log('🖼️  Logo preservada?', (sentLogo === currentLogo || (sentLogo && currentLogo)) ? '✅ SIM!' : '⚠️  VERIFIQUE');
+        
         if (JSON.stringify(sentThursday) !== JSON.stringify(savedThursday)) {
           console.error('❌ [ADMIN-SAVE] ALERTA: Os dados salvos não correspondem aos enviados!');
           toast.error('⚠️  Aviso: dados podem não ter sido salvos corretamente. Tente novamente.');
@@ -900,7 +1136,13 @@
         // Force settings refresh em todos os contextos IMEDIATAMENTE
         localStorage.setItem('admin-settings-updated', Date.now().toString());
         
-        // 📲 Notificar OUTRAS abas do mesmo navegador via BroadcastChannel
+        // � Cache de categorias no localStorage para carregamento instantâneo
+        if (finalSettingsToSave.categories_config) {
+          localStorage.setItem('cached_categories_config', JSON.stringify(finalSettingsToSave.categories_config));
+          console.log('💾 [CACHE] categories_config salvo em localStorage');
+        }
+        
+        // �📲 Notificar OUTRAS abas do mesmo navegador via BroadcastChannel
         notifyOtherTabs(finalSettingsToSave);
         
         // MARCAR COMO NÃO SALVO IMEDIATAMENTE (não usar setTimeout)
@@ -913,6 +1155,8 @@
         toast.success('✅ Configurações salvas e sincronizadas em tempo real!');
       } catch (error) {
         console.error('❌ [ADMIN-SAVE] Erro ao salvar:', error);
+        console.error('❌ [ADMIN-SAVE] Stack:', error instanceof Error ? error.stack : 'N/A');
+        alert(`❌ ERRO ao salvar (veja console): ${error instanceof Error ? error.message : String(error)}`);
         toast.error('Erro ao salvar configurações. Tente novamente.');
       }
     };
@@ -962,10 +1206,12 @@
             console.log('🗑️ Deletando produto:', deleteDialog.id);
             removeProduct(deleteDialog.id);
             
+            // ✅ CORRIGIDO: Filtrar por tenant_id para isolamento multi-tenant
             const { error } = await (supabase as any)
               .from('products')
               .delete()
-              .eq('id', deleteDialog.id);
+              .eq('id', deleteDialog.id)
+              .eq('tenant_id', tenantId);  // ✅ Add tenant filter
             
             if (error) {
               console.error('❌ Erro ao deletar produto:', error);
@@ -981,7 +1227,8 @@
                 const { data: deletedList, error: selectError } = await (supabase as any)
                   .from('products')
                   .select('*')
-                  .eq('id', deleteDialog.id);
+                  .eq('id', deleteDialog.id)
+                  .eq('tenant_id', tenantId);  // ✅ Add tenant filter
                 
                 if (!selectError && deletedList && deletedList.length > 0) {
                   // Ainda existe - reversão
@@ -1012,10 +1259,12 @@
             console.log('🗑️ Deletando bairro:', deleteDialog.id);
             removeNeighborhood(deleteDialog.id);
             
+            // ✅ CORRIGIDO: Filtrar por tenant_id para isolamento multi-tenant
             const { error } = await (supabase as any)
               .from('neighborhoods')
               .delete()
-              .eq('id', deleteDialog.id);
+              .eq('id', deleteDialog.id)
+              .eq('tenant_id', tenantId);  // ✅ Add tenant filter
             
             if (error) {
               console.error('❌ Erro ao deletar bairro:', error);
@@ -1031,7 +1280,8 @@
                 const { data: deletedList, error: selectError } = await (supabase as any)
                   .from('neighborhoods')
                   .select('*')
-                  .eq('id', deleteDialog.id);
+                  .eq('id', deleteDialog.id)
+                  .eq('tenant_id', tenantId);  // ✅ Add tenant filter
                 
                 if (!selectError && deletedList && deletedList.length > 0) {
                   // Ainda existe - reversão
@@ -1176,7 +1426,7 @@
                       value="products"
                       className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
                     >
-                      <Pizza className="w-4 h-4" />
+                      <ShoppingBag className="w-4 h-4" />
                       <span className="text-sm font-medium">Cardápio</span>
                     </TabsTrigger>
 
@@ -1230,14 +1480,6 @@
                     >
                       <Settings className="w-4 h-4" />
                       <span className="text-sm font-medium">Configurações</span>
-                    </TabsTrigger>
-
-                    <TabsTrigger
-                      value="tenant-settings"
-                      className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
-                    >
-                      <Settings className="w-4 h-4" />
-                      <span className="text-sm font-medium">Loja</span>
                     </TabsTrigger>
 
                     <TabsTrigger
@@ -1395,7 +1637,8 @@
 
             {/* Products Tab */}
             <TabsContent value="products">
-              <Card>
+              {/* SEÇÃO 1: GERENCIAR CARDÁPIO (Topo com Produtos) */}
+              <Card className="mb-6">
                 <CardHeader className="flex flex-row items-center justify-between">
                   <CardTitle>Gerenciar Cardápio</CardTitle>
                   <Button
@@ -1410,6 +1653,7 @@
                   </Button>
                 </CardHeader>
                 <CardContent>
+                  {/* Filtros e Busca */}
                   <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
                     <div className="lg:col-span-1">
                       <Input
@@ -1425,7 +1669,7 @@
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="all">Todas as categorias</SelectItem>
-                          {Object.entries(categoryLabels ?? {}).filter(Boolean).map(([key, label]: any) => {
+                          {Object.entries(dynamicCategoryLabels ?? {}).filter(Boolean).map(([key, label]: any) => {
                             if (!key) return null;
                             return (
                             <SelectItem key={key} value={key}>
@@ -1450,6 +1694,7 @@
                     </div>
                   </div>
 
+                  {/* Tabela de Produtos */}
                   <ScrollArea className="h-[600px]">
                     <Table>
                       <TableHeader>
@@ -1470,7 +1715,7 @@
                             <TableCell className="font-medium">{product.name}</TableCell>
                             <TableCell>
                               <Badge variant="outline" className="capitalize">
-                                {categoryLabels[product.category] ?? product.category}
+                                {dynamicCategoryLabels[product.category] ?? product.category}
                               </Badge>
                             </TableCell>
                             <TableCell>
@@ -1529,6 +1774,142 @@
                     product={editingProduct}
                     tenantId={tenantId}
                   />
+                </CardContent>
+              </Card>
+
+              {/* SEÇÃO 2: CONFIGURAÇÕES AVANÇADAS (Abaixo com Toggles) */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Settings className="w-4 h-4" />
+                    Configurações Avançadas de Cardápio
+                  </CardTitle>
+                  <CardDescription>Ative ou desative recursos disponíveis no menu dos clientes</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-6">
+                  {/* Toggles */}
+                  <div className="space-y-3">
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Meia-meia</Label>
+                        <p className="text-xs text-muted-foreground">Permitir que clientes peçam meia-meia</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.meia_meia_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ meia_meia_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Imagens nos Produtos</Label>
+                        <p className="text-xs text-muted-foreground">Exibir fotos do cardápio</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.imagens_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ imagens_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Adicionais</Label>
+                        <p className="text-xs text-muted-foreground">Permitir adicionais nos produtos</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.adicionais_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ adicionais_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Bebidas</Label>
+                        <p className="text-xs text-muted-foreground">Incluir categoria de bebidas</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.bebidas_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ bebidas_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Bordas</Label>
+                        <p className="text-xs text-muted-foreground">Permitir escolher tipos de borda</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.bordas_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ bordas_enabled: value })}
+                      />
+                    </div>
+
+                    <Separator className="my-4" />
+
+                    {/* Botão Gerenciar Categorias */}
+                    <Button
+                      onClick={() => setIsCategoryDialogOpen(true)}
+                      variant="outline"
+                      className="w-full"
+                    >
+                      📋 Gerenciar Categorias do Cardápio
+                    </Button>
+
+                    <Separator className="my-4" />
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Tamanho Broto</Label>
+                        <p className="text-xs text-muted-foreground">Disponibilizar tamanho pequeno</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.broto_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ broto_enabled: value })}
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
+                      <div>
+                        <Label className="text-base font-medium cursor-pointer">Tamanho Grande</Label>
+                        <p className="text-xs text-muted-foreground">Disponibilizar tamanho grande</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.grande_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ grande_enabled: value })}
+                      />
+                    </div>
+                  </div>
+
+                  <Separator />
+
+                  {/* Botão Salvar - Específico para Toggles */}
+                  <div className="flex gap-2 justify-end">
+                    <Button
+                      variant="outline"
+                      onClick={() => {
+                        setSettingsForm(useSettingsStore.getState().settings);
+                        setHasUnsavedChanges(false);
+                      }}
+                      disabled={!hasUnsavedChanges}
+                    >
+                      Cancelar
+                    </Button>
+                    <Button
+                      onClick={handleSaveSettings}
+                      disabled={!hasUnsavedChanges}
+                      className="bg-orange-600 hover:bg-orange-700"
+                    >
+                      <Save className="w-4 h-4 mr-2" />
+                      Salvar Alterações
+                    </Button>
+                  </div>
+
+                  {hasUnsavedChanges && (
+                    <div className="flex items-center gap-2 p-3 bg-amber-50 border border-amber-200 rounded-lg">
+                      <AlertCircle className="w-4 h-4 text-amber-600" />
+                      <p className="text-xs text-amber-800">Você tem alterações não salvas. Clique em "Salvar Alterações" para confirmar.</p>
+                    </div>
+                  )}
                 </CardContent>
               </Card>
             </TabsContent>
@@ -1771,6 +2152,85 @@
             {/* Settings Tab */}
             <TabsContent value="settings">
               <div className="grid gap-6">
+                {/* ✅ NOVA CARD: Upload de Logo (SEPARADO) */}
+                <Card className="border-2 border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-950/20">
+                  <CardHeader>
+                    <CardTitle className="text-orange-900 dark:text-orange-100">🖼️ Logo / Imagem da Loja</CardTitle>
+                    <CardDescription>
+                      Aparece no header, footer, ícone do PWA e compartilhamentos no WhatsApp
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    {/* Preview da logo atual */}
+                    {(previewLogoUrl || settingsForm.store_logo_url) && (
+                      <div className="relative w-full">
+                        <img
+                          src={previewLogoUrl || settingsForm.store_logo_url || ''}
+                          alt="logo-preview"
+                          className="w-full h-40 object-contain rounded-md border-2 border-orange-200 dark:border-orange-700 bg-white p-3"
+                        />
+                        {selectedLogoFile && (
+                          <button
+                            type="button"
+                            onClick={handleRemoveLogoImage}
+                            className="absolute top-2 right-2 p-1 bg-red-500 hover:bg-red-600 text-white rounded-full transition-colors shadow-lg"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        )}
+                      </div>
+                    )}
+
+                    {/* File input */}
+                    <label className={`flex items-center justify-center gap-3 p-6 border-2 border-dashed rounded-lg cursor-pointer transition-colors ${
+                      logoUploading 
+                        ? 'opacity-50 cursor-not-allowed bg-gray-100' 
+                        : 'hover:bg-orange-100 dark:hover:bg-orange-950/50 hover:border-orange-400 border-orange-300 dark:border-orange-700'
+                    }`}>
+                      <Upload className="w-5 h-5 text-orange-600 dark:text-orange-400" />
+                      <div className="text-center">
+                        <span className="text-sm font-medium text-orange-900 dark:text-orange-100">
+                          {logoUploading ? '⏳ Enviando...' : !selectedLogoFile && !settingsForm.store_logo_url ? '📁 Clique para selecionar logo' : '🔄 Clique para trocar'}
+                        </span>
+                        <p className="text-xs text-orange-700 dark:text-orange-300 mt-1">PNG ou JPEG (recomendado: 400x400px)</p>
+                      </div>
+                      <input
+                        type="file"
+                        accept="image/png,image/jpeg"
+                        onChange={handleLogoFileSelect}
+                        disabled={logoUploading}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {/* Botão Salvar Logo */}
+                    <Button
+                      onClick={handleSaveLogoOnly}
+                      disabled={!selectedLogoFile || logoUploading}
+                      className="w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold"
+                      size="lg"
+                    >
+                      {logoUploading ? (
+                        <>
+                          <span className="animate-spin mr-2">⏳</span>
+                          Salvando Logo...
+                        </>
+                      ) : (
+                        <>
+                          <Save className="w-4 h-4 mr-2" />
+                          💾 Salvar Logo
+                        </>
+                      )}
+                    </Button>
+
+                    {settingsForm.store_logo_url && !selectedLogoFile && (
+                      <div className="text-xs bg-green-50 dark:bg-green-950/20 p-3 rounded border border-green-200 dark:border-green-700 text-green-900 dark:text-green-100">
+                        ✅ <strong>Logo salva!</strong> Aparecendo em Header, Footer, PWA e WhatsApp
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
                 <Card>
                   <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                     <CardTitle>Dados do Estabelecimento</CardTitle>
@@ -1784,7 +2244,7 @@
                   <CardContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
-                        <Label htmlFor="store-name">Nome da Pizzaria</Label>
+                        <Label htmlFor="store-name">Nome do Estabelecimento</Label>
                         <Input 
                           id="store-name" 
                           value={settingsForm.name}
@@ -1826,7 +2286,7 @@
                         id="store-slogan" 
                         value={settingsForm.slogan || ''}
                         onChange={(e) => updateSettingsFormWithFlag({ slogan: e.target.value })}
-                        placeholder="Ex: A Pizza mais recheada da cidade 🇮🇹"
+                        placeholder="Ex: O melhor atendimento da sua região"
                         className="mt-1" 
                       />
                       <p className="text-xs text-muted-foreground mt-1">
@@ -2171,14 +2631,20 @@
               </div>
             </TabsContent>
 
-            {/* Tenant Settings Tab */}
-            <TabsContent value="tenant-settings">
-              <TenantSettingsPanel />
-            </TabsContent>
               </main>
             </div>
           </Tabs>
         </div>
+
+        {/* Category Management Dialog */}
+        <CategoryManagementDialog
+          open={isCategoryDialogOpen}
+          onOpenChange={setIsCategoryDialogOpen}
+          categories={settingsForm.categories_config || []}
+          onSave={(categories) => {
+            updateSettingsFormWithFlag({ categories_config: categories });
+          }}
+        />
 
         {/* Delete Confirmation Dialog */}
         <ConfirmDeleteDialog

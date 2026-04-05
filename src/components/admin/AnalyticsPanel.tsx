@@ -219,9 +219,9 @@ export function AnalyticsPanel() {
   // EXPORT CSV
   const exportToCSV = () => {
     const timestamp = format(new Date(), 'dd-MM-yyyy_HH-mm-ss');
-    const filename = `relatorio_pizzaria_${timestamp}.csv`;
+    const filename = `relatorio_vendas_${timestamp}.csv`;
 
-    let csvContent = 'Relatório de Vendas - Forneiro Eden\n';
+    let csvContent = 'Relatório de Vendas - ${settings?.name || "Estabelecimento"}\n';
     csvContent += `Período: ${dateRange.startDate} até ${dateRange.endDate}\n`;
     csvContent += `Data de Geração: ${format(new Date(), 'dd/MM/yyyy HH:mm:ss', { locale: ptBR })}\n\n`;
 

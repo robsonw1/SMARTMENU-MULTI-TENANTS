@@ -103,7 +103,7 @@ export const useCartStore = create<CartStore>()(
       },
     }),
     {
-      name: 'forneiro-eden-cart',
+      name: 'app-cart',
     }
   )
 );

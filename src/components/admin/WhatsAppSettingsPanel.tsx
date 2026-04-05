@@ -28,7 +28,7 @@ interface StatusMessage {
 
 const DEFAULT_MESSAGES = {
   pending: '📋 Oi {nome}! Recebemos seu pedido #{pedido}. Você receberá uma confirmação em breve!',
-  confirmed: '🍕 Oi {nome}! Seu pedido #{pedido} foi confirmado! ⏱️ Saindo do forno em ~25min',
+  confirmed: '🔵 Oi {nome}! Seu pedido #{pedido} foi confirmado! ⏱️ Saindo do forno em ~25min',
   preparing: '👨‍🍳 Seu pedido #{pedido} está sendo preparado com capricho!',
   delivering: '🚗 Seu pedido #{pedido} está a caminho! 📍 Chega em ~15min',
   delivered: '✅ Pedido #{pedido} entregue! Valeu pela compra 🙏',
@@ -322,7 +322,7 @@ export const WhatsAppSettingsPanel = () => {
                   <p className="font-semibold mb-1">Como funciona:</p>
                   <ol className="list-decimal list-inside space-y-1 ml-2">
                     <li>Digite um <strong>nome único</strong> para este estabelecimento</li>
-                    <li>Exemplo: "pizzaria-santos" ou "forneiro-centro"</li>
+                    <li>Exemplo: "estabelecimento-santos" ou "loja-centro"</li>
                     <li>Clique em "Testar Conexão" (usa sua API secretamente)</li>
                     <li>Salve as configurações</li>
                   </ol>
@@ -335,12 +335,12 @@ export const WhatsAppSettingsPanel = () => {
                   <Label htmlFor="instance-name">Nome da Instância WhatsApp *</Label>
                   <Input
                     id="instance-name"
-                    placeholder="pizzaria-santos"
+                    placeholder="estabelecimento-santos"
                     value={instanceName}
                     onChange={(e) => setInstanceName(e.target.value)}
                     className="mt-2"
                   />
-                  <p className="text-xs text-gray-500 mt-1">Nome único sem espaços (ex: pizzaria-centro, forneiro-eden)</p>
+                  <p className="text-xs text-gray-500 mt-1">Nome único sem espaços (ex: estabelecimento-centro, loja-eden)</p>
                 </div>
 
                 <div className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">

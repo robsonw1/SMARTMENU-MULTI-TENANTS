@@ -60,10 +60,10 @@ export function useSettingsUpdateListener() {
           // Atualizar o store com os novos dados
           // ✅ NOVO: Usar loadSettingsLocally (SÓ em memória, SEM resalvar)
           loadSettingsLocally({
-            name: valueJson.name || 'Forneiro Éden',
+            name: valueJson.name || 'AEZap smartmenu',
             phone: valueJson.phone || '(11) 99999-9999',
-            address: valueJson.address || 'Rua das Pizzas, 123 - Centro',
-            slogan: valueJson.slogan || 'A Pizza mais recheada da cidade 🇮🇹',
+            address: valueJson.address || 'Rua das neves, 123 - Centro',
+            slogan: valueJson.slogan || 'smartmenu',
             schedule: updatedSchedule, // ✅ SCHEDULE ATUALIZADO
             isManuallyOpen: settingsData.is_manually_open ?? true,
             deliveryTimeMin: valueJson.deliveryTimeMin ?? 60,
