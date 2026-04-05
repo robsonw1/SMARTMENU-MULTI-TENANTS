@@ -798,8 +798,8 @@ export function ProductModal() {
                         </SelectContent>
                       </Select>
                       
-                      {/* Half-Half for Pizza 1 in Combo Família or Combo Casal */}
-                      {meia_meia_enabled && (isComboFamilia || isComboCasal) && comboPizza1Id && (
+                      {/* Half-Half for Pizza 1 - All Combos */}
+                      {meia_meia_enabled && isCombo && comboPizza1Id && (
                         <div className="mt-3">
                           <div className="flex items-center justify-between mb-2">
                             <Label className="text-sm">Meia-Meia?</Label>
@@ -829,7 +829,7 @@ export function ProductModal() {
                       )}
                     </div>
                     
-                    {/* Pizza 2 - Only for Combo Família */}
+                    {/* Pizza 2 - Multiple Pizzas Combos */}
                     {isComboFamilia && (
                       <div className="p-3 bg-secondary/30 rounded-lg">
                         <Label className="text-sm font-medium mb-2 block">
