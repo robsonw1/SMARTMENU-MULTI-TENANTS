@@ -425,24 +425,41 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
           </div>
 
           {isPizzaCategory ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="p-broto">Preço Broto</Label>
-                <Input
-                  id="p-broto"
-                  value={priceSmall}
-                  onChange={(e) => setPriceSmall(e.target.value)}
-                  placeholder="Ex.: 49.99"
-                />
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="p-grande">Preço Grande</Label>
-                <Input
-                  id="p-grande"
-                  value={priceLarge}
-                  onChange={(e) => setPriceLarge(e.target.value)}
-                  placeholder="Ex.: 59.99"
-                />
+            <div className="space-y-4">
+              {/* ✅ NOVO: Renderizar campos de preço dinamicamente baseado em sizes_config */}
+              <div className="space-y-3">
+                <Label className="text-base font-semibold">Preços por Tamanho</Label>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {(settingsForm.sizes_config && settingsForm.sizes_config.filter((s: any) => s.isActive).length > 0 
+                    ? settingsForm.sizes_config.filter((s: any) => s.isActive)
+                    : [
+                        { id: 'broto', name: 'Broto', description: '4 fatias', isActive: true, order: 0 },
+                        { id: 'grande', name: 'Grande', description: '8 fatias', isActive: true, order: 1 }
+                      ]
+                  ).map((sizeConfig: any, index: number) => (
+                    <div key={sizeConfig.id} className="grid gap-2">
+                      <Label htmlFor={`p-size-${sizeConfig.id}`}>
+                        Preço {sizeConfig.name}
+                        <span className="text-xs text-muted-foreground ml-1">({sizeConfig.description})</span>
+                      </Label>
+                      <Input
+                        id={`p-size-${sizeConfig.id}`}
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={index === 0 ? priceSmall : index === 1 ? priceLarge : ""}
+                        onChange={(e) => {
+                          if (index === 0) setPriceSmall(e.target.value);
+                          if (index === 1) setPriceLarge(e.target.value);
+                        }}
+                        placeholder="Ex.: 49.99"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Defina os preços para cada tamanho disponível
+                </p>
               </div>
             </div>
           ) : (
