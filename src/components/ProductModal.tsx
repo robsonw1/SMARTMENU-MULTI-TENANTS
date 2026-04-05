@@ -72,14 +72,8 @@ export function ProductModal() {
   );
   
   // ✅ NOVO: Usar sizeId dinâmico baseado em sizes_config
-  const getDefaultSizeId = () => {
-    const activeSizes = (sizes_config || []).filter((s: any) => s.isActive);
-    if (activeSizes.length === 0) return 'grande'; // Fallback para compatibilidade
-    // Preferir 'grande' se existir e estiver ativo, senão usar o primeiro ativo
-    return activeSizes.find((s: any) => s.id === 'grande')?.id || activeSizes[0].id;
-  };
-  
-  const [size, setSize] = useState<string>(getDefaultSizeId());
+  // ⚠️ IMPORTANTE: Não chamar função em tempo de render, usar valor padrão seguro
+  const [size, setSize] = useState<string>('grande');
   const [isHalfHalf, setIsHalfHalf] = useState(false);
   const [secondHalfId, setSecondHalfId] = useState<string>('');
   const [selectedBorder, setSelectedBorder] = useState<string>('');
@@ -117,7 +111,7 @@ export function ProductModal() {
     setProductModalOpen(false);
     setSelectedProduct(null);
     // Reset state 
-    setSize(getDefaultSizeId());
+    setSize('grande');
     setIsHalfHalf(false);
     setSecondHalfId('');
     setSelectedBorder('');
@@ -468,36 +462,54 @@ export function ProductModal() {
 
             <div className="mt-6 space-y-6">
               {/* Size Selection for Pizzas - Renderiza dinamicamente baseado em sizes_config */}
-              {isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge && (sizes_config.length > 0 || broto_enabled || grande_enabled) && (
+              {/* Size Selection for Pizzas */}
+              {isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge && ((sizes_config && Array.isArray(sizes_config) && sizes_config.length > 0) || broto_enabled || grande_enabled) && (
                 <div>
                   <Label className="text-base font-semibold mb-3 block">Tamanho</Label>
                   <RadioGroup value={size} onValueChange={(v) => {
                     setSize(v);
-                    // Disable half-half when broto is selected
-                    if (v === 'broto') {
-                      setIsHalfHalf(false);
-                    }
+                    if (v === 'broto') setIsHalfHalf(false);
                   }}>
-                    <div className={`grid gap-3 ${(sizes_config.filter((s: any) => s.isActive).length > 1) ? 'grid-cols-2' : 'grid-cols-1'}`}>
-                      {/* ✅ NOVO: Renderizar tamanhos dinamicamente de sizes_config */}
-                      {sizes_config.filter((s: any) => s.isActive).map((sizeConfig: any) => (
-                        <div key={sizeConfig.id} className="relative">
-                          <RadioGroupItem value={sizeConfig.id} id={sizeConfig.id} className="peer sr-only" />
-                          <Label
-                            htmlFor={sizeConfig.id}
-                            className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer
-                              peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5
-                              hover:bg-secondary transition-colors"
-                          >
-                            <span className="font-semibold">{sizeConfig.name}</span>
-                            <span className="text-lg font-bold text-primary">
-                              {sizeConfig.id === 'broto' && selectedProduct.priceSmall ? formatPrice(selectedProduct.priceSmall) : selectedProduct.priceLarge ? formatPrice(selectedProduct.priceLarge) : '-'}
-                            </span>
-                            <span className="text-xs text-muted-foreground">{sizeConfig.description}</span>
-                          </Label>
-                        </div>
-                      ))}
-                    </div>
+                    {/* Renderizar tamanhos customizados se disponível, senão usar fallback */}
+                    {sizes_config && Array.isArray(sizes_config) && sizes_config.length > 0 ? (
+                      <div className={`grid gap-3 ${((sizes_config.filter((s: any) => s.isActive) || []).length > 1 ? 'grid-cols-2' : 'grid-cols-1')}`}>
+                        {(sizes_config.filter((s: any) => s.isActive) || []).map((sizeConfig: any) => (
+                          <div key={sizeConfig.id} className="relative">
+                            <RadioGroupItem value={sizeConfig.id} id={sizeConfig.id} className="peer sr-only" />
+                            <Label htmlFor={sizeConfig.id} className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-secondary transition-colors">
+                              <span className="font-semibold">{sizeConfig.name}</span>
+                              <span className="text-lg font-bold text-primary">
+                                {sizeConfig.id === 'broto' && selectedProduct.priceSmall ? formatPrice(selectedProduct.priceSmall) : formatPrice(selectedProduct.priceLarge || 0)}
+                              </span>
+                              <span className="text-xs text-muted-foreground">{sizeConfig.description}</span>
+                            </Label>
+                          </div>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className={`grid gap-3 ${grande_enabled && broto_enabled ? 'grid-cols-2' : 'grid-cols-1'}`}>
+                        {grande_enabled && (
+                          <div className="relative">
+                            <RadioGroupItem value="grande" id="grande" className="peer sr-only" />
+                            <Label htmlFor="grande" className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-secondary transition-colors">
+                              <span className="font-semibold">Grande</span>
+                              <span className="text-lg font-bold text-primary">{formatPrice(selectedProduct.priceLarge)}</span>
+                              <span className="text-xs text-muted-foreground">8 fatias</span>
+                            </Label>
+                          </div>
+                        )}
+                        {broto_enabled && (
+                          <div className="relative">
+                            <RadioGroupItem value="broto" id="broto" className="peer sr-only" />
+                            <Label htmlFor="broto" className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-secondary transition-colors">
+                              <span className="font-semibold">Broto</span>
+                              <span className="text-lg font-bold text-primary">{formatPrice(selectedProduct.priceSmall)}</span>
+                              <span className="text-xs text-muted-foreground">4 fatias</span>
+                            </Label>
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </RadioGroup>
                 </div>
               )}
