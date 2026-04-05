@@ -293,7 +293,63 @@
       console.log('✅ [UPDATE-FLAG] ESTADO MARCADO COMO NÃO SALVO - Botão "Salvar" deve estar HABILITADO agora!');
     };
 
-    // 📲 Função para notificar OUTRAS abas do mesmo navegador que houve alteração
+    // � Handler para salvar categorias COM PERSISTÊNCIA IMEDIATA
+    const handleSaveCategories = async (categories: any[]) => {
+      console.log('💾 [CATEGORY-SAVE] Salvando categorias imediatamente:', categories);
+      try {
+        // ✅ Chamar updateSettings diretamente (persiste no Supabase)
+        await updateSettings({
+          ...settingsForm,
+          categories_config: categories,
+        });
+        
+        // ✅ Recarregar do banco para confirmar persistência
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await loadSettingsFromSupabase(true);
+        
+        // ✅ Sincronizar local state
+        const reloaded = useSettingsStore.getState();
+        setSettingsForm(reloaded.settings);
+        
+        // ✅ Notificar outras abas
+        notifyOtherTabs({ categories_config: categories });
+        
+        console.log('✅ [CATEGORY-SAVE] Categorias salvas com sucesso!');
+      } catch (error) {
+        console.error('❌ [CATEGORY-SAVE] Erro:', error);
+        throw error;
+      }
+    };
+
+    // 📝 Handler para salvar tamanhos COM PERSISTÊNCIA IMEDIATA
+    const handleSaveSizes = async (sizes: any[]) => {
+      console.log('💾 [SIZE-SAVE] Salvando tamanhos imediatamente:', sizes);
+      try {
+        // ✅ Chamar updateSettings diretamente (persiste no Supabase)
+        await updateSettings({
+          ...settingsForm,
+          sizes_config: sizes,
+        });
+        
+        // ✅ Recarregar do banco para confirmar persistência
+        await new Promise(resolve => setTimeout(resolve, 500));
+        await loadSettingsFromSupabase(true);
+        
+        // ✅ Sincronizar local state
+        const reloaded = useSettingsStore.getState();
+        setSettingsForm(reloaded.settings);
+        
+        // ✅ Notificar outras abas
+        notifyOtherTabs({ sizes_config: sizes });
+        
+        console.log('✅ [SIZE-SAVE] Tamanhos salvos com sucesso!');
+      } catch (error) {
+        console.error('❌ [SIZE-SAVE] Erro:', error);
+        throw error;
+      }
+    };
+
+    // �📲 Função para notificar OUTRAS abas do mesmo navegador que houve alteração
     const notifyOtherTabs = (data: any) => {
       try {
         const channel = new BroadcastChannel('admin-settings');
@@ -2694,6 +2750,7 @@
           onSave={(categories) => {
             updateSettingsFormWithFlag({ categories_config: categories });
           }}
+          onSaveAsync={handleSaveCategories}
         />
 
         {/* Size Management Dialog */}
@@ -2704,6 +2761,7 @@
           onSave={(sizes) => {
             updateSettingsFormWithFlag({ sizes_config: sizes });
           }}
+          onSaveAsync={handleSaveSizes}
         />
 
         {/* Delete Confirmation Dialog */}
