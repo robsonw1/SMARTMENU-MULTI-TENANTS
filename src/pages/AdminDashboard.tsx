@@ -297,19 +297,29 @@
     const handleSaveCategories = async (categories: any[]) => {
       console.log('💾 [CATEGORY-SAVE] Salvando categorias imediatamente:', categories);
       try {
+        // ⏱️ Timeout de 15 segundos para evitar travamento
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout: Requisição levou mais de 15 segundos')), 15000)
+        );
+
         // ✅ Chamar updateSettings diretamente (persiste no Supabase)
-        await updateSettings({
+        const updatePromise = updateSettings({
           ...settingsForm,
           categories_config: categories,
         });
+
+        await Promise.race([updatePromise, timeoutPromise]);
+        console.log('✅ [CATEGORY-SAVE] updateSettings completo!');
         
         // ✅ Recarregar do banco para confirmar persistência
         await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('📡 [CATEGORY-SAVE] Recarregando do Supabase...');
         await loadSettingsFromSupabase(true);
         
         // ✅ Sincronizar local state
         const reloaded = useSettingsStore.getState();
         setSettingsForm(reloaded.settings);
+        console.log('✅ [CATEGORY-SAVE] Local state sincronizado!');
         
         // ✅ Notificar outras abas
         notifyOtherTabs({ categories_config: categories });
@@ -325,19 +335,29 @@
     const handleSaveSizes = async (sizes: any[]) => {
       console.log('💾 [SIZE-SAVE] Salvando tamanhos imediatamente:', sizes);
       try {
+        // ⏱️ Timeout de 15 segundos para evitar travamento
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Timeout: Requisição levou mais de 15 segundos')), 15000)
+        );
+
         // ✅ Chamar updateSettings diretamente (persiste no Supabase)
-        await updateSettings({
+        const updatePromise = updateSettings({
           ...settingsForm,
           sizes_config: sizes,
         });
+
+        await Promise.race([updatePromise, timeoutPromise]);
+        console.log('✅ [SIZE-SAVE] updateSettings completo!');
         
         // ✅ Recarregar do banco para confirmar persistência
         await new Promise(resolve => setTimeout(resolve, 500));
+        console.log('📡 [SIZE-SAVE] Recarregando do Supabase...');
         await loadSettingsFromSupabase(true);
         
         // ✅ Sincronizar local state
         const reloaded = useSettingsStore.getState();
         setSettingsForm(reloaded.settings);
+        console.log('✅ [SIZE-SAVE] Local state sincronizado!');
         
         // ✅ Notificar outras abas
         notifyOtherTabs({ sizes_config: sizes });
