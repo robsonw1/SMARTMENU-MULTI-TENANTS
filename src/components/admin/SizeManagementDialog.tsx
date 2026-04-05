@@ -20,6 +20,7 @@ interface SizeManagementDialogProps {
   onOpenChange: (open: boolean) => void;
   sizes: SizeConfig[];
   onSave: (sizes: SizeConfig[]) => void;
+  onSaveAsync?: (sizes: SizeConfig[]) => Promise<void>; // ✅ NOVO: Para salvar diretamente no DB
 }
 
 export function SizeManagementDialog({
@@ -27,11 +28,13 @@ export function SizeManagementDialog({
   onOpenChange,
   sizes,
   onSave,
+  onSaveAsync,
 }: SizeManagementDialogProps) {
   const [editingSizes, setEditingSizes] = useState<SizeConfig[]>(sizes || []);
   const [newSizeName, setNewSizeName] = useState('');
   const [newSizeDescription, setNewSizeDescription] = useState('');
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // ✅ NOVO: Loading state durante persist
 
   // 🔄 Sincronizar com sizes quando abrem a dialog
   useEffect(() => {
@@ -130,14 +133,32 @@ export function SizeManagementDialog({
     toast.success(`✅ "${trimmedName}" adicionado!`);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const enabledCount = editingSizes.filter((s) => s.isActive).length;
     if (enabledCount === 0) {
       toast.error('❌ Pelo menos 1 tamanho deve estar ativado!');
       return;
     }
-    onSave(editingSizes);
-    onOpenChange(false);
+
+    // ✅ NOVO: Se onSaveAsync fornecido, persiste diretamente no DB
+    if (onSaveAsync) {
+      setIsSaving(true);
+      try {
+        toast.loading('💾 Salvando tamanhos...');
+        await onSaveAsync(editingSizes);
+        toast.success('✅ Tamanhos salvos com sucesso em tempo real!');
+        onOpenChange(false);
+      } catch (error) {
+        console.error('❌ Erro ao salvar tamanhos:', error);
+        toast.error('❌ Erro ao salvar tamanhos. Verifique a conexão.');
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      // Fallback: usar padrão antigo (apenas marca como alterado)
+      onSave(editingSizes);
+      onOpenChange(false);
+    }
   };
 
   return (
@@ -285,11 +306,11 @@ export function SizeManagementDialog({
         </div>
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancelar
           </Button>
-          <Button className="btn-cta" onClick={handleSave}>
-            💾 Salvar Tamanhos
+          <Button className="btn-cta" onClick={handleSave} disabled={isSaving}>
+            {isSaving ? '⏳ Salvando...' : '💾 Salvar Tamanhos'}
           </Button>
         </DialogFooter>
       </DialogContent>
