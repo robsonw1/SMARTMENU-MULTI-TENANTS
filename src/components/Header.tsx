@@ -9,7 +9,7 @@ import { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useTheme } from '@/hooks/use-theme';
 import { CustomerProfileDropdown } from './CustomerProfileDropdown';
-import logoForneiro from '@/assets/logo-forneiro.jpg';
+import logoForneiro from '@/assets/logo.jpg';
 
 interface HeaderProps {
   onLoginClick?: () => void;

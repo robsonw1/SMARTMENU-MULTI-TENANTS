@@ -22,7 +22,7 @@ import { GlassWater, ChefHat } from 'lucide-react';
 import { Plus, Minus, Leaf, Star, Sparkles, ShoppingCart } from 'lucide-react';
 import { toast } from 'sonner';
 import { motion, AnimatePresence } from 'framer-motion';
-import pizzaImage from '@/assets/pizza-hero.jpg';
+import pizzaImage from '@/assets/cart-hero.jpg';
 
 const MAX_FREE_INGREDIENTS = 6;
 

@@ -10,7 +10,7 @@ import { useCartStore, useUIStore } from '@/store/useStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { Trash2, Plus, Minus, ShoppingBag, ArrowRight } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import pizzaImage from '@/assets/pizza-hero.jpg';
+import pizzaImage from '@/assets/cart-hero.jpg';
 
 export function CartDrawer() {
   const { isCartOpen, setCartOpen, setCheckoutOpen, setSchedulingCheckoutOpen } = useUIStore();

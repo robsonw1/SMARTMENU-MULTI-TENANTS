@@ -94,7 +94,7 @@
   import { useSettingsInitialLoad } from '@/hooks/use-settings-initial-load';
   import { useSettingsUpdateListener } from '@/hooks/use-settings-update-listener';
   import { useDomainValidation } from '@/hooks/use-domain-validation';
-  import logoForneiro from '@/assets/logo-forneiro.jpg';
+  import logoForneiro from '@/assets/logo.jpg';
 
   const dayLabels: Record<keyof any, string> = {
     monday: 'Segunda-feira',

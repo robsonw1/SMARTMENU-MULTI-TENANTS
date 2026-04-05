@@ -6,7 +6,7 @@ import { CustomerProfileDropdown } from '@/components/CustomerProfileDropdown';
 import { ScheduleDialog } from '@/components/ScheduleDialog';
 import { QRCodeDisplay } from '@/components/QRCodeDisplay';
 import { useAppUrl } from '@/hooks/useAppUrl';
-import logoForneiro from '@/assets/logo-forneiro.jpg';
+import logoForneiro from '@/assets/logo.jpg';
 import { Link } from 'react-router-dom';
 import { toast } from 'sonner';
 import { useMemo } from 'react';
