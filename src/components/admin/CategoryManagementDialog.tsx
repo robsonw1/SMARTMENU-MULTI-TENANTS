@@ -180,7 +180,7 @@ export function CategoryManagementDialog({
     if (onSaveAsync) {
       setIsSaving(true);
       try {
-        toast.loading('💾 Salvando categorias...');
+
         await onSaveAsync(editingCategories);
         toast.success('✅ Categorias salvas com sucesso em tempo real!');
         onOpenChange(false);
