@@ -412,17 +412,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           grande_enabled: currentSettings.grande_enabled ?? true,
           // ✅ Configurações de Categorias
           categories_config: currentSettings.categories_config ?? defaultCategoriesConfig,
+          // ✅ NOVO: Configurações de Tamanhos
+          sizes_config: currentSettings.sizes_config ?? undefined,
         },
       };
 
-      console.log('📤 [UPDATE-SETTINGS] Toggles que serão salvos:', {
+      console.log('📤 [UPDATE-SETTINGS] Payload COMPLETO que será enviado:', {
+        tenantId,
+        categories_config: updatePayload.updates.categories_config ? 'Presente' : 'Ausente',
+        sizes_config: updatePayload.updates.sizes_config ? 'Presente' : 'Ausente',
         meia_meia_enabled: updatePayload.updates.meia_meia_enabled,
-        imagens_enabled: updatePayload.updates.imagens_enabled,
-        adicionais_enabled: updatePayload.updates.adicionais_enabled,
-        bebidas_enabled: updatePayload.updates.bebidas_enabled,
-        bordas_enabled: updatePayload.updates.bordas_enabled,
-        broto_enabled: updatePayload.updates.broto_enabled,
-        grande_enabled: updatePayload.updates.grande_enabled,
       });
 
       // 5. CHAMAR EDGE FUNCTION (que executa como service_role)
@@ -431,29 +430,46 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         throw new Error('VITE_SUPABASE_URL not configured');
       }
 
-      // ✅ Edge Function pode ser chamada SEM token (RLS vai validar)
-      // Não chamar getSession() para evitar lock stealing
-      const response = await fetch(
-        `${supabaseUrl}/functions/v1/update-admin-settings`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(updatePayload),
+      console.log('📡 [UPDATE-SETTINGS] INICIANDO fetch para Edge Function...');
+      // ✅ AbortController para evitar requisição pendurada eternamente
+      const controller = new AbortController();
+      const timeoutHandle = setTimeout(() => {
+        controller.abort();
+        console.error('⏱️  [UPDATE-SETTINGS] Requisição expirou após 15 segundos!');
+      }, 15000); // 15 segundos timeout
+
+      try {
+        const response = await fetch(
+          `${supabaseUrl}/functions/v1/update-admin-settings`,
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(updatePayload),
+            signal: controller.signal,
+          }
+        );
+
+        clearTimeout(timeoutHandle);
+        console.log('✅ [UPDATE-SETTINGS] Resposta recebida com status:', response.status);
+
+        const responseData = await response.json();
+
+        if (!response.ok) {
+          console.error('❌ [UPDATE-SETTINGS] Edge Function erro:', responseData);
+          throw new Error(responseData.error || `Failed to update settings. Status: ${response.status}`);
         }
-      );
 
-      const responseData = await response.json();
-
-      if (!response.ok) {
-        console.error('❌ [UPDATE-SETTINGS] Edge Function erro:', responseData);
-        throw new Error(responseData.error || 'Failed to update settings via Edge Function');
+        console.log('✅ [UPDATE-SETTINGS] Edge Function retornou sucesso:', responseData.data);
+      } catch (fetchError: any) {
+        clearTimeout(timeoutHandle);
+        if (fetchError.name === 'AbortError') {
+          console.error('❌ [UPDATE-SETTINGS] Requisição foi cancelada por timeout!');
+          throw new Error('Requisição expirou. Verifique sua conexão.');
+        }
+        throw fetchError;
       }
-
-      console.log('✅ [UPDATE-SETTINGS] Edge Function retornou sucesso:', responseData.data);
-      console.log('✅ [UPDATE-SETTINGS] Schedule.monday:', responseData.data?.value?.schedule?.monday);
-      console.log('✅ [UPDATE-SETTINGS] is_manually_open:', responseData.data?.is_manually_open);
     } catch (error) {
       console.error('❌ [UPDATE-SETTINGS] EXCEÇÃO FATAL:', error);
       throw error;
