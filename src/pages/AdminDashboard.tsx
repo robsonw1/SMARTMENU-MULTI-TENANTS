@@ -1782,7 +1782,25 @@
                   </AccordionContent>
                 </AccordionItem>
 
-                {/* SEÇÃO 2: CONFIGURAÇÕES AVANÇADAS */}
+                {/* SEÇÃO 2: GERENCIAR CATEGORIAS */}
+                <AccordionItem value="categorias" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    📋 Gerenciar Categorias do Cardápio
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4">
+                    <Button
+                      onClick={() => setIsCategoryDialogOpen(true)}
+                      className="w-full btn-cta"
+                    >
+                      📋 Gerenciar Categorias do Cardápio
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Organize e customize as categorias do seu cardápio
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
+                {/* SEÇÃO 3: CONFIGURAÇÕES AVANÇADAS */}
                 <AccordionItem value="config-avancada" className="border rounded-lg px-4">
                   <AccordionTrigger className="text-lg font-semibold hover:no-underline">
                     ⚙️ Configurações Avançadas de Cardápio
@@ -1844,17 +1862,6 @@
                         onCheckedChange={(value) => updateSettingsFormWithFlag({ bordas_enabled: value })}
                       />
                     </div>
-
-                    <Separator className="my-4" />
-
-                    {/* Botão Gerenciar Categorias */}
-                    <Button
-                      onClick={() => setIsCategoryDialogOpen(true)}
-                      variant="outline"
-                      className="w-full"
-                    >
-                      📋 Gerenciar Categorias do Cardápio
-                    </Button>
 
                     <Separator className="my-4" />
 
