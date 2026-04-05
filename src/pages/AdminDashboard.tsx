@@ -12,6 +12,7 @@
   import { Switch } from '@/components/ui/switch';
   import { Separator } from '@/components/ui/separator';
   import { ScrollArea } from '@/components/ui/scroll-area';
+  import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from '@/components/ui/accordion';
   import {
     Select,
     SelectContent,
@@ -2151,16 +2152,13 @@
 
             {/* Settings Tab */}
             <TabsContent value="settings">
-              <div className="grid gap-6">
-                {/* ✅ NOVA CARD: Upload de Logo (SEPARADO) */}
-                <Card className="border-2 border-orange-300 dark:border-orange-600 bg-orange-50 dark:bg-orange-950/20">
-                  <CardHeader>
-                    <CardTitle className="text-orange-900 dark:text-orange-100">🖼️ Logo / Imagem da Loja</CardTitle>
-                    <CardDescription>
-                      Aparece no header, footer, ícone do PWA e compartilhamentos no WhatsApp
-                    </CardDescription>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+              <Accordion type="single" collapsible defaultValue="logo" className="space-y-2">
+                {/* ✅ ACCORDION ITEM 1: Logo */}
+                <AccordionItem value="logo" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold text-orange-900 dark:text-orange-100 hover:no-underline">
+                    🖼️ Logo / Imagem da Loja
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4">
                     {/* Preview da logo atual */}
                     {(previewLogoUrl || settingsForm.store_logo_url) && (
                       <div className="relative w-full">
@@ -2228,20 +2226,20 @@
                         ✅ <strong>Logo salva!</strong> Aparecendo em Header, Footer, PWA e WhatsApp
                       </div>
                     )}
-                  </CardContent>
-                </Card>
+                  </AccordionContent>
+                </AccordionItem>
 
-                <Card>
-                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                    <CardTitle>Dados do Estabelecimento</CardTitle>
+                <AccordionItem value="dados" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    📋 Dados do Estabelecimento
                     {hasUnsavedChanges && (
-                      <div className="flex items-center gap-2">
+                      <div className="ml-2 flex items-center gap-2">
                         <div className="animate-pulse w-2 h-2 rounded-full bg-amber-500"></div>
                         <span className="text-xs font-semibold text-amber-600 dark:text-amber-400">Edições não salvas</span>
                       </div>
                     )}
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4">
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div>
                         <Label htmlFor="store-name">Nome do Estabelecimento</Label>
@@ -2476,14 +2474,14 @@
                         </Button>
                       )}
                     </div>
-                  </CardContent>
-                </Card>
+                  </AccordionContent>
+                </AccordionItem>
 
-                <Card>
-                  <CardHeader>
-                    <CardTitle>Alterar Senha</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-4">
+                <AccordionItem value="password" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    🔐 Alterar Senha
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4">
                     <div>
                       <Label htmlFor="current-password">Senha Atual</Label>
                       <Input 
@@ -2517,9 +2515,11 @@
                     <Button variant="outline" onClick={handleChangePassword}>
                       Alterar Senha
                     </Button>
-                  </CardContent>
-                </Card>
+                  </AccordionContent>
+                </AccordionItem>
+              </Accordion>
 
+              <div className="space-y-6 mt-6">
                 <LoyaltySettingsPanel />
 
                 <PrintNodeSettings />
