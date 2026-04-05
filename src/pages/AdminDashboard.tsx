@@ -74,6 +74,7 @@
   import { NeighborhoodFormDialog } from '@/components/admin/NeighborhoodFormDialog';
   import { ConfirmDeleteDialog } from '@/components/admin/ConfirmDeleteDialog';
   import { CategoryManagementDialog } from '@/components/admin/CategoryManagementDialog';
+  import { SizeManagementDialog } from '@/components/admin/SizeManagementDialog';
   import { DateRangeFilter } from '@/components/admin/DateRangeFilter';
   import { SchedulingSettings } from '@/components/admin/SchedulingSettings';
   import { PrintNodeSettings } from '@/components/admin/PrintNodeSettings';
@@ -219,6 +220,7 @@
     const [isOrderDialogOpen, setIsOrderDialogOpen] = useState(false);
     const [isNeighborhoodDialogOpen, setIsNeighborhoodDialogOpen] = useState(false);
     const [isCategoryDialogOpen, setIsCategoryDialogOpen] = useState(false);
+    const [isSizeDialogOpen, setIsSizeDialogOpen] = useState(false);
     const [editingNeighborhood, setEditingNeighborhood] = useState<any>(null);
     const [deleteDialog, setDeleteDialog] = useState<{
       open: boolean;
@@ -1800,6 +1802,24 @@
                   </AccordionContent>
                 </AccordionItem>
 
+                {/* SEÇÃO 2.5: GERENCIAR TAMANHOS */}
+                <AccordionItem value="tamanhos" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    📏 Gerenciar Tamanhos
+                  </AccordionTrigger>
+                  <AccordionContent className="space-y-4">
+                    <Button
+                      onClick={() => setIsSizeDialogOpen(true)}
+                      className="w-full btn-cta"
+                    >
+                      📏 Gerenciar Tamanhos
+                    </Button>
+                    <p className="text-sm text-muted-foreground">
+                      Customize tamanhos de produtos (até 7 opções)
+                    </p>
+                  </AccordionContent>
+                </AccordionItem>
+
                 {/* SEÇÃO 3: CONFIGURAÇÕES AVANÇADAS */}
                 <AccordionItem value="config-avancada" className="border rounded-lg px-4">
                   <AccordionTrigger className="text-lg font-semibold hover:no-underline">
@@ -2673,6 +2693,16 @@
           categories={settingsForm.categories_config || []}
           onSave={(categories) => {
             updateSettingsFormWithFlag({ categories_config: categories });
+          }}
+        />
+
+        {/* Size Management Dialog */}
+        <SizeManagementDialog
+          open={isSizeDialogOpen}
+          onOpenChange={setIsSizeDialogOpen}
+          sizes={settingsForm.sizes_config || []}
+          onSave={(sizes) => {
+            updateSettingsFormWithFlag({ sizes_config: sizes });
           }}
         />
 
