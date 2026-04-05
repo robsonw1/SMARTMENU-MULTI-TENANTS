@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import { supabase } from '@/integrations/supabase/client';
 
 export interface CategoryConfig {
@@ -7,6 +7,14 @@ export interface CategoryConfig {
   icon_name: string; // 'Gift' | 'Tag' | 'Pizza' | 'Crown' | 'Star' | 'Cake' | 'GlassWater'
   enabled: boolean;
   order: number; // Para reordenação
+}
+
+export interface SizeConfig {
+  id: string;
+  name: string;
+  description: string;
+  isActive: boolean;
+  order: number;
 }
 
 export interface DaySchedule {
@@ -63,6 +71,8 @@ interface StoreSettings {
   grande_enabled?: boolean;
   // Configurações de Categorias (dinâmicas)
   categories_config?: CategoryConfig[];
+  // Configurações de Tamanhos (dinâmicos)
+  sizes_config?: SizeConfig[];
 }
 
 interface SettingsStore {
@@ -108,6 +118,16 @@ const defaultCategoriesConfig: CategoryConfig[] = [
   { id: 'bebidas', label: 'Bebidas', icon_name: 'GlassWater', enabled: true, order: 6 },
 ];
 
+const defaultSizesConfig: SizeConfig[] = [
+  { id: 'broto', name: 'Broto', description: '4 fatias', isActive: true, order: 0 },
+  { id: 'grande', name: 'Grande', description: '8 fatias', isActive: true, order: 1 },
+  { id: 'size3', name: '', description: '', isActive: false, order: 2 },
+  { id: 'size4', name: '', description: '', isActive: false, order: 3 },
+  { id: 'size5', name: '', description: '', isActive: false, order: 4 },
+  { id: 'size6', name: '', description: '', isActive: false, order: 5 },
+  { id: 'size7', name: '', description: '', isActive: false, order: 6 },
+];
+
 const defaultSettings: StoreSettings = {
   name: 'Carregando...',
   phone: 'carregando...',
@@ -140,6 +160,7 @@ const defaultSettings: StoreSettings = {
   bebidas_enabled: true,
   bordas_enabled: true,
   categories_config: undefined, // Vai carregar do Supabase / localStorage
+  sizes_config: undefined, // Vai carregar do Supabase / localStorage
 };
 
 const dayNames: (keyof WeekSchedule)[] = ['sunday', 'monday', 'tuesday', 'wednesday', 'thursday', 'friday', 'saturday'];
@@ -305,6 +326,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             grande_enabled: settingsData.grande_enabled ?? true,
             // ✅ Configurações de Categorias (mapeadas do BD)
             categories_config: settingsData.categories_config ?? defaultCategoriesConfig,
+            // ✅ Configurações de Tamanhos (mapeadas do BD)
+            sizes_config: settingsData.sizes_config ?? defaultSizesConfig,
           },
           // 🔐 NOVO: Registrar que este tenant foi carregado com sucesso
           _loadedTenantId: tenantId,
