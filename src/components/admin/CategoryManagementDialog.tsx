@@ -56,6 +56,7 @@ interface CategoryManagementDialogProps {
   onOpenChange: (open: boolean) => void;
   categories: CategoryConfig[];
   onSave: (categories: CategoryConfig[]) => void;
+  onSaveAsync?: (categories: CategoryConfig[]) => Promise<void>; // ✅ NOVO: Para salvar diretamente no DB
 }
 
 export function CategoryManagementDialog({
@@ -63,11 +64,13 @@ export function CategoryManagementDialog({
   onOpenChange,
   categories,
   onSave,
+  onSaveAsync,
 }: CategoryManagementDialogProps) {
   const [editingCategories, setEditingCategories] = useState<CategoryConfig[]>(categories || []);
   const [newCategoryName, setNewCategoryName] = useState('');
   const [newCategoryIcon, setNewCategoryIcon] = useState<keyof typeof ICON_OPTIONS>('Gift');
   const [isAddingNew, setIsAddingNew] = useState(false);
+  const [isSaving, setIsSaving] = useState(false); // ✅ NOVO: Loading state durante persist
 
   // 🔄 Sincronizar com categories quando abrem a dialog
   useEffect(() => {
@@ -166,14 +169,32 @@ export function CategoryManagementDialog({
     toast.success(`✅ "${trimmedName}" adicionada!`);
   };
 
-  const handleSave = () => {
+  const handleSave = async () => {
     const enabledCount = editingCategories.filter((c) => c.enabled).length;
     if (enabledCount === 0) {
       toast.error('❌ Pelo menos 1 categoria deve estar ativada!');
       return;
     }
-    onSave(editingCategories);
-    onOpenChange(false);
+
+    // ✅ NOVO: Se onSaveAsync fornecido, persiste diretamente no DB
+    if (onSaveAsync) {
+      setIsSaving(true);
+      try {
+        toast.loading('💾 Salvando categorias...');
+        await onSaveAsync(editingCategories);
+        toast.success('✅ Categorias salvas com sucesso em tempo real!');
+        onOpenChange(false);
+      } catch (error) {
+        console.error('❌ Erro ao salvar categorias:', error);
+        toast.error('❌ Erro ao salvar categorias. Verifique a conexão.');
+      } finally {
+        setIsSaving(false);
+      }
+    } else {
+      // Fallback: usar padrão antigo (apenas marca como alterado)
+      onSave(editingCategories);
+      onOpenChange(false);
+    }
   };
 
   return (
@@ -342,11 +363,11 @@ export function CategoryManagementDialog({
         )}
 
         <DialogFooter>
-          <Button variant="outline" onClick={() => onOpenChange(false)}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isSaving}>
             Cancelar
           </Button>
-          <Button onClick={handleSave}>
-            Salvar Categorias
+          <Button onClick={handleSave} disabled={isSaving}>
+            {isSaving ? '⏳ Salvando...' : '💾 Salvar Categorias'}
           </Button>
         </DialogFooter>
       </DialogContent>
