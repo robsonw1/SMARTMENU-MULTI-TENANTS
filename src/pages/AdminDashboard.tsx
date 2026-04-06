@@ -78,6 +78,7 @@
   import { DateRangeFilter } from '@/components/admin/DateRangeFilter';
   import { SchedulingSettings } from '@/components/admin/SchedulingSettings';
   import { PrintNodeSettings } from '@/components/admin/PrintNodeSettings';
+  import { AutoConfirmSettings } from '@/components/admin/AutoConfirmSettings';
   import { NotificationsTab } from '@/components/admin/NotificationsTab';
   import { LoyaltySettingsPanel } from '@/components/admin/LoyaltySettingsPanel';
   import { FaithfulCustomersAdmin } from '@/components/admin/FaithfulCustomersAdmin';
@@ -2644,6 +2645,15 @@
                   </AccordionTrigger>
                   <AccordionContent>
                     <PrintNodeSettings />
+                  </AccordionContent>
+                </AccordionItem>
+
+                <AccordionItem value="autoconfirm" className="border rounded-lg px-4">
+                  <AccordionTrigger className="text-lg font-semibold hover:no-underline">
+                    🤖 Confirmação Automática
+                  </AccordionTrigger>
+                  <AccordionContent>
+                    <AutoConfirmSettings />
                   </AccordionContent>
                 </AccordionItem>
               </Accordion>
