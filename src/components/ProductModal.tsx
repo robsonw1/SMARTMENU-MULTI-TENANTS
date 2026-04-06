@@ -781,16 +781,16 @@ export function ProductModal() {
                   <Separator />
                   <div>
                     <Label className="text-base font-semibold mb-3 block">
-                      {isComboFamilia ? 'Escolha seus sabores ' : 'Escolha seu sabor'}
+                      {isComboFamilia ? 'Faça sua escolha' : 'Escolha oque deseja'}
                     </Label>
                     <p className="text-sm text-muted-foreground mb-3">
-                      * Disponível apenas sabores promocionais
+                      * Disponível apenas promocionais
                     </p>
                     
                     {/* Pizza 1 */}
                     <div className="mb-4 p-3 bg-secondary/30 rounded-lg">
                       <Label className="text-sm font-medium mb-2 block">
-                        {isComboFamilia ? 'Pizza 1:' : 'Sabor da Pizza:'}
+                        {isComboFamilia ? 'Pizza 1:' : 'Sua escolha?:'}
                       </Label>
                       <Select value={comboPizza1Id} onValueChange={setComboPizza1Id}>
                         <SelectTrigger>
