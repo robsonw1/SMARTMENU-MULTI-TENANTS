@@ -326,6 +326,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             auto_print_pix: settingsData.auto_print_pix ?? (valueJson.auto_print_pix ?? false),
             auto_print_card: settingsData.auto_print_card ?? (valueJson.auto_print_card ?? false),
             auto_print_cash: settingsData.auto_print_cash ?? (valueJson.auto_print_cash ?? false),
+            // ✅ NOVO: Auto-Confirmação de Pontos (mapeados do BD)
+            auto_confirm_points_pix: settingsData.auto_confirm_points_pix ?? false,
+            auto_confirm_points_card: settingsData.auto_confirm_points_card ?? false,
+            auto_confirm_points_cash: settingsData.auto_confirm_points_cash ?? false,
+            // ✅ NOVO: Auto-Confirmação de Status (mapeados do BD)
+            auto_confirm_status_pix: settingsData.auto_confirm_status_pix ?? false,
+            auto_confirm_status_card: settingsData.auto_confirm_status_card ?? false,
+            auto_confirm_status_cash: settingsData.auto_confirm_status_cash ?? false,
+            // ✅ NOVO: Atraso para Auto-Confirmação de Pontos (mapeados do BD)
+            auto_confirm_points_delay_minutes: settingsData.auto_confirm_points_delay_minutes ?? 60,
             orderAlertEnabled: valueJson.orderAlertEnabled ?? true,
             sendOrderSummaryToWhatsApp: valueJson.sendOrderSummaryToWhatsApp ?? false,
             enableScheduling: settingsData.enable_scheduling ?? false,
@@ -434,6 +444,16 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           categories_config: currentSettings.categories_config ?? defaultCategoriesConfig,
           // ✅ NOVO: Configurações de Tamanhos
           sizes_config: currentSettings.sizes_config ?? undefined,
+          // ✅ NOVO: Auto-Confirmação de Pontos
+          auto_confirm_points_pix: currentSettings.auto_confirm_points_pix ?? false,
+          auto_confirm_points_card: currentSettings.auto_confirm_points_card ?? false,
+          auto_confirm_points_cash: currentSettings.auto_confirm_points_cash ?? false,
+          // ✅ NOVO: Auto-Confirmação de Status
+          auto_confirm_status_pix: currentSettings.auto_confirm_status_pix ?? false,
+          auto_confirm_status_card: currentSettings.auto_confirm_status_card ?? false,
+          auto_confirm_status_cash: currentSettings.auto_confirm_status_cash ?? false,
+          // ✅ NOVO: Atraso para Auto-Confirmação de Pontos
+          auto_confirm_points_delay_minutes: currentSettings.auto_confirm_points_delay_minutes ?? 60,
         },
       };
 
