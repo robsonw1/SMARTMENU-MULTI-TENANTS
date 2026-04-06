@@ -862,7 +862,7 @@ export function SchedulingCheckoutModal() {
         customIngredients: item.customIngredients || null,
         comboPizzas: isCombo ? (
           // Usar comboPizzasData se disponível (dados explícitos)
-          item.comboPizzasData?.map((pizzaData) => {
+          (item as any).comboPizzasData?.map((pizzaData) => {
             const comboPizza = {
               pizzaNumber: pizzaData.pizzaNumber,
               type: pizzaData.isHalfHalf ? 'meia-meia' : 'inteira',
@@ -873,7 +873,7 @@ export function SchedulingCheckoutModal() {
             return comboPizza;
           }) || 
           // Fallback para comboPizzaFlavors (compatibilidade com dados antigos)
-          item.comboPizzaFlavors?.map((pizza: any, index: number) => {
+          (item as any).comboPizzaFlavors?.map((pizza: any, index: number) => {
             const comboPizza = {
               pizzaNumber: index + 1,
               type: pizza.isHalfHalf ? 'meia-meia' : 'inteira',
@@ -965,6 +965,9 @@ export function SchedulingCheckoutModal() {
       
       // Observations
       observations: observations || '',
+      
+      // ✅ CRÍTICO: Tenant ID para isolamento multi-tenant
+      tenant_id: tenantId || '',
     };
   };
 
@@ -1073,15 +1076,15 @@ export function SchedulingCheckoutModal() {
           
           console.log('📋 [CheckoutModal] Item processing:', {
             productName: item.product.name,
-            hasComboPizzasData: !!item.comboPizzasData,
-            hasComboPizzaFlavors: !!item.comboPizzaFlavors,
-            comboPizzasData: item.comboPizzasData,
-            comboPizzaFlavors: item.comboPizzaFlavors,
+            hasComboPizzasData: !!(item as any).comboPizzasData,
+            hasComboPizzaFlavors: !!(item as any).comboPizzaFlavors,
+            comboPizzasData: (item as any).comboPizzasData,
+            comboPizzaFlavors: (item as any).comboPizzaFlavors,
           });
           
           // Usar comboPizzasData se disponível (dados explícitos mais confiáveis)
-          if (item.comboPizzasData && item.comboPizzasData.length > 0) {
-            item.comboPizzasData.forEach((pizzaData) => {
+          if ((item as any).comboPizzasData && (item as any).comboPizzasData.length > 0) {
+            (item as any).comboPizzasData.forEach((pizzaData: any) => {
               console.log(`🔵 [CheckoutModal] Pizza ${pizzaData.pizzaNumber} (from data):`, pizzaData);
               
               const pizzaLabel = pizzaData.isHalfHalf
@@ -1091,8 +1094,8 @@ export function SchedulingCheckoutModal() {
             });
           }
           // Fallback para comboPizzaFlavors (compatibilidade com dados antigos)
-          else if (item.comboPizzaFlavors && item.comboPizzaFlavors.length > 0) {
-            item.comboPizzaFlavors.forEach((pizza, index) => {
+          else if ((item as any).comboPizzaFlavors && (item as any).comboPizzaFlavors.length > 0) {
+            (item as any).comboPizzaFlavors.forEach((pizza: any, index: number) => {
               // Verificar se é meia-meia
               const isHalfHalf = (pizza as any).isHalfHalf;
               const secondHalfName = (pizza as any).secondHalf?.name;
@@ -1364,7 +1367,8 @@ export function SchedulingCheckoutModal() {
             payerName: customer.name,
             payerPhone: customer.phone,
             payerCpf: customer.cpf,
-            paymentType: 'pix'
+            paymentType: 'pix',
+            tenantId: tenantId || '',
           }
         });
 
@@ -1397,6 +1401,7 @@ export function SchedulingCheckoutModal() {
               customer_phone: customer.phone,
               customer_email: currentCustomer?.email || undefined,
               customer_id: currentCustomer?.id || undefined,
+              tenant_id: tenantId || '',
               status: 'pending'
             });
             console.log('✅ Pedido pendente armazenado. Webhook fará a confirmação automática!');
@@ -1444,6 +1449,9 @@ export function SchedulingCheckoutModal() {
         // For card and cash, just process order directly
         // ⚠️ Salvar pontos na ordem para depois o admin confirmar
         await processOrder(orderPayload, pointsDiscount, validPointsToRedeem);
+        
+        // 🤖 NOVO: Acionalmente auto-confirmations se habilitado nas settings
+        await triggerAutoConfirmations(orderId, paymentMethod);
         
         if (pointsDiscount > 0) {
           toast.success(`Pedido enviado! Desconto de ${formatPrice(pointsDiscount)} será aplicado após confirmação.`);
@@ -1589,6 +1597,73 @@ export function SchedulingCheckoutModal() {
       }
     } catch (error) {
       console.error('❌ [POINTS] Erro ao processar pontos e cupons:', error);
+    }
+  };
+
+  // 🤖 NOVO: Trigger auto-confirmations (pontos + status) baseado em settings
+  const triggerAutoConfirmations = async (orderId: string, paymentMethod: string) => {
+    try {
+      // Obter settings do store
+      const currentSettings = useSettingsStore.getState().settings;
+      if (!currentSettings) {
+        console.log('[AUTO-CONFIRM] Settings não carregadas - skip');
+        return;
+      }
+
+      console.log('[AUTO-CONFIRM] Verificando toggles de auto-confirm:', {
+        paymentMethod,
+        auto_confirm_points: (currentSettings as any)[`auto_confirm_points_${paymentMethod}`],
+        auto_confirm_status: (currentSettings as any)[`auto_confirm_status_${paymentMethod}`],
+      });
+
+      // 1️⃣ Auto-confirm pontos (move pending → total)
+      const autoConfirmPointsKey = `auto_confirm_points_${paymentMethod}` as any;
+      if ((currentSettings as any)[autoConfirmPointsKey]) {
+        console.log(`[AUTO-CONFIRM] 💰 Ativando auto-confirm de pontos para ${paymentMethod}`);
+        try {
+          const { error } = await supabase.functions.invoke('auto-confirm-points-card', {
+            body: {
+              orderId,
+              tenantId: tenantId || '',
+              delayMinutes: (currentSettings as any).auto_confirm_points_delay_minutes || 60,
+            },
+          });
+
+          if (error) {
+            console.warn('[AUTO-CONFIRM] ⚠️ Erro ao chamar auto-confirm-points:', error);
+          } else {
+            console.log('[AUTO-CONFIRM] ✅ Auto-confirm pontos acionado');
+          }
+        } catch (err) {
+          console.warn('[AUTO-CONFIRM] ⚠️ Exceção ao chamar auto-confirm-points:', err);
+        }
+      }
+
+      // 2️⃣ Auto-confirm status (pending → confirmed)
+      const autoConfirmStatusKey = `auto_confirm_status_${paymentMethod}` as any;
+      if ((currentSettings as any)[autoConfirmStatusKey]) {
+        console.log(`[AUTO-CONFIRM] 📊 Ativando auto-confirm de status para ${paymentMethod}`);
+        try {
+          const { error } = await supabase.functions.invoke('auto-confirm-status-card', {
+            body: {
+              orderId,
+              tenantId: tenantId || '',
+              paymentMethod,
+            },
+          });
+
+          if (error) {
+            console.warn('[AUTO-CONFIRM] ⚠️ Erro ao chamar auto-confirm-status:', error);
+          } else {
+            console.log('[AUTO-CONFIRM] ✅ Auto-confirm status acionado');
+          }
+        } catch (err) {
+          console.warn('[AUTO-CONFIRM] ⚠️ Exceção ao chamar auto-confirm-status:', err);
+        }
+      }
+    } catch (error) {
+      console.error('[AUTO-CONFIRM] ❌ Erro ao processar auto-confirmations:', error);
+      // Não quebra o fluxo se falhar
     }
   };
 
