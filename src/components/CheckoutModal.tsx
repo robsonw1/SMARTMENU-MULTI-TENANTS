@@ -1398,6 +1398,9 @@ export function CheckoutModal() {
         // ⚠️ Salvar pontos na ordem para depois o admin confirmar
         await processOrder(orderPayload, pointsDiscount, validPointsToRedeem);
         
+        // 🤖 NOVO: Acionalmente auto-confirmations se habilitado nas settings
+        await triggerAutoConfirmations(orderId, paymentMethod);
+        
         if (pointsDiscount > 0) {
           toast.success(`Pedido enviado! Desconto de ${formatPrice(pointsDiscount)} será aplicado após confirmação.`);
         } else {
@@ -1542,6 +1545,73 @@ export function CheckoutModal() {
       }
     } catch (error) {
       console.error('❌ [POINTS] Erro ao processar pontos e cupons:', error);
+    }
+  };
+
+  // 🤖 NOVO: Trigger auto-confirmations (pontos + status) baseado em settings
+  const triggerAutoConfirmations = async (orderId: string, paymentMethod: string) => {
+    try {
+      // Obter settings do store
+      const currentSettings = useSettingsStore.getState().settings;
+      if (!currentSettings) {
+        console.log('[AUTO-CONFIRM] Settings não carregadas - skip');
+        return;
+      }
+
+      console.log('[AUTO-CONFIRM] Verificando toggles de auto-confirm:', {
+        paymentMethod,
+        auto_confirm_points: (currentSettings as any)[`auto_confirm_points_${paymentMethod}`],
+        auto_confirm_status: (currentSettings as any)[`auto_confirm_status_${paymentMethod}`],
+      });
+
+      // 1️⃣ Auto-confirm pontos (move pending → total)
+      const autoConfirmPointsKey = `auto_confirm_points_${paymentMethod}` as any;
+      if ((currentSettings as any)[autoConfirmPointsKey]) {
+        console.log(`[AUTO-CONFIRM] 💰 Ativando auto-confirm de pontos para ${paymentMethod}`);
+        try {
+          const { error } = await supabase.functions.invoke('auto-confirm-points-card', {
+            body: {
+              orderId,
+              tenantId: tenantId || '',
+              delayMinutes: (currentSettings as any).auto_confirm_points_delay_minutes || 60,
+            },
+          });
+
+          if (error) {
+            console.warn('[AUTO-CONFIRM] ⚠️ Erro ao chamar auto-confirm-points:', error);
+          } else {
+            console.log('[AUTO-CONFIRM] ✅ Auto-confirm pontos acionado');
+          }
+        } catch (err) {
+          console.warn('[AUTO-CONFIRM] ⚠️ Exceção ao chamar auto-confirm-points:', err);
+        }
+      }
+
+      // 2️⃣ Auto-confirm status (pending → confirmed)
+      const autoConfirmStatusKey = `auto_confirm_status_${paymentMethod}` as any;
+      if ((currentSettings as any)[autoConfirmStatusKey]) {
+        console.log(`[AUTO-CONFIRM] 📊 Ativando auto-confirm de status para ${paymentMethod}`);
+        try {
+          const { error } = await supabase.functions.invoke('auto-confirm-status-card', {
+            body: {
+              orderId,
+              tenantId: tenantId || '',
+              paymentMethod,
+            },
+          });
+
+          if (error) {
+            console.warn('[AUTO-CONFIRM] ⚠️ Erro ao chamar auto-confirm-status:', error);
+          } else {
+            console.log('[AUTO-CONFIRM] ✅ Auto-confirm status acionado');
+          }
+        } catch (err) {
+          console.warn('[AUTO-CONFIRM] ⚠️ Exceção ao chamar auto-confirm-status:', err);
+        }
+      }
+    } catch (error) {
+      console.error('[AUTO-CONFIRM] ❌ Erro ao processar auto-confirmations:', error);
+      // Não quebra o fluxo se falhar
     }
   };
 
