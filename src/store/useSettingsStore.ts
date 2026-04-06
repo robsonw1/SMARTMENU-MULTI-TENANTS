@@ -51,6 +51,16 @@ interface StoreSettings {
   auto_print_pix?: boolean;
   auto_print_card?: boolean;
   auto_print_cash?: boolean;
+  // ✅ NOVO: Auto-confirmação de pontos (move pending → total)
+  auto_confirm_points_pix?: boolean;
+  auto_confirm_points_card?: boolean;
+  auto_confirm_points_cash?: boolean;
+  // ✅ NOVO: Auto-confirmação de status do pedido
+  auto_confirm_status_pix?: boolean;
+  auto_confirm_status_card?: boolean;
+  auto_confirm_status_cash?: boolean;
+  // ✅ NOVO: Delay para auto-confirmação de pontos (em minutos)
+  auto_confirm_points_delay_minutes?: number;
   orderAlertEnabled?: boolean; // Ativar/desativar som de alerta para novos pedidos
   sendOrderSummaryToWhatsApp?: boolean; // Ativar/desativar envio de resumo para WhatsApp
   enableScheduling?: boolean; // Ativar/desativar agendamento de pedidos
@@ -159,6 +169,16 @@ const defaultSettings: StoreSettings = {
   adicionais_enabled: true,
   bebidas_enabled: true,
   bordas_enabled: true,
+  // ✅ NOVO: Auto-confirmação de pontos (default: false - admin ativa manualmente)
+  auto_confirm_points_pix: false,
+  auto_confirm_points_card: false,
+  auto_confirm_points_cash: false,
+  // ✅ NOVO: Auto-confirmação de status do pedido
+  auto_confirm_status_pix: false,
+  auto_confirm_status_card: false,
+  auto_confirm_status_cash: false,
+  // ✅ NOVO: Delay padrão de 60 minutos para confirmação automática de pontos
+  auto_confirm_points_delay_minutes: 60,
   categories_config: undefined, // Vai carregar do Supabase / localStorage
   sizes_config: undefined, // Vai carregar do Supabase / localStorage
 };
