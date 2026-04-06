@@ -356,7 +356,7 @@ export const WhatsAppStatusTemplates = ({ tenantId }: WhatsAppStatusTemplatesPro
 
       {/* Performance Info */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
-        <span className="font-semibold">⚡ Opção A - UI Fixa 7 Slots:</span> O(1) performance, cache eficiente, RLS simples, escalável para 10k+ tenants
+        <span className="font-semibold">⚡ Mensagens de notificações no whatsapp</span> O(1) - templates são carregados uma vez e armazenados em memória, garantindo que o envio de mensagens seja super rápido, mesmo com muitos pedidos.
       </div>
 
       {/*7 Status Cards Grid - SEMPRE renderizado (mesma ordem sempre) */}
