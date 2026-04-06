@@ -818,7 +818,7 @@ export function CheckoutModal() {
         customIngredients: item.customIngredients || null,
         comboPizzas: isCombo ? (
           // Usar comboPizzasData se disponível (dados explícitos)
-          item.comboPizzasData?.map((pizzaData) => {
+          (item as any).comboPizzasData?.map((pizzaData: any) => {
             const comboPizza = {
               pizzaNumber: pizzaData.pizzaNumber,
               type: pizzaData.isHalfHalf ? 'meia-meia' : 'inteira',
@@ -829,7 +829,7 @@ export function CheckoutModal() {
             return comboPizza;
           }) || 
           // Fallback para comboPizzaFlavors (compatibilidade com dados antigos)
-          item.comboPizzaFlavors?.map((pizza: any, index: number) => {
+          (item as any).comboPizzaFlavors?.map((pizza: any, index: number) => {
             const comboPizza = {
               pizzaNumber: index + 1,
               type: pizza.isHalfHalf ? 'meia-meia' : 'inteira',
@@ -860,6 +860,7 @@ export function CheckoutModal() {
 
     return {
       orderId,
+      tenant_id: tenantId,
       timestamp: new Date().toISOString(),
       
       // Customer info
@@ -1038,15 +1039,15 @@ export function CheckoutModal() {
           
           console.log('📋 [CheckoutModal] Item processing:', {
             productName: item.product.name,
-            hasComboPizzasData: !!item.comboPizzasData,
-            hasComboPizzaFlavors: !!item.comboPizzaFlavors,
-            comboPizzasData: item.comboPizzasData,
-            comboPizzaFlavors: item.comboPizzaFlavors,
+            hasComboPizzasData: !!(item as any).comboPizzasData,
+            hasComboPizzaFlavors: !!(item as any).comboPizzaFlavors,
+            comboPizzasData: (item as any).comboPizzasData,
+            comboPizzaFlavors: (item as any).comboPizzaFlavors,
           });
           
           // Usar comboPizzasData se disponível (dados explícitos mais confiáveis)
-          if (item.comboPizzasData && item.comboPizzasData.length > 0) {
-            item.comboPizzasData.forEach((pizzaData) => {
+          if ((item as any).comboPizzasData && (item as any).comboPizzasData.length > 0) {
+            (item as any).comboPizzasData.forEach((pizzaData: any) => {
               console.log(`🔵 [CheckoutModal] Pizza ${pizzaData.pizzaNumber} (from data):`, pizzaData);
               
               const pizzaLabel = pizzaData.isHalfHalf
@@ -1056,8 +1057,8 @@ export function CheckoutModal() {
             });
           }
           // Fallback para comboPizzaFlavors (compatibilidade com dados antigos)
-          else if (item.comboPizzaFlavors && item.comboPizzaFlavors.length > 0) {
-            item.comboPizzaFlavors.forEach((pizza, index) => {
+          else if ((item as any).comboPizzaFlavors && (item as any).comboPizzaFlavors.length > 0) {
+            (item as any).comboPizzaFlavors.forEach((pizza: any, index: number) => {
               // Verificar se é meia-meia
               const isHalfHalf = (pizza as any).isHalfHalf;
               const secondHalfName = (pizza as any).secondHalf?.name;
@@ -1308,6 +1309,7 @@ export function CheckoutModal() {
         const { data: mpData, error: mpError } = await supabase.functions.invoke('mercadopago-payment', {
           body: {
             orderId,
+            tenantId: tenantId || '',
             amount: finalTotal,
             description: `Pedido ${orderId} - AEZap Smart Menu`,
             payerEmail: 'cliente@forneiroeden.com',
@@ -1347,6 +1349,7 @@ export function CheckoutModal() {
               customer_phone: customer.phone,
               customer_email: currentCustomer?.email || undefined,
               customer_id: currentCustomer?.id || undefined,
+              tenant_id: tenantId || '',
               status: 'pending'
             });
             console.log('✅ Pedido pendente armazenado. Webhook fará a confirmação automática!');
