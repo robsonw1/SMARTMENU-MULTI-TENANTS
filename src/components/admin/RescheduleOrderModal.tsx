@@ -143,7 +143,7 @@ export function RescheduleOrderModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4 max-h-[calc(90vh-200px)] overflow-y-auto">
+        <div className="space-y-4 max-h-[calc(90vh-200px)] overflow-y-auto overflow-x-hidden">
           {/* STEP 1: Verificar se pode remarcar */}
           {step === 'verify' && (
             <div className="space-y-4">
