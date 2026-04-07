@@ -221,7 +221,7 @@ export function ProductCatalog() {
           <ProductSearchBar
             products={products}
             onSearchChange={setFilteredProductIds}
-            placeholder="Buscar pizza, bebida, acompanhamento..."
+            placeholder="Buscar agora..."
           />
         )}
 
