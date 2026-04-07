@@ -77,6 +77,8 @@ function ProductCatalogSkeleton() {
 export function ProductCatalog() {
   const [activeTab, setActiveTab] = useState('combos');
   const [filteredProductIds, setFilteredProductIds] = useState<string[]>([]);
+  const [previousActiveTab, setPreviousActiveTab] = useState('combos'); // 🔍 Guardar categoria anterior para busca
+  const [isSearching, setIsSearching] = useState(false); // 🔍 Controlar se está em modo busca
   const productsById = useCatalogStore((s) => s.productsById);
   const storeName = useSettingsStore((s) => s.settings.name || 'Nosso Cardápio');
   const storeSlogan = useSettingsStore((s) => s.settings.slogan || 'Bem-vindo ao nosso cardápio!');
@@ -149,14 +151,45 @@ export function ProductCatalog() {
     }
   }, [categories, activeTab]);
 
+  // 🔍 NOVO: Auto-ativar "Todos" quando usuário faz uma busca
+  useEffect(() => {
+    if (!searchEnabled) return;
+
+    // Se há resultados de busca E não está em modo "todos"
+    if (filteredProductIds.length > 0 && filteredProductIds.length < products.length) {
+      if (activeTab !== 'todos') {
+        setPreviousActiveTab(activeTab); // Guardar categoria atual
+        setActiveTab('todos'); // Mudar para "Todos"
+        setIsSearching(true);
+        console.log('🔍 [SEARCH] Auto-ativada categoria "Todos"');
+      }
+    }
+    // Se busca foi limpa (voltou a mostrar todos produtos)
+    else if (filteredProductIds.length === products.length && isSearching) {
+      setActiveTab(previousActiveTab); // Voltar para categoria anterior
+      setIsSearching(false);
+      console.log('🔍 [SEARCH] Busca limpa, voltando para categoria anterior:', previousActiveTab);
+    }
+  }, [filteredProductIds, activeTab, searchEnabled, isSearching, previousActiveTab, products.length]);
+
   const getByCategory = useMemo(() => {
-    return (categoryId: string) =>
-      products
+    return (categoryId: string) => {
+      // Se categoryId é "todos", retornar TODOS os produtos
+      if (categoryId === 'todos') {
+        return products
+          .sort((a, b) => {
+            if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
+            return a.name.localeCompare(b.name, 'pt-BR');
+          });
+      }
+      // Caso contrário, filtrar por categoria
+      return products
         .filter((p) => p.category === (categoryId as any))
         .sort((a, b) => {
           if (a.isActive !== b.isActive) return a.isActive ? -1 : 1;
           return a.name.localeCompare(b.name, 'pt-BR');
         });
+    };
   }, [products]);
 
   // Carrossel para mobile
