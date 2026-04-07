@@ -376,12 +376,12 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
         if (!next) reset();
       }}
     >
-      <DialogContent className="max-w-xl">
+      <DialogContent className="max-w-xl max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Editar Produto" : "Novo Produto"}</DialogTitle>
         </DialogHeader>
 
-        <div className="grid gap-4">
+        <div className="grid gap-4 max-h-[calc(90vh-180px)] overflow-y-auto">
           {/* ✅ NOVO: Toggle para adicionar imagem (no TOPO) */}
           <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors bg-secondary/30">
             <div>
