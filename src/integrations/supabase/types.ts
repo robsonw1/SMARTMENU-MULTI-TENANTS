@@ -326,6 +326,7 @@ export type Database = {
           currency: string
           printnode_printer_id: string | null
           print_mode: string
+          default_theme: string
           created_at: string
           updated_at: string
         }
@@ -348,6 +349,7 @@ export type Database = {
           currency?: string
           printnode_printer_id?: string | null
           print_mode?: string
+          default_theme?: string
           created_at?: string
           updated_at?: string
         }
@@ -370,6 +372,7 @@ export type Database = {
           currency?: string
           printnode_printer_id?: string | null
           print_mode?: string
+          default_theme?: string
           created_at?: string
           updated_at?: string
         }
