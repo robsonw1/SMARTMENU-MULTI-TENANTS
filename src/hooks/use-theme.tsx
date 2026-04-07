@@ -1,16 +1,23 @@
 import { useEffect, useState } from 'react';
+import { useSettingsStore } from '@/store/useSettingsStore';
 
 type Theme = 'light' | 'dark';
 
 export function useTheme() {
+  const defaultTenantTheme = useSettingsStore((s) => s.settings.default_theme || 'dark');
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== 'undefined') {
-      const stored = localStorage.getItem('theme') as Theme;
+      // ✅ PRIORIDADE 1: Preferência do cliente (localStorage)
+      const stored = localStorage.getItem('theme') as Theme | null;
       if (stored) return stored;
-      // Default to dark mode
+      
+      // ✅ PRIORIDADE 2: Tema padrão do tenant
+      if (defaultTenantTheme) return defaultTenantTheme;
+      
+      // ✅ PRIORIDADE 3: Dark mode como fallback final
       return 'dark';
     }
-    return 'dark';
+    return defaultTenantTheme || 'dark';
   });
 
   useEffect(() => {
