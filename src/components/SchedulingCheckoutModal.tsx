@@ -1603,67 +1603,50 @@ export function SchedulingCheckoutModal() {
   // 🤖 NOVO: Trigger auto-confirmations (pontos + status) baseado em settings
   const triggerAutoConfirmations = async (orderId: string, paymentMethod: string) => {
     try {
-      // Obter settings do store
       const currentSettings = useSettingsStore.getState().settings;
       if (!currentSettings) {
         console.log('[AUTO-CONFIRM] Settings não carregadas - skip');
         return;
       }
 
-      console.log('[AUTO-CONFIRM] Verificando toggles de auto-confirm:', {
-        paymentMethod,
-        auto_confirm_points: (currentSettings as any)[`auto_confirm_points_${paymentMethod}`],
-        auto_confirm_status: (currentSettings as any)[`auto_confirm_status_${paymentMethod}`],
-      });
+      console.log('[AUTO-CONFIRM] Verificando toggles:', { paymentMethod });
 
-      // 1️⃣ Auto-confirm pontos (move pending → total)
+      // 1️⃣ Auto-confirm pontos
       const autoConfirmPointsKey = `auto_confirm_points_${paymentMethod}` as any;
       if ((currentSettings as any)[autoConfirmPointsKey]) {
-        console.log(`[AUTO-CONFIRM] 💰 Ativando auto-confirm de pontos para ${paymentMethod}`);
+        console.log(`[AUTO-CONFIRM] 💰 Acionando pontos para ${paymentMethod}`);
         try {
           const { error } = await supabase.functions.invoke('auto-confirm-points-card', {
             body: {
               orderId,
               tenantId: tenantId || '',
               delayMinutes: (currentSettings as any).auto_confirm_points_delay_minutes || 60,
-            },
-          });
-
-          if (error) {
-            console.warn('[AUTO-CONFIRM] ⚠️ Erro ao chamar auto-confirm-points:', error);
-          } else {
-            console.log('[AUTO-CONFIRM] ✅ Auto-confirm pontos acionado');
-          }
-        } catch (err) {
-          console.warn('[AUTO-CONFIRM] ⚠️ Exceção ao chamar auto-confirm-points:', err);
-        }
-      }
-
-      // 2️⃣ Auto-confirm status (pending → confirmed)
-      const autoConfirmStatusKey = `auto_confirm_status_${paymentMethod}` as any;
-      if ((currentSettings as any)[autoConfirmStatusKey]) {
-        console.log(`[AUTO-CONFIRM] 📊 Ativando auto-confirm de status para ${paymentMethod}`);
-        try {
-          const { error } = await supabase.functions.invoke('auto-confirm-status-card', {
-            body: {
-              orderId,
-              tenantId: tenantId || '',
               paymentMethod,
             },
           });
-
-          if (error) {
-            console.warn('[AUTO-CONFIRM] ⚠️ Erro ao chamar auto-confirm-status:', error);
-          } else {
-            console.log('[AUTO-CONFIRM] ✅ Auto-confirm status acionado');
-          }
+          if (error) console.warn('[AUTO-CONFIRM] ⚠️ Erro pontos:', error);
+          else console.log('[AUTO-CONFIRM] ✅ Pontos acionado');
         } catch (err) {
-          console.warn('[AUTO-CONFIRM] ⚠️ Exceção ao chamar auto-confirm-status:', err);
+          console.warn('[AUTO-CONFIRM] ⚠️ Exceção pontos:', err);
+        }
+      }
+
+      // 2️⃣ Auto-confirm status
+      const autoConfirmStatusKey = `auto_confirm_status_${paymentMethod}` as any;
+      if ((currentSettings as any)[autoConfirmStatusKey]) {
+        console.log(`[AUTO-CONFIRM] 📊 Acionando status para ${paymentMethod}`);
+        try {
+          const { error } = await supabase.functions.invoke('auto-confirm-status-card', {
+            body: { orderId, tenantId: tenantId || '', paymentMethod },
+          });
+          if (error) console.warn('[AUTO-CONFIRM] ⚠️ Erro status:', error);
+          else console.log('[AUTO-CONFIRM] ✅ Status acionado');
+        } catch (err) {
+          console.warn('[AUTO-CONFIRM] ⚠️ Exceção status:', err);
         }
       }
     } catch (error) {
-      console.error('[AUTO-CONFIRM] ❌ Erro ao processar auto-confirmations:', error);
-      // Não quebra o fluxo se falhar
+      console.error('[AUTO-CONFIRM] ❌ Erro:', error);
     }
   };
 
