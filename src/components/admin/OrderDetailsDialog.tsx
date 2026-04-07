@@ -381,7 +381,7 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-gutter-stable">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-3">
             Pedido {localOrder.id}
