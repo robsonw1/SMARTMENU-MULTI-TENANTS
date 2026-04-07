@@ -1,4 +1,4 @@
-﻿import { create } from 'zustand';
+import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { Order } from '@/data/products';
 import { supabase } from '@/integrations/supabase/client';
@@ -27,7 +27,7 @@ const generateItemId = (): number => {
 
 interface OrdersStore {
   orders: Order[];
-  addOrder: (order: Omit<Order, 'id' | 'createdAt'>, autoprint?: boolean) => Promise<Order>;
+  addOrder: (order: Omit<Order, 'id' | 'createdAt'>, autoprint?: boolean, autoConfirm?: boolean, paymentMethod?: string) => Promise<Order>;
   addOrderToStoreOnly: (orderData: Order) => Order;
   updateOrderStatus: (id: string, status: OrderStatus) => Promise<void>;
   updateOrderPrintedAt: (id: string, printedAt: string) => Promise<void>;
@@ -50,7 +50,7 @@ export const useOrdersStore = create<OrdersStore>()(
     (set, get) => ({
       orders: [],
 
-      addOrder: async (orderData, autoprint = false) => {
+      addOrder: async (orderData, autoprint = false, autoConfirm = false, paymentMethod = '') => {
         const newOrder: Order = {
           ...orderData,
           id: `PED-${String(Date.now()).slice(-6)}`,
@@ -422,7 +422,71 @@ export const useOrdersStore = create<OrdersStore>()(
           } else {
             console.log('Auto-print desabilitado para este pagamento');
           }
-        } catch (error) {
+          // 🤖 AUTO-CONFIRM LÓGICA (NOVO - MESMO PADRÃO DE AUTO-PRINT)
+          if (autoConfirm && paymentMethod) {
+            console.log(`🤖 Auto-confirm HABILITADO para ${paymentMethod}. Iniciando confirmação para:`, newOrder.id);
+            
+            const invokeAutoConfirmWithRetry = async () => {
+              // Buscar settings FRESCAS para este tenant
+              const settings = JSON.parse(localStorage.getItem('settings') || '{}');
+              const tenantId = newOrder.tenantId || sessionStorage.getItem('sb-auth-tenant-id') || sessionStorage.getItem('sb-tenant-id-by-slug');
+              
+              if (!tenantId) {
+                console.warn('🤖 tenant_id não encontrado - auto-confirm cancelado');
+                return;
+              }
+
+              for (let attempt = 1; attempt <= 5; attempt++) {
+                try {
+                  console.log(`🤖 Tentativa ${attempt}/5 de auto-confirm para:`, newOrder.id);
+                  
+                  // Auto-confirm PONTOS
+                  const autoConfirmPointsKey = `auto_confirm_points_${paymentMethod}`;
+                  if (settings[autoConfirmPointsKey]) {
+                    console.log(`  🤖 Acionando auto-confirm pontos (${paymentMethod})...`);
+                    await supabase.functions.invoke('auto-confirm-points-card', {
+                      body: {
+                        orderId: newOrder.id,
+                        tenantId: tenantId,
+                        paymentMethod: paymentMethod,
+                        delayMinutes: settings.auto_confirm_points_delay_minutes || 60,
+                      },
+                    }).catch(err => console.warn('  ⚠️ Erro ao chamar auto-confirm-points:', err.message));
+                  }
+                  
+                  // Auto-confirm STATUS
+                  const autoConfirmStatusKey = `auto_confirm_status_${paymentMethod}`;
+                  if (settings[autoConfirmStatusKey]) {
+                    console.log(`  🤖 Acionando auto-confirm status (${paymentMethod})...`);
+                    await supabase.functions.invoke('auto-confirm-status-card', {
+                      body: {
+                        orderId: newOrder.id,
+                        tenantId: tenantId,
+                        paymentMethod: paymentMethod,
+                      },
+                    }).catch(err => console.warn('  ⚠️ Erro ao chamar auto-confirm-status:', err.message));
+                  }
+                  
+                  console.log(`🤖 Auto-confirm sucesso na tentativa ${attempt}`);
+                  return;
+                } catch (err) {
+                  console.error(`🤖 Tentativa ${attempt} falhou:`, err);
+                  if (attempt < 5) {
+                    await new Promise(r => setTimeout(r, 1000 * attempt)); // Exponential backoff
+                    continue;
+                  }
+                  if (attempt === 5) {
+                    console.error('🤖 Falha: não foi possível invocar auto-confirm após 5 tentativas');
+                  }
+                }
+              }
+            };
+
+            // Invocar assincronamente (não bloqueia)
+            invokeAutoConfirmWithRetry();
+          } else {
+            console.log('🤖 Auto-confirm desabilitado ou sem payment method');
+          }        } catch (error) {
           console.error('Erro ao salvar pedido no Supabase:', error);
         }
 
