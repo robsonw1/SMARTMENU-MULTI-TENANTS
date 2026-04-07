@@ -2,12 +2,12 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X } from 'lucide-react';
 import { usePWAInstall } from '@/hooks/use-pwa-install';
-import { useStore } from '@/store/useStore';
+import { useUIStore } from '@/store/useStore';
 
 export function PWAInstallBanner() {
   const { canInstall, isInstalling, triggerInstall, isInstalled } = usePWAInstall();
-  const isCartOpen = useStore((s) => s.isCartOpen);
-  const isProductModalOpen = useStore((s) => s.isProductModalOpen);
+  const isCartOpen = useUIStore((s) => s.isCartOpen);
+  const isProductModalOpen = useUIStore((s) => s.isProductModalOpen);
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
