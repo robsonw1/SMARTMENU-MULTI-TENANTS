@@ -9,16 +9,18 @@ import { CustomerLoginModal } from '@/components/CustomerLoginModal';
 import { DeliveryAddressDialog } from '@/components/DeliveryAddressDialog';
 import { DynamicMetaTags } from '@/components/DynamicMetaTags';
 import { useLoyaltyStore } from '@/store/useLoyaltyStore';
+import { useSettingsStore } from '@/store/useSettingsStore';
 import { useLoyaltyRealtimeSync } from '@/hooks/use-loyalty-realtime-sync';
 import { useRealtimeSync } from '@/hooks/use-realtime-sync';
 import { useSettingsRealtimeSync } from '@/hooks/use-settings-realtime-sync';
-import { initTenantResolver } from '@/lib/tenant-resolver';
+import { initTenantResolver, getTenantIdSync } from '@/lib/tenant-resolver';
 import { useLoyaltySettingsStore } from '@/store/useLoyaltySettingsStore';
 import { useState, useEffect } from 'react';
 
 const Index = () => {
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isDeliveryAddressOpen, setIsDeliveryAddressOpen] = useState(false);
+  const [settingsReady, setSettingsReady] = useState(false);
   const currentCustomer = useLoyaltyStore((s) => s.currentCustomer);
   const restoreRememberedLogin = useLoyaltyStore((s) => s.restoreRememberedLogin);
 
@@ -41,6 +43,32 @@ const Index = () => {
   } catch (err) {
     console.error('❌ [INDEX] Erro em useSettingsRealtimeSync:', err);
   }
+
+  // ✅ NOVO (07/04/2026): Aguardar settings carregarem ANTES de renderizar Header (que usa useTheme)
+  // Isso garante que default_theme está disponível quando useTheme ( precisar
+  useEffect(() => {
+    const ensureSettingsLoaded = async () => {
+      const tenantId = getTenantIdSync();
+      if (!tenantId) {
+        console.log('⏳ [INDEX-SETTINGS] Aguardando tenant_id...');
+        setTimeout(() => ensureSettingsLoaded(), 100);
+        return;
+      }
+
+      try {
+        const { loadSettingsFromSupabase } = useSettingsStore.getState();
+        console.log('📥 [INDEX-SETTINGS] Carregando settings com AWAIT para garantir tema padrão...');
+        await loadSettingsFromSupabase();
+        console.log('✅ [INDEX-SETTINGS] Settings carregadas! Header pode renderizar com tema correto.');
+        setSettingsReady(true);
+      } catch (err) {
+        console.error('❌ [INDEX-SETTINGS] Erro ao carregar settings, continuando mesmo assim:', err);
+        setSettingsReady(true); // Continuar mesmo com erro
+      }
+    };
+
+    ensureSettingsLoaded();
+  }, []);
 
   // ✅ Carregar configurações de fidelização (cliente - seguro aqui)
   const { loadSettings } = useLoyaltySettingsStore();
@@ -89,7 +117,9 @@ const Index = () => {
   return (
     <div className="min-h-screen bg-background flex flex-col">
       <DynamicMetaTags />
-      <Header onLoginClick={() => setIsLoginModalOpen(true)} />
+      {/* ✅ NOVO: SÓ renderizar Header após settings carregarem (garante theme correto) */}
+      {settingsReady && <Header onLoginClick={() => setIsLoginModalOpen(true)} />}
+      {!settingsReady && <div className="h-16" />} {/* Placeholder para Header */}
 
       <main className="flex-1 w-full">
         <ProductCatalog />
