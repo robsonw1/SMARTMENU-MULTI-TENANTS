@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/ProductCard';
 import { ProductSearchBar } from '@/components/ProductSearchBar';
-import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Heart, Zap, Utensils, Leaf, Coffee, Truck, Store, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
+import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Heart, Zap, Utensils, Leaf, Coffee, Truck, Store, ChevronLeft, ChevronRight, Loader2, Grid3x3 } from 'lucide-react';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
 import { useCategoryCarousel } from '@/hooks/use-category-carousel';
@@ -21,6 +21,7 @@ const ICON_MAP: Record<string, React.ComponentType<React.SVGProps<SVGSVGElement>
   Utensils,
   Leaf,
   Coffee,
+  Grid3x3,
 };
 
 // ✅ NOVO: Skeleton visual bonito enquanto carrega
