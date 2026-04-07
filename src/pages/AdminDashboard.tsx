@@ -2364,7 +2364,7 @@
 
                     {settingsForm.store_logo_url && !selectedLogoFile && (
                       <div className="text-xs bg-green-50 dark:bg-green-950/20 p-3 rounded border border-green-200 dark:border-green-700 text-green-900 dark:text-green-100">
-                        ✅ <strong>Logo salva!</strong> Ativado na loja e icone de aplicativo mobile
+                        ✅ <strong>Logo salva!</strong> Ativado na loja e icone do aplicativo mobile
                       </div>
                     )}
                   </AccordionContent>
