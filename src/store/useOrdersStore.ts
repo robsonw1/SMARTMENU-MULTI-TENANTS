@@ -307,14 +307,14 @@ export const useOrdersStore = create<OrdersStore>()(
               comboItems: Array.isArray(item.comboProductsData) 
                 ? item.comboProductsData.map((product: any) => ({
                     itemId: product.itemId || `item-${product.itemNumber}`,
-                    pizzaName: pizza.pizzaName || pizza.name,
-                    pizzaNumber: pizza.pizzaNumber,
-                    isHalfHalf: pizza.isHalfHalf || false,
+                    pizzaName: product.pizzaName || product.name,
+                    pizzaNumber: product.pizzaNumber,
+                    isHalfHalf: product.isHalfHalf || false,
                     // ✨ SEMPRE incluir halfOne/halfTwo para consistência
                     // Para meia-meia: pizzaName -> halfOne, secondHalfName -> halfTwo
                     // Para inteira: pizzaName -> halfOne, null -> halfTwo
-                    halfOne: pizza.pizzaName || pizza.name || undefined,
-                    halfTwo: pizza.isHalfHalf ? (pizza.secondHalfName || null) : null,
+                    halfOne: product.pizzaName || product.name || undefined,
+                    halfTwo: product.isHalfHalf ? (product.secondHalfName || null) : null,
                   }))
                 : [],
               
