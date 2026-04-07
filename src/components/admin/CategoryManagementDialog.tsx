@@ -33,6 +33,7 @@ import {
   Utensils,
   Leaf,
   Coffee,
+  Grid3x3,
 } from 'lucide-react';
 import { toast } from 'sonner';
 
@@ -49,6 +50,7 @@ const ICON_OPTIONS = {
   Utensils: { name: 'Utensils', component: Utensils },
   Leaf: { name: 'Leaf', component: Leaf },
   Coffee: { name: 'Coffee', component: Coffee },
+  Grid3x3: { name: 'Grid3x3', component: Grid3x3 },
 };
 
 interface CategoryManagementDialogProps {
