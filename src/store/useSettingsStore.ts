@@ -496,6 +496,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           auto_confirm_status_cash: currentSettings.auto_confirm_status_cash ?? false,
           // ✅ NOVO: Atraso para Auto-Confirmação de Pontos
           auto_confirm_points_delay_minutes: currentSettings.auto_confirm_points_delay_minutes ?? 60,
+          // ✅ NOVO (07/04/2026): Tema padrão para clientes (CRÍTICO - SEM ISSO NÃO SALVA!)
+          default_theme: currentSettings.default_theme || 'dark',
         },
       };
 
