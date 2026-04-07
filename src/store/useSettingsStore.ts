@@ -79,6 +79,8 @@ interface StoreSettings {
   bordas_enabled?: boolean;
   broto_enabled?: boolean;
   grande_enabled?: boolean;
+  // ✅ NOVO: Ativar/desativar barra de pesquisa de produtos
+  search_enabled?: boolean;
   // Configurações de Categorias (dinâmicas)
   categories_config?: CategoryConfig[];
   // Configurações de Tamanhos (dinâmicos)
@@ -168,8 +170,8 @@ const defaultSettings: StoreSettings = {
   imagens_enabled: true,
   adicionais_enabled: true,
   bebidas_enabled: true,
-  bordas_enabled: true,
-  // ✅ NOVO: Auto-confirmação de pontos (default: false - admin ativa manualmente)
+  bordas_enabled: true,  // ✅ NOVO: Ativar/desativar barra de pesquisa
+  search_enabled: true,  // ✅ NOVO: Auto-confirmação de pontos (default: false - admin ativa manualmente)
   auto_confirm_points_pix: false,
   auto_confirm_points_card: false,
   auto_confirm_points_cash: false,
@@ -354,6 +356,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             bordas_enabled: settingsData.bordas_enabled ?? true,
             broto_enabled: settingsData.broto_enabled ?? true,
             grande_enabled: settingsData.grande_enabled ?? true,
+            // ✅ NOVO: Search enabled (mapeado do BD)
+            search_enabled: settingsData.search_enabled ?? true,
             // ✅ Configurações de Categorias (mapeadas do BD)
             categories_config: settingsData.categories_config ?? defaultCategoriesConfig,
             // ✅ Configurações de Tamanhos (mapeadas do BD)
@@ -445,6 +449,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           bordas_enabled: currentSettings.bordas_enabled ?? true,
           broto_enabled: currentSettings.broto_enabled ?? true,
           grande_enabled: currentSettings.grande_enabled ?? true,
+          // ✅ NOVO: Search enabled
+          search_enabled: currentSettings.search_enabled ?? true,
           // ✅ Configurações de Categorias
           categories_config: currentSettings.categories_config ?? defaultCategoriesConfig,
           // ✅ NOVO: Configurações de Tamanhos
