@@ -68,8 +68,8 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
   const [description, setDescription] = useState("");
   const [category, setCategory] = useState<Product["category"]>("promocionais");
   const [price, setPrice] = useState<string>("");
-  const [priceSmall, setPriceSmall] = useState<string>("");
-  const [priceLarge, setPriceLarge] = useState<string>("");
+  // ✅ NOVO: Mapa dinâmico para armazenar preços de QUALQUER tamanho (customizados ou padrão)
+  const [pricesBySize, setPricesBySize] = useState<Record<string, string>>({});
   const [isPopular, setIsPopular] = useState(false);
   
   // ✅ NOVO: Estados para upload de imagem
@@ -102,8 +102,25 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
 
     // Pre-fill price fields based on product type
     setPrice(product.price != null ? String(product.price) : "");
-    setPriceSmall(product.priceSmall != null ? String(product.priceSmall) : "");
-    setPriceLarge(product.priceLarge != null ? String(product.priceLarge) : "");
+    
+    // ✅ NOVO: Preencher pricesBySize com os preços existentes do produto
+    // Suportar tanto priceSmall/priceLarge (padrão) quanto custom sizes
+    const sizePrices: Record<string, string> = {};
+    
+    // Se tem priceSmall, adicionar ao mapa com ID padrão 'broto'
+    if (product.priceSmall != null) {
+      sizePrices['broto'] = String(product.priceSmall);
+    }
+    
+    // Se tem priceLarge, adicionar ao mapa com ID padrão 'grande'
+    if (product.priceLarge != null) {
+      sizePrices['grande'] = String(product.priceLarge);
+    }
+    
+    // Se houver dados customizados em product.data ou outro campo, adicionar também
+    // (para suporte futuro a outras estruturas)
+    
+    setPricesBySize(sizePrices);
     
     // ✅ NOVO: Pre-fill imagem se tiver
     if (product.image) {
@@ -115,14 +132,43 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
     }
   }, [open, product]);
 
+  // ✅ NOVO (07/04/2026): UseEffect para sincronizar pricesBySize quando sizes_config muda
+  // Isso garante que quando novos tamanhos são adicionados via "Gerenciar Tamanhos",
+  // os inputs aparecem e funcionam corretamente no ProductFormDialog
+  useEffect(() => {
+    if (!open) return;
+    if (!isPizzaCategory) return;
+    
+    // Se não há sizes_config ou está vazio, não fazer nada
+    if (!settingsForm.sizes_config || settingsForm.sizes_config.length === 0) {
+      return;
+    }
+
+    // Garantir que pricesBySize tem entradas para todos os tamanhos ativos
+    // Mantém valores já digitados mas adiciona tamanhos novos
+    const updatedPrices: Record<string, string> = { ...pricesBySize };
+    
+    settingsForm.sizes_config.forEach((size: any) => {
+      if (size.isActive && !updatedPrices.hasOwnProperty(size.id)) {
+        // Novo tamanho foi adicionado, mas não tem preço yet
+        updatedPrices[size.id] = '';
+      }
+    });
+
+    // Só atualizar se houve mudança (evita re-renders desnecessários)
+    if (Object.keys(updatedPrices).length > Object.keys(pricesBySize).length) {
+      setPricesBySize(updatedPrices);
+    }
+  }, [open, settingsForm.sizes_config, isPizzaCategory, pricesBySize]);
+
   const reset = () => {
     setName("");
     setDescription("");
     setCategory("promocionais");
     setPrice("");
-    setPriceSmall("");
+    // ✅ NOVO: Reset pricesBySize (mapa dinâmico)
+    setPricesBySize({});
     setIsPopular(false);
-    setPriceLarge("");
     
     // ✅ NOVO: Reset image states
     setEnableImages(false);
@@ -221,8 +267,17 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
 
     // Determinar preços baseado na categoria
     const finalPrice = !isPizzaCategory ? toNumberOrUndefined(price) : undefined;
-    const finalPriceSmall = isPizzaCategory ? toNumberOrUndefined(priceSmall) : undefined;
-    const finalPriceLarge = isPizzaCategory ? toNumberOrUndefined(priceLarge) : undefined;
+    
+    // ✅ NOVO: Extrair preços do mapa dinâmico pricesBySize
+    // Se for categoria pizza, converter os preços do mapa para priceSmall/priceLarge
+    let finalPriceSmall: number | undefined;
+    let finalPriceLarge: number | undefined;
+    
+    if (isPizzaCategory) {
+      // Buscar 'broto' e 'grande' do mapa (IDs padrão)
+      finalPriceSmall = pricesBySize['broto'] ? toNumberOrUndefined(pricesBySize['broto']) : undefined;
+      finalPriceLarge = pricesBySize['grande'] ? toNumberOrUndefined(pricesBySize['grande']) : undefined;
+    }
 
     // Validar que ao menos um preço foi preenchido
     if (!finalPrice && !finalPriceSmall && !finalPriceLarge) {
@@ -447,10 +502,12 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
                         type="number"
                         step="0.01"
                         min="0"
-                        value={index === 0 ? priceSmall : index === 1 ? priceLarge : ""}
+                        value={pricesBySize[sizeConfig.id] || ""}
                         onChange={(e) => {
-                          if (index === 0) setPriceSmall(e.target.value);
-                          if (index === 1) setPriceLarge(e.target.value);
+                          setPricesBySize((prev) => ({
+                            ...prev,
+                            [sizeConfig.id]: e.target.value
+                          }));
                         }}
                         placeholder="Ex.: 49.99"
                       />
