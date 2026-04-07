@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button'
 import { Alert, AlertDescription } from '@/components/ui/alert'
 import { useRescheduling } from '@/hooks/use-rescheduling'
 import { useSchedulingSlots } from '@/hooks/use-scheduling-availability'
-import { SchedulingSlotSelector } from './SchedulingSlotSelector'
+import { SchedulingSlotSelector } from '../SchedulingSlotSelector'
 import { AlertCircle, Calendar, Clock, Loader2, CheckCircle } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -132,7 +132,7 @@ export function RescheduleOrderModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-lg">
+      <DialogContent className="max-w-lg max-h-[90vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <Calendar className="w-5 h-5" />
@@ -143,7 +143,7 @@ export function RescheduleOrderModal({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[calc(90vh-200px)] overflow-y-auto">
           {/* STEP 1: Verificar se pode remarcar */}
           {step === 'verify' && (
             <div className="space-y-4">
