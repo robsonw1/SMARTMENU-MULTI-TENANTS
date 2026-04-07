@@ -345,7 +345,7 @@ export const NotificationsTab = () => {
                 Adicionar WhatsApp
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="max-h-[80vh] overflow-hidden">
               <DialogHeader>
                 <DialogTitle>Adicionar Nova Instância WhatsApp</DialogTitle>
                 <DialogDescription>
@@ -353,7 +353,7 @@ export const NotificationsTab = () => {
                 </DialogDescription>
               </DialogHeader>
 
-              <div className="space-y-4 py-4">
+              <div className="space-y-4 py-4 max-h-[calc(80vh-200px)] overflow-y-auto">
                 <div className="space-y-2">
                   <Label htmlFor="establishment">Nome do Estabelecimento</Label>
                   <Input
