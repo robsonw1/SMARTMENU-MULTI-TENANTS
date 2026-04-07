@@ -588,6 +588,48 @@ export function SchedulingCheckoutModal() {
     }
   }, [isSchedulingCheckoutOpen, selectedNeighborhood]);
 
+  // 🔔 NOVO: Listener para detectar confirmação do PIX e abrir popup automaticamente
+  useEffect(() => {
+    if (step !== 'pix' || !lastOrderId || !pixData) return;
+
+    console.log('🔔 [PIX-LISTENER] Aguardando confirmação para pedido agendado:', lastOrderId);
+
+    // Usar polling para verificar se o pedido foi criado/confirmado (a cada 2s)
+    const interval = setInterval(async () => {
+      try {
+        const { data: order, error } = await supabase
+          .from('orders')
+          .select('id, status, payment_method')
+          .eq('id', lastOrderId)
+          .single();
+
+        if (error) {
+          // Pedido ainda não foi criado, continua aguardando
+          return;
+        }
+
+        if (order) {
+          console.log('✅ [PIX-LISTENER] Pedido agendado criado com status:', order.status);
+          
+          // Se pedido foi criado, significa que foi criado e pode abrir confirmation
+          // O webhook do Mercado Pago já processou
+          clearInterval(interval);
+          
+          // Processar pontos e cupons
+          await processPointsAndCoupons(lastPointsRedeemed, lastFinalTotal, lastAppliedCoupon);
+          
+          toast.success('✅ Pagamento confirmado! Pedido agendado enviado com sucesso!');
+          setStep('confirmation');
+          setTimeout(() => setIsLoyaltyModalOpen(true), 500);
+        }
+      } catch (err) {
+        console.warn('⚠️ [PIX-LISTENER] Erro ao verificar pedido agendado:', err);
+      }
+    }, 2000); // Verificar a cada 2 segundos
+
+    return () => clearInterval(interval);
+  }, [step, lastOrderId, pixData]);
+
   const formatPrice = (price: number) => {
     return new Intl.NumberFormat('pt-BR', {
       style: 'currency',
@@ -1417,7 +1459,7 @@ export function SchedulingCheckoutModal() {
             expirationDate: mpData.expirationDate
           });
           
-          // Armazenar dados do pedido para criar DEPOIS da validação
+          // Armazenar dados do pedido
           setLastOrderPayload({
             ...orderPayload,
             totals: {
@@ -1429,7 +1471,7 @@ export function SchedulingCheckoutModal() {
             }
           });
           
-          // Armazenar valores para usar em handlePixConfirmed
+          // Armazenar valores para confirmação
           setLastPointsDiscount(pointsDiscount);
           setLastPointsRedeemed(validPointsToRedeem);
           setLastCouponDiscount(couponDiscountAmount);
@@ -1438,9 +1480,7 @@ export function SchedulingCheckoutModal() {
           setLastLoyaltyCustomer(loyaltyCustomer);
           
           // ❌ NÃO cria pedido aqui!
-          // ❌ NÃO resgate pontos aqui!
-          // Tudo isso vai acontecer em handlePixConfirmed() APÓS validar pagamento
-          
+          // Vamos adicionar listener que aguarda confirmação do PIX
           setStep('pix');
         } else {
           throw new Error('QR Code não gerado');
@@ -2559,14 +2599,6 @@ export function SchedulingCheckoutModal() {
                       Após realizar o pagamento, clique no botão abaixo para confirmar seu pedido.
                     </p>
                   </div>
-
-                  <Button 
-                    className="w-full btn-cta"
-                    onClick={handlePixConfirmed}
-                  >
-                    <CheckCircle className="w-4 h-4 mr-2" />
-                    Já fiz o pagamento
-                  </Button>
                 </motion.div>
               )}
 
