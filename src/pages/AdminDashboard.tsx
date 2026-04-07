@@ -1964,28 +1964,6 @@
 
                     <Separator className="my-4" />
 
-                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                      <div>
-                        <Label className="text-base font-medium cursor-pointer">Tamanho Broto</Label>
-                        <p className="text-xs text-muted-foreground">Disponibilizar tamanho pequeno</p>
-                      </div>
-                      <Switch
-                        checked={settingsForm?.broto_enabled ?? true}
-                        onCheckedChange={(value) => updateSettingsFormWithFlag({ broto_enabled: value })}
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50 transition-colors">
-                      <div>
-                        <Label className="text-base font-medium cursor-pointer">Tamanho Grande</Label>
-                        <p className="text-xs text-muted-foreground">Disponibilizar tamanho grande</p>
-                      </div>
-                      <Switch
-                        checked={settingsForm?.grande_enabled ?? true}
-                        onCheckedChange={(value) => updateSettingsFormWithFlag({ grande_enabled: value })}
-                      />
-                    </div>
-
                     {/* NOVO: Toggle Pesquisa de Produtos */}
                     <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
                       <div>
