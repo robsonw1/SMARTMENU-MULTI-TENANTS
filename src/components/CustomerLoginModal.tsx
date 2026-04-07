@@ -244,8 +244,8 @@ export function CustomerLoginModal({
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && handleClose()}>
-      <DialogContent className="sm:max-w-md">
-        <DialogHeader>
+      <DialogContent className="sm:max-w-md max-h-[90vh] p-0 overflow-hidden">
+        <DialogHeader className="px-6 pt-6 pb-0">
           <div className="flex items-center justify-center gap-2 mb-2">
             <LogIn className="w-8 h-8 text-primary" />
             <DialogTitle>Minha Conta</DialogTitle>
@@ -255,8 +255,9 @@ export function CustomerLoginModal({
           </DialogDescription>
         </DialogHeader>
 
-        <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')} className="w-full">
-          <TabsList className="grid w-full grid-cols-2 mt-4">
+        <div className="max-h-[calc(90vh-180px)] overflow-y-auto px-6">
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as 'login' | 'signup')} className="w-full">
+          <TabsList className="grid w-full grid-cols-2 mt-4 mb-2">
             <TabsTrigger value="login" className="flex items-center gap-2">
               <LogIn className="w-4 h-4" />
               <span>Entrar</span>
@@ -268,7 +269,7 @@ export function CustomerLoginModal({
           </TabsList>
 
           {/* TAB: LOGIN */}
-          <TabsContent value="login" className="space-y-4 py-4">
+          <TabsContent value="login" className="space-y-4 mt-4 pb-6">
             <div className="space-y-2">
               <Label htmlFor="login-email">Email *</Label>
               <Input
@@ -331,7 +332,7 @@ export function CustomerLoginModal({
           </TabsContent>
 
           {/* TAB: SIGNUP */}
-          <TabsContent value="signup" className="space-y-4 py-4">
+          <TabsContent value="signup" className="space-y-4 mt-4 pb-6">
             <div className="space-y-2">
               <Label htmlFor="signup-name">Nome Completo *</Label>
               <Input
@@ -407,6 +408,7 @@ export function CustomerLoginModal({
             </div>
           </TabsContent>
         </Tabs>
+        </div>
       </DialogContent>
     </Dialog>
   );
