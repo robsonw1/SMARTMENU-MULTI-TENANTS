@@ -201,7 +201,7 @@ export function CategoryManagementDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto overflow-x-hidden">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto overflow-x-hidden scrollbar-gutter-stable">
         <DialogHeader className="flex flex-row items-center justify-between pr-4">
           <DialogTitle>Gerenciar Categorias do Cardápio</DialogTitle>
           <Button
