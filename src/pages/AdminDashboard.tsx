@@ -1,5 +1,5 @@
   import { useMemo, useState, useEffect } from 'react';
-  import { useNavigate, Link } from 'react-router-dom';
+  import { useNavigate } from 'react-router-dom';
   import { supabase } from '@/integrations/supabase/client';
   import { useAdminAuth } from '@/hooks/use-admin-auth';
   import { initTenantResolver, getTenantIdSync } from '@/lib/tenant-resolver';
@@ -1436,12 +1436,12 @@
                 >
                   {theme === 'light' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
                 </Button>
-                <Link to="/">
+                <a href="/" target="_blank" rel="noopener noreferrer">
                   <Button variant="ghost" size="sm" className="gap-2">
                     <Home className="w-4 h-4" />
                     Ver Loja
                   </Button>
-                </Link>
+                </a>
                 <Button variant="ghost" size="sm" className="gap-2" onClick={handleLogout}>
                   <LogOut className="w-4 h-4" />
                   Sair
