@@ -122,12 +122,12 @@ export function NeighborhoodFormDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-md">
+      <DialogContent className="max-w-md max-h-[80vh] overflow-hidden">
         <DialogHeader>
           <DialogTitle>{isEdit ? 'Editar Bairro' : 'Novo Bairro'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 max-h-[calc(80vh-180px)] overflow-y-auto">
           <div className="space-y-2">
             <Label htmlFor="nb-name">Nome do Bairro</Label>
             <Input
