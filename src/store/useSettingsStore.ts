@@ -183,7 +183,7 @@ const defaultSettings: StoreSettings = {
   auto_confirm_status_cash: false,
   // ✅ NOVO: Delay padrão de 60 minutos para confirmação automática de pontos
   auto_confirm_points_delay_minutes: 60,
-  categories_config: undefined, // Vai carregar do Supabase / localStorage
+  categories_config: defaultCategoriesConfig, // ✅ Inclui "Todos" por padrão
   sizes_config: undefined, // Vai carregar do Supabase / localStorage
 };
 
@@ -361,7 +361,19 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             // ✅ NOVO: Search enabled (mapeado do BD)
             search_enabled: settingsData.search_enabled ?? true,
             // ✅ Configurações de Categorias (mapeadas do BD)
-            categories_config: settingsData.categories_config ?? defaultCategoriesConfig,
+            categories_config: (() => {
+              const categories = settingsData.categories_config ?? defaultCategoriesConfig;
+              // 🔒 GARANTIR que "Todos" sempre existe primeira (ordem: -1, id: 'todos')
+              const hasTodos = categories.some((c) => c.id === 'todos');
+              if (!hasTodos) {
+                // Se não tem "Todos", adicionar no início
+                return [
+                  { id: 'todos', label: 'Todos', icon_name: 'Grid3x3', enabled: true, order: -1 },
+                  ...categories,
+                ];
+              }
+              return categories;
+            })(),
             // ✅ Configurações de Tamanhos (mapeadas do BD)
             sizes_config: settingsData.sizes_config ?? defaultSizesConfig,
           },
@@ -454,7 +466,18 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
           // ✅ NOVO: Search enabled
           search_enabled: currentSettings.search_enabled ?? true,
           // ✅ Configurações de Categorias
-          categories_config: currentSettings.categories_config ?? defaultCategoriesConfig,
+          categories_config: (() => {
+            const categories = currentSettings.categories_config ?? defaultCategoriesConfig;
+            // 🔒 GARANTIR que "Todos" sempre existe e está no início
+            const hasTodos = categories.some((c) => c.id === 'todos');
+            if (!hasTodos) {
+              return [
+                { id: 'todos', label: 'Todos', icon_name: 'Grid3x3', enabled: true, order: -1 },
+                ...categories,
+              ];
+            }
+            return categories;
+          })(),
           // ✅ NOVO: Configurações de Tamanhos
           sizes_config: currentSettings.sizes_config ?? undefined,
           // ✅ NOVO: Auto-Confirmação de Pontos
