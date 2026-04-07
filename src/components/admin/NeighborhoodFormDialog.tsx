@@ -127,7 +127,7 @@ export function NeighborhoodFormDialog({
           <DialogTitle>{isEdit ? 'Editar Bairro' : 'Novo Bairro'}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-4 max-h-[calc(80vh-180px)] overflow-y-auto">
+        <div className="space-y-4 max-h-[calc(80vh-180px)] overflow-y-auto overflow-x-hidden">
           <div className="space-y-2">
             <Label htmlFor="nb-name">Nome do Bairro</Label>
             <Input
