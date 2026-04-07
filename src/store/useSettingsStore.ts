@@ -121,6 +121,8 @@ const defaultWeekSchedule: WeekSchedule = {
 };
 
 const defaultCategoriesConfig: CategoryConfig[] = [
+  // ✅ NOVO: Categoria "Todos" padrão (não pode ser editada)
+  { id: 'todos', label: 'Todos', icon_name: 'Grid3x3', enabled: true, order: -1 },
   { id: 'combos', label: 'Combos', icon_name: 'Gift', enabled: true, order: 0 },
   { id: 'promocionais', label: 'Promocionais', icon_name: 'Tag', enabled: true, order: 1 },
   { id: 'tradicionais', label: 'Tradicionais', icon_name: 'ShoppingBag', enabled: true, order: 2 },
