@@ -1983,6 +1983,18 @@
                         onCheckedChange={(value) => updateSettingsFormWithFlag({ grande_enabled: value })}
                       />
                     </div>
+
+                    {/* NOVO: Toggle Pesquisa de Produtos */}
+                    <div className="flex items-center justify-between p-3 border rounded-lg hover:bg-accent/50">
+                      <div>
+                        <Label>🔍 Barra de Pesquisa</Label>
+                        <p className="text-xs text-muted-foreground">Permite que clientes busquem produtos por nome</p>
+                      </div>
+                      <Switch
+                        checked={settingsForm?.search_enabled ?? true}
+                        onCheckedChange={(value) => updateSettingsFormWithFlag({ search_enabled: value })}
+                      />
+                    </div>
                   </div>
 
                   <Separator />
