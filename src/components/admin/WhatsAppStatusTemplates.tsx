@@ -382,12 +382,6 @@ export const WhatsAppStatusTemplates = ({ tenantId }: WhatsAppStatusTemplatesPro
           <p>
             <span className="font-semibold text-slate-900">💾 Auto-Save:</span> Templates são salvos imediatamente quando você clica "Salvar"
           </p>
-          <p>
-            <span className="font-semibold text-slate-900">🔄 Realtime Sync:</span> Se outro gerente editar um template, você verá a atualização em tempo real
-          </p>
-          <p>
-            <span className="font-semibold text-slate-900">🔒 Isolado por Tenant:</span> Cada pizzeria vê apenas seus próprios templates
-          </p>
         </CardContent>
       </Card>
     </div>
