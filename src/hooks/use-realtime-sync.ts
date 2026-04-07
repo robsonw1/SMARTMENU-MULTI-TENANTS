@@ -97,6 +97,13 @@ export const useRealtimeSync = (adminTenantIdProp?: string) => {
     
     const tenantId = resolvedTenantId;
     
+    // ✅ NOVO (07/04/2026): Carregar settings do BD para tema padrão (default_theme)
+    // Crítico para clientes novos receberem o tema correto
+    const { loadSettingsFromSupabase } = useSettingsStore.getState();
+    loadSettingsFromSupabase().catch(err => 
+      console.warn('⚠️ [REALTIME-SYNC] Erro ao carregar settings:', err)
+    );
+    
     // Rastrear tempo da última mudança local para cada produto
     const lastLocalProductUpdate = new Map<string, number>();
 
