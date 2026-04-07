@@ -81,6 +81,8 @@ interface StoreSettings {
   grande_enabled?: boolean;
   // ✅ NOVO: Ativar/desativar barra de pesquisa de produtos
   search_enabled?: boolean;
+  // ✅ NOVO (07/04/2026): Tema padrão para clientes (dark ou light)
+  default_theme?: 'light' | 'dark';
   // Configurações de Categorias (dinâmicas)
   categories_config?: CategoryConfig[];
   // Configurações de Tamanhos (dinâmicos)
@@ -183,6 +185,8 @@ const defaultSettings: StoreSettings = {
   auto_confirm_status_cash: false,
   // ✅ NOVO: Delay padrão de 60 minutos para confirmação automática de pontos
   auto_confirm_points_delay_minutes: 60,
+  // ✅ NOVO (07/04/2026): Tema padrão é dark mode
+  default_theme: 'dark' as const,
   categories_config: defaultCategoriesConfig, // ✅ Inclui "Todos" por padrão
   sizes_config: undefined, // Vai carregar do Supabase / localStorage
 };
