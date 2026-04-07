@@ -1009,7 +1009,7 @@ export function CheckoutModal() {
       needsChange: paymentMethod === 'cash' ? needsChange : false,
       changeAmount: paymentMethod === 'cash' && needsChange ? changeAmount : undefined,
       tenantId: tenantId || '', // ✅ CRÍTICO: Sempre enviar (vazio ou não - useOrdersStore trata fallback)
-    }, shouldAutoPrint);
+    }, shouldAutoPrint, true, paymentMethod); // ✅ NOVO: Pass autoConfirm=true + paymentMethod
     
     console.log('✅ [CHECKOUT] Pedido criado com ID:', createdOrder.id, 'Tenant:', tenantId || 'será auto-detectado');
 
@@ -1398,8 +1398,7 @@ export function CheckoutModal() {
         // ⚠️ Salvar pontos na ordem para depois o admin confirmar
         await processOrder(orderPayload, pointsDiscount, validPointsToRedeem);
         
-        // 🤖 NOVO: Acionalmente auto-confirmations se habilitado nas settings
-        await triggerAutoConfirmations(orderId, paymentMethod);
+        // ✅ REMOVIDO: triggerAutoConfirmations agora é chamado dentro de addOrder com retry logic
         
         if (pointsDiscount > 0) {
           toast.success(`Pedido enviado! Desconto de ${formatPrice(pointsDiscount)} será aplicado após confirmação.`);
@@ -1549,54 +1548,6 @@ export function CheckoutModal() {
   };
 
   // 🤖 NOVO: Trigger auto-confirmations (pontos + status) baseado em settings
-  const triggerAutoConfirmations = async (orderId: string, paymentMethod: string) => {
-    try {
-      const currentSettings = useSettingsStore.getState().settings;
-      if (!currentSettings) {
-        console.log('[AUTO-CONFIRM] Settings não carregadas - skip');
-        return;
-      }
-
-      console.log('[AUTO-CONFIRM] Verificando toggles:', { paymentMethod });
-
-      // 1️⃣ Auto-confirm pontos
-      const autoConfirmPointsKey = `auto_confirm_points_${paymentMethod}` as any;
-      if ((currentSettings as any)[autoConfirmPointsKey]) {
-        console.log(`[AUTO-CONFIRM] 💰 Acionando pontos para ${paymentMethod}`);
-        try {
-          const { error } = await supabase.functions.invoke('auto-confirm-points-card', {
-            body: {
-              orderId,
-              tenantId: tenantId || '',
-              delayMinutes: (currentSettings as any).auto_confirm_points_delay_minutes || 60,
-              paymentMethod,
-            },
-          });
-          if (error) console.warn('[AUTO-CONFIRM] ⚠️ Erro pontos:', error);
-          else console.log('[AUTO-CONFIRM] ✅ Pontos acionado');
-        } catch (err) {
-          console.warn('[AUTO-CONFIRM] ⚠️ Exceção pontos:', err);
-        }
-      }
-
-      // 2️⃣ Auto-confirm status
-      const autoConfirmStatusKey = `auto_confirm_status_${paymentMethod}` as any;
-      if ((currentSettings as any)[autoConfirmStatusKey]) {
-        console.log(`[AUTO-CONFIRM] 📊 Acionando status para ${paymentMethod}`);
-        try {
-          const { error } = await supabase.functions.invoke('auto-confirm-status-card', {
-            body: { orderId, tenantId: tenantId || '', paymentMethod },
-          });
-          if (error) console.warn('[AUTO-CONFIRM] ⚠️ Erro status:', error);
-          else console.log('[AUTO-CONFIRM] ✅ Status acionado');
-        } catch (err) {
-          console.warn('[AUTO-CONFIRM] ⚠️ Exceção status:', err);
-        }
-      }
-    } catch (error) {
-      console.error('[AUTO-CONFIRM] ❌ Erro:', error);
-    }
-  };
 
   const handlePixConfirmed = async () => {
     // 🔒 VALIDAÇÃO CRÍTICA: Validar PAGAMENTO + CRIAR PEDIDO (tudo junto na Edge Function)
