@@ -162,7 +162,7 @@ export function SizeManagementDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto overflow-x-hidden">
         <DialogHeader className="flex flex-row items-center justify-between pr-4">
           <DialogTitle>Gerenciar Tamanhos</DialogTitle>
           <Button
