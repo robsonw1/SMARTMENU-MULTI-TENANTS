@@ -364,6 +364,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             grande_enabled: settingsData.grande_enabled ?? true,
             // ✅ NOVO: Search enabled (mapeado do BD)
             search_enabled: settingsData.search_enabled ?? true,
+            // ✅ NOVO (07/04/2026): Tema padrão para clientes (mapeado do BD)
+            default_theme: (settingsData.default_theme || 'dark') as 'light' | 'dark',
             // ✅ Configurações de Categorias (mapeadas do BD)
             categories_config: (() => {
               const categories = settingsData.categories_config ?? defaultCategoriesConfig;
@@ -738,6 +740,8 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         allow_scheduling_outside_business_hours: settings.allowSchedulingOutsideBusinessHours,
         respect_business_hours_for_scheduling: settings.respectBusinessHoursForScheduling,
         allow_same_day_scheduling_outside_hours: settings.allowSameDaySchedulingOutsideHours,
+        // ✅ NOVO (07/04/2026): Sincronizar tema padrão
+        default_theme: settings.default_theme || 'dark',
         updated_at: new Date().toISOString(),
       };
 
