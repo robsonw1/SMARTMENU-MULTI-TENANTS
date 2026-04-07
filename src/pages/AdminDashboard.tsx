@@ -1995,6 +1995,43 @@
                         onCheckedChange={(value) => updateSettingsFormWithFlag({ search_enabled: value })}
                       />
                     </div>
+
+                    {/* ✅ NOVO (07/04/2026): Tema padrão para clientes */}
+                    <div className="p-3 border rounded-lg hover:bg-accent/50">
+                      <div className="mb-3">
+                        <Label className="text-base font-medium">🎨 Tema Padrão para Clientes</Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Escolha o tema padrão que será exibido quando clientes abrirem o app
+                        </p>
+                      </div>
+                      <div className="flex gap-4">
+                        <button
+                          onClick={() => updateSettingsFormWithFlag({ default_theme: 'dark' })}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${
+                            (settingsForm?.default_theme ?? 'dark') === 'dark'
+                              ? 'border-primary bg-primary/10'
+                              : 'border-muted hover:border-primary/50'
+                          }`}
+                        >
+                          <Moon className="w-4 h-4" />
+                          <span className="text-sm font-medium">🌙 Dark Mode</span>
+                        </button>
+                        <button
+                          onClick={() => updateSettingsFormWithFlag({ default_theme: 'light' })}
+                          className={`flex items-center gap-2 px-4 py-2 rounded-lg border-2 transition-all ${
+                            (settingsForm?.default_theme ?? 'dark') === 'light'
+                              ? 'border-primary bg-primary/10'
+                              : 'border-muted hover:border-primary/50'
+                          }`}
+                        >
+                          <Sun className="w-4 h-4" />
+                          <span className="text-sm font-medium">☀️ Light Mode</span>
+                        </button>
+                      </div>
+                      <p className="text-xs text-green-800 dark:text-green-300 mt-2">
+                        ✅ Clientes podem trocar o tema a qualquer momento usando o botão no header
+                      </p>
+                    </div>
                   </div>
 
                   <Separator />
