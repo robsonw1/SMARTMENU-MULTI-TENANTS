@@ -356,7 +356,7 @@ export const WhatsAppStatusTemplates = ({ tenantId }: WhatsAppStatusTemplatesPro
 
       {/* Performance Info */}
       <div className="bg-emerald-50 border border-emerald-200 rounded-lg p-3 text-sm text-emerald-800">
-        <span className="font-semibold">⚡ Defina rápidamente de mensagens de notificações no whatsapp</span> O(1).
+        <span className="font-semibold">⚡ Defina rápido mensagens de notificações no whatsapp</span> O(1).
       </div>
 
       {/*7 Status Cards Grid - SEMPRE renderizado (mesma ordem sempre) */}
