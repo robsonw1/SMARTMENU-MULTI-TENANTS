@@ -278,16 +278,18 @@ export function CategoryManagementDialog({
                   <div className="flex flex-col gap-1">
                     <button
                       onClick={() => moveUp(category.id)}
-                      disabled={idx === 0}
+                      disabled={idx === 0 || category.id === 'todos'} // 🔒 BLOQUEAR move de "Todos"
                       className="p-1 hover:bg-secondary disabled:opacity-30"
+                      title={category.id === 'todos' ? '❌ Categoria "Todos" deve estar sempre no início' : ''}
                     >
                       <ChevronUp className="w-4 h-4" />
                     </button>
                     <GripVertical className="w-4 h-4 text-muted-foreground" />
                     <button
                       onClick={() => moveDown(category.id)}
-                      disabled={idx === sortedCategories.length - 1}
+                      disabled={idx === sortedCategories.length - 1 || category.id === 'todos'} // 🔒 BLOQUEAR move de "Todos"
                       className="p-1 hover:bg-secondary disabled:opacity-30"
+                      title={category.id === 'todos' ? '❌ Categoria "Todos" deve estar sempre no início' : ''}
                     >
                       <ChevronDown className="w-4 h-4" />
                     </button>
@@ -306,7 +308,9 @@ export function CategoryManagementDialog({
                       onChange={(e) =>
                         updateCategory(category.id, { label: e.target.value })
                       }
+                      disabled={category.id === 'todos'} // 🔒 BLOQUEAR edição de "Todos"
                       className="h-8"
+                      title={category.id === 'todos' ? '❌ Categoria "Todos" padrão (não pode ser alterada)' : ''}
                     />
                   </div>
 
@@ -316,10 +320,12 @@ export function CategoryManagementDialog({
                     <Select
                       value={category.icon_name}
                       onValueChange={(value) =>
+                        category.id !== 'todos' && // 🔒 BLOQUEAR para "Todos"
                         updateCategory(category.id, { icon_name: value })
                       }
+                      disabled={category.id === 'todos'} // 🔒 BLOQUEAR Select
                     >
-                      <SelectTrigger className="h-8">
+                      <SelectTrigger className="h-8" title={category.id === 'todos' ? '❌ Categoria "Todos" padrão (não pode ser alterada)' : ''}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -346,7 +352,13 @@ export function CategoryManagementDialog({
                   {/* Delete Button */}
                   <button
                     onClick={() => deleteCategory(category.id)}
-                    className="p-2 text-destructive hover:bg-destructive/10 rounded transition-colors"
+                    disabled={category.id === 'todos'} // 🔒 BLOQUEAR delete de "Todos"
+                    className={`p-2 rounded transition-colors ${
+                      category.id === 'todos'
+                        ? 'opacity-30 cursor-not-allowed text-gray-400'
+                        : 'text-destructive hover:bg-destructive/10'
+                    }`}
+                    title={category.id === 'todos' ? '❌ Categoria padrão não pode ser deletada' : 'Deletar'}
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
