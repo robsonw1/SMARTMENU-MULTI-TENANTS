@@ -2,22 +2,27 @@ import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X } from 'lucide-react';
 import { usePWAInstall } from '@/hooks/use-pwa-install';
+import { useStore } from '@/store/useStore';
 
 export function PWAInstallBanner() {
   const { canInstall, isInstalling, triggerInstall, isInstalled } = usePWAInstall();
+  const isCartOpen = useStore((s) => s.isCartOpen);
+  const isProductModalOpen = useStore((s) => s.isProductModalOpen);
   const [isVisible, setIsVisible] = useState(false);
   const [isDismissed, setIsDismissed] = useState(false);
 
   useEffect(() => {
-    // Mostrar banner se pode instalar e não foi dismissado
-    if (canInstall && !isDismissed && !isInstalled) {
+    // ✅ NOVO (07/04/2026): Desaparecer banner quando carrinho ou produto modal abre
+    // Mostrar banner SE pode instalar E não foi dismissado E não está instalado
+    // E carrinho está fechado E popup de produto está fechado
+    if (canInstall && !isDismissed && !isInstalled && !isCartOpen && !isProductModalOpen) {
       // Delay pequenininho para animação mais suave
       const timer = setTimeout(() => setIsVisible(true), 500);
       return () => clearTimeout(timer);
     } else {
       setIsVisible(false);
     }
-  }, [canInstall, isDismissed, isInstalled]);
+  }, [canInstall, isDismissed, isInstalled, isCartOpen, isProductModalOpen]);
 
   const handleDismiss = () => {
     setIsVisible(false);
