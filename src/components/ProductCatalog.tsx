@@ -1,6 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import { Badge } from '@/components/ui/badge';
 import { ProductCard } from '@/components/ProductCard';
+import { ProductSearchBar } from '@/components/ProductSearchBar';
 import { Gift, Tag, Pizza, Crown, Star, Cake, GlassWater, Heart, Zap, Utensils, Leaf, Coffee, Truck, Store, ChevronLeft, ChevronRight, Loader2 } from 'lucide-react';
 import { useCatalogStore } from '@/store/useCatalogStore';
 import { useSettingsStore } from '@/store/useSettingsStore';
@@ -75,6 +76,7 @@ function ProductCatalogSkeleton() {
 
 export function ProductCatalog() {
   const [activeTab, setActiveTab] = useState('combos');
+  const [filteredProductIds, setFilteredProductIds] = useState<string[]>([]);
   const productsById = useCatalogStore((s) => s.productsById);
   const storeName = useSettingsStore((s) => s.settings.name || 'Nosso Cardápio');
   const storeSlogan = useSettingsStore((s) => s.settings.slogan || 'Bem-vindo ao nosso cardápio!');
@@ -83,6 +85,7 @@ export function ProductCatalog() {
   const pickupTimeMin = useSettingsStore((s) => s.settings.pickupTimeMin);
   const pickupTimeMax = useSettingsStore((s) => s.settings.pickupTimeMax);
   const categoriesConfig = useSettingsStore((s) => s.settings.categories_config);
+  const searchEnabled = useSettingsStore((s) => s.settings.search_enabled ?? true);
   const loadSettingsFromSupabase = useSettingsStore((s) => s.loadSettingsFromSupabase);
 
   // 💾 Carregar categorias de localStorage NO PRIMEIRO RENDER (antes do BD)
@@ -213,6 +216,15 @@ export function ProductCatalog() {
           </div>
         </div>
 
+        {/* 🔍 NOVO: Barra de Pesquisa (se habilitada) */}
+        {searchEnabled && filteredProductIds.length > 0 && (
+          <ProductSearchBar
+            products={products}
+            onSearchChange={setFilteredProductIds}
+            placeholder="Buscar pizza, bebida, acompanhamento..."
+          />
+        )}
+
         {/* Category Tabs */}
         <div className="w-full">
           {/* Desktop: Horizontal Scroll Tabs */}
@@ -342,18 +354,26 @@ export function ProductCatalog() {
           {(() => {
             const products = getByCategory(activeTab);
             console.log(`📦 Categoria ativa: "${activeTab}" | ${products.length} produtos totais`);
+            
+            // 🔍 Filtrar produtos se pesquisa estiver habilitada
+            const displayedProducts = searchEnabled && filteredProductIds.length > 0
+              ? products.filter(p => filteredProductIds.includes(p.id))
+              : products;
+            
             return (
               <div className="mt-0">
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-                  {products.map((product, index) => (
+                  {displayedProducts.map((product, index) => (
                     <ProductCard key={product.id} product={product} index={index} />
                   ))}
                 </div>
 
-                {products.filter(p => p.isActive).length === 0 && (
+                {displayedProducts.filter(p => p.isActive).length === 0 && (
                   <div className="text-center py-12">
                     <p className="text-muted-foreground">
-                      Nenhum produto disponível nesta categoria.
+                      {searchEnabled && filteredProductIds.length > 0 
+                        ? 'Nenhum produto encontrado com essa busca.'
+                        : 'Nenhum produto disponível nesta categoria.'}
                     </p>
                   </div>
                 )}
