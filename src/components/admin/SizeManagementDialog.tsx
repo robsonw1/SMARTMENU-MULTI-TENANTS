@@ -162,23 +162,26 @@ export function SizeManagementDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto overflow-x-hidden scrollbar-gutter-stable">
-        <DialogHeader className="flex flex-row items-center justify-between pr-4">
-          <DialogTitle>Gerenciar Tamanhos</DialogTitle>
-          <Button
-            size="sm"
-            variant="outline"
-            onClick={() => setIsAddingNew(!isAddingNew)}
-            className="gap-2"
-            disabled={editingSizes.length >= 9}
-          >
-            <Plus className="w-4 h-4" />
-            Adicionar
-          </Button>
-        </DialogHeader>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto overflow-x-hidden scrollbar-gutter-stable p-0">
+        <div className="px-6 pt-6 pb-0 sticky top-0 bg-white dark:bg-slate-950 z-10 border-b">
+          <DialogHeader className="flex flex-row items-center justify-between pb-4">
+            <DialogTitle>Gerenciar Tamanhos</DialogTitle>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => setIsAddingNew(!isAddingNew)}
+              className="gap-2"
+              disabled={editingSizes.length >= 9}
+            >
+              <Plus className="w-4 h-4" />
+              Adicionar
+            </Button>
+          </DialogHeader>
+        </div>
 
-        {/* 📝 Formulário para adicionar novo tamanho */}
-        {isAddingNew && (
+        <div className="px-6 pb-6 space-y-4">
+          {/* 📝 Formulário para adicionar novo tamanho */}
+          {isAddingNew && (
           <Card className="p-4 bg-secondary/30 border-dashed">
             <div className="space-y-3">
               <div>
@@ -302,6 +305,7 @@ export function SizeManagementDialog({
               </div>
             </Card>
           ))}
+        </div>
         </div>
 
         <DialogFooter>
