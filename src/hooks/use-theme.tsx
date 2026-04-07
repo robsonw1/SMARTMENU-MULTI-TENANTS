@@ -20,6 +20,19 @@ export function useTheme() {
     return defaultTenantTheme || 'dark';
   });
 
+  // ✅ NOVO (07/04/2026): Reagir quando settings carregam do BD
+  // Se settings.default_theme muda (carrega do BD), aplicar se cliente não tem preferência
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const stored = localStorage.getItem('theme') as Theme | null;
+      // Só aplicar se cliente NÃO tem preferência no localStorage
+      if (!stored && defaultTenantTheme) {
+        console.log(`🎨 [USE-THEME] Settings carregadas! Aplicando tema padrão do tenant: ${defaultTenantTheme}`);
+        setTheme(defaultTenantTheme);
+      }
+    }
+  }, [defaultTenantTheme]);
+
   useEffect(() => {
     const root = window.document.documentElement;
     root.classList.remove('light', 'dark');
