@@ -217,7 +217,7 @@ export function ProductCatalog() {
         </div>
 
         {/* 🔍 NOVO: Barra de Pesquisa (se habilitada) */}
-        {searchEnabled && filteredProductIds.length > 0 && (
+        {searchEnabled && (
           <ProductSearchBar
             products={products}
             onSearchChange={setFilteredProductIds}
