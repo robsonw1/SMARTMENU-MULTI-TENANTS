@@ -2031,7 +2031,7 @@
                         </button>
                       </div>
                       <p className="text-xs text-green-800 dark:text-green-300 mt-2">
-                        ✅ Clientes podem trocar o tema a qualquer momento usando o botão no header
+                        ✅ Clientes podem trocar o tema a qualquer momento usando o botão no canto superior direito. Esta configuração define apenas o tema inicial padrão.
                       </p>
                     </div>
                   </div>
