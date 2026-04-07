@@ -366,6 +366,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         });
 
         console.log('✅ [LOAD-SUPABASE] Settings carregados e cached para tenant:', tenantId);
+        
+        // ✅ CRUCIAL: Salvar settings em localStorage para addOrder conseguir acessar
+        const settingsState = get().settings;
+        localStorage.setItem('settings', JSON.stringify(settingsState));
+        console.log('💾 [LOAD-SUPABASE] Settings salvos em localStorage para acesso de addOrder');
       }
     } catch (error) {
       console.error('❌ [LOAD-SUPABASE] Exceção ao carregar settings:', error);
@@ -502,6 +507,11 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
         }
 
         console.log('✅ [UPDATE-SETTINGS] Edge Function retornou sucesso:', responseData.data);
+        
+        // ✅ CRUCIAL: Salvar settings atualizadas em localStorage para addOrder conseguir acessar
+        const updatedSettings = get().settings;
+        localStorage.setItem('settings', JSON.stringify(updatedSettings));
+        console.log('💾 [UPDATE-SETTINGS] Settings atualizadas salvas em localStorage');
       } catch (fetchError: any) {
         clearTimeout(timeoutHandle);
         if (fetchError.name === 'AbortError') {
