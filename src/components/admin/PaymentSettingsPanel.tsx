@@ -257,7 +257,7 @@ export function PaymentSettingsPanel() {
                 Mercado Pago
               </CardTitle>
               <CardDescription>
-                Gerencie o Access Token para receber pagamentos
+                Receba pagamentos online via PIX direto na sua conta do Mercado Pago
               </CardDescription>
             </div>
             <Badge variant={isConnected ? 'default' : 'secondary'} className={isConnected ? 'bg-green-600' : ''}>
@@ -395,9 +395,7 @@ export function PaymentSettingsPanel() {
             <AlertDescription>
               <strong>ℹ️ Como funciona:</strong>
               <ul className="mt-2 list-inside list-disc space-y-1 text-xs">
-                <li>Cada estabelecimento tem seu próprio token</li>
                 <li>Pagamentos são processados automaticamente com este token</li>
-                <li>O token é armazenado com segurança no banco de dados</li>
               </ul>
             </AlertDescription>
           </Alert>
@@ -415,7 +413,7 @@ export function PaymentSettingsPanel() {
                 🔐 Webhook Secret
               </CardTitle>
               <CardDescription>
-                Secret do Mercado Pago para validar webhooks de pagamento
+                Adicione para validar a confirmação automática de pagamento
               </CardDescription>
             </div>
             <Badge variant={savedWebhookSecret ? 'default' : 'secondary'} className={savedWebhookSecret ? 'bg-blue-600' : ''}>
@@ -430,7 +428,7 @@ export function PaymentSettingsPanel() {
                 <CheckCircle2 className="h-4 w-4 text-green-600" />
                 <AlertDescription>
                   Seu Webhook Secret está configurado. Este secret vem do Mercado Pago e é usado para 
-                  validar as assinaturas dos webhooks que chegam em sua conta.
+                  validar pagamentos que chegam em sua conta.
                 </AlertDescription>
               </Alert>
 
@@ -553,7 +551,6 @@ export function PaymentSettingsPanel() {
             <AlertDescription>
               <strong>ℹ️ Como funciona:</strong>
               <ul className="mt-2 list-inside list-disc space-y-1 text-xs">
-                <li>O webhook secret vem do Mercado Pago (não é gerado localmente)</li>
                 <li>A plataforma usa este secret para validar assinatura dos webhooks</li>
                 <li>Garante que os webhooks vêm realmente do Mercado Pago (segurança)</li>
               </ul>
@@ -565,8 +562,7 @@ export function PaymentSettingsPanel() {
       <Alert className="bg-blue-50 border-blue-200">
         <AlertCircle className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-800">
-          <strong>🚀 Modelo de Pagamento:</strong> Cada estabelecimento utiliza sua própria conta Mercado Pago. 
-          Você não intermedia pagamentos, apenas fornece a plataforma + suporte técnico.
+          <strong>🚀 IMPORTANTE!:</strong> Faça um pagamento via pix após configurado e veja se caiu na sua conta certinho antes de atender seus clientes
         </AlertDescription>
       </Alert>
     </div>
