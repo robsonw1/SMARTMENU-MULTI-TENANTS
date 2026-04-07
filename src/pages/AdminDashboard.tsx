@@ -1133,6 +1133,8 @@
           bordas_enabled: settingsForm.bordas_enabled ?? true,
           broto_enabled: settingsForm.broto_enabled ?? true,
           grande_enabled: settingsForm.grande_enabled ?? true,
+          // ✅ NOVO (07/04/2026): Adicionar explicitamente o tema padrão
+          default_theme: settingsForm.default_theme ?? 'dark',
         };
         
         console.log('💾 [ADMIN-SAVE] ════════════════════════════════════════');
