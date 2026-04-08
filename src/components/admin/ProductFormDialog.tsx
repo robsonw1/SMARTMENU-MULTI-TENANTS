@@ -107,13 +107,23 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
     // Suportar tanto priceSmall/priceLarge (padrão) quanto custom sizes (pricesBySize novo)
     const sizePrices: Record<string, string> = {};
     
+    console.log('📝 [EDIT_LOAD] Carregando produto para editar:', {
+      productId: product.id,
+      productName: product.name,
+      pricesBySize: product.pricesBySize,
+      priceSmall: product.priceSmall,
+      priceLarge: product.priceLarge,
+    });
+    
     // Se tem pricesBySize (novo sistema), usar como base
     if (product.pricesBySize && Object.keys(product.pricesBySize).length > 0) {
+      console.log('📝 [EDIT_LOAD] ✅ Usando pricesBySize:', product.pricesBySize);
       Object.entries(product.pricesBySize).forEach(([sizeId, price]) => {
         sizePrices[sizeId] = String(price);
       });
     } else {
       // Fallback para sistema legado (priceSmall/priceLarge)
+      console.log('📝 [EDIT_LOAD] ⚠️ Usando fallback legado (priceSmall/priceLarge)');
       // Se tem priceSmall, adicionar ao mapa com ID padrão 'broto'
       if (product.priceSmall != null) {
         sizePrices['broto'] = String(product.priceSmall);
@@ -125,6 +135,7 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
       }
     }
     
+    console.log('📝 [EDIT_LOAD] sizePrices finais:', sizePrices);
     setPricesBySize(sizePrices);
     
     // ✅ NOVO: Pre-fill imagem se tiver
@@ -282,16 +293,19 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
     
     if (isPizzaCategory) {
       // Converter todos os preços do mapa de string para number
+      console.log('💾 [SAVE] pricesBySize_input:', pricesBySize);
       Object.entries(pricesBySize).forEach(([sizeId, priceStr]) => {
         const priceNum = toNumberOrUndefined(priceStr);
         if (priceNum !== undefined) {
           finalPricesBySize[sizeId] = priceNum;
+          console.log(`  └─ ${sizeId}: "${priceStr}" → ${priceNum}`);
         }
       });
       
       // Buscar 'broto' e 'grande' do mapa (IDs padrão) para compatibilidade legada
       finalPriceSmall = finalPricesBySize['broto'];
       finalPriceLarge = finalPricesBySize['grande'];
+      console.log('💾 [SAVE] finalPricesBySize completo:', finalPricesBySize);
     }
 
     // Validar que ao menos um preço foi preenchido
