@@ -119,31 +119,76 @@ export const ChatbotSettingsPanel = () => {
       setLoading(true);
 
       // Load config
-      const { data: configData } = await (supabase as any)
+      const { data: configData, error: configError } = await (supabase as any)
         .from('chatbot_configurations')
         .select('*')
         .eq('tenant_id', tenantId)
-        .single();
+        .limit(1);
 
-      if (configData) {
-        setConfig(configData as ChatbotConfig);
+      if (configError) {
+        console.error('❌ Erro ao buscar config:', configError);
+        throw configError;
+      }
+
+      let finalConfig = configData?.[0] as ChatbotConfig | null;
+
+      // ✅ FALLBACK: Se não houver config, criar uma
+      if (!finalConfig) {
+        console.warn('⚠️ Nenhuma config encontrada. Criando fallback...');
+        const { data: newConfig, error: createError } = await (supabase as any)
+          .from('chatbot_configurations')
+          .insert({
+            tenant_id: tenantId,
+            is_enabled: false,
+            response_timeout_seconds: 30,
+            escalation_keyword: 'atendente',
+            fallback_message: 'Desculpe, não consegui entender. Gostaria de falar com um atendente?',
+          })
+          .select()
+          .single();
+
+        if (createError) {
+          console.error('❌ Erro ao criar config fallback:', createError);
+          throw new Error(`Não foi possível carregar/criar configuração do chatbot: ${createError.message}`);
+        }
+
+        finalConfig = newConfig as ChatbotConfig;
+        console.log('✅ Config criada com sucesso!');
+      }
+
+      if (finalConfig) {
+        setConfig(finalConfig);
       }
 
       // Load rules
-      if (configData) {
-        const { data: rulesData } = await (supabase as any)
+      if (finalConfig) {
+        const { data: rulesData, error: rulesError } = await (supabase as any)
           .from('chatbot_rules')
           .select('*')
-          .eq('chatbot_config_id', configData.id)
+          .eq('chatbot_config_id', finalConfig.id)
           .order('order_priority', { ascending: true });
 
-        if (rulesData) {
+        if (rulesError) {
+          console.error('❌ Erro ao buscar regras:', rulesError);
+          // Não lança erro, só registra - regras podem estar vazias
+        } else if (rulesData) {
           setRules(rulesData as ChatbotRule[]);
+          console.log(`✅ ${rulesData.length} regra(s) carregada(s)`);
         }
       }
-    } catch (err) {
-      console.error('Erro ao carregar dados:', err);
-      toast.error('Erro ao carregar configurações do chatbot');
+    } catch (err: any) {
+      console.error('❌ Erro ao carregar dados do chatbot:', err);
+      
+      // Mensagens específicas
+      if (err?.code === 'PGRST116') {
+        toast.error('❌ Nenhuma configuração encontrada');
+      } else if (err?.message?.includes('RLS')) {
+        toast.error('❌ Você não tem permissão para acessar esta configuração');
+      } else if (err?.message?.includes('401') || err?.message?.includes('403')) {
+        toast.error('❌ Autenticação inválida. Faça login novamente.');
+      } else {
+        toast.error(`❌ Erro: ${err?.message || 'Desconhecido'}`);
+      }
     } finally {
       setLoading(false);
     }
