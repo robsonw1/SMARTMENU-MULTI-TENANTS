@@ -107,6 +107,13 @@ export const ChatbotSettingsPanel = () => {
     loadData();
   }, [tenantId]);
 
+  // Update response template quando intent muda
+  useEffect(() => {
+    if (INTENT_TEMPLATES[newRuleIntent]) {
+      setNewRuleResponse(INTENT_TEMPLATES[newRuleIntent]);
+    }
+  }, [newRuleIntent]);
+
   const loadData = async () => {
     try {
       setLoading(true);
@@ -162,8 +169,18 @@ export const ChatbotSettingsPanel = () => {
   };
 
   const handleAddRule = async () => {
-    if (!config || !newRuleKeywords.trim() || !newRuleResponse.trim()) {
-      toast.error('Preencha todos os campos obrigatórios');
+    if (!config) {
+      toast.error('Erro: Configuração do chatbot não carregada. Tente recarregar a página.');
+      return;
+    }
+
+    if (!newRuleKeywords.trim()) {
+      toast.error('Adicione pelo menos uma palavra-chave');
+      return;
+    }
+
+    if (!newRuleResponse.trim()) {
+      toast.error('Escreva uma resposta automática');
       return;
     }
 
@@ -193,13 +210,24 @@ export const ChatbotSettingsPanel = () => {
       if (data) {
         setRules([...rules, data[0] as ChatbotRule]);
         setShowNewRuleDialog(false);
+        // Reset form ao fechar dialog
         setNewRuleKeywords('');
-        setNewRuleResponse('');
-        toast.success('✅ Regra criada!');
+        setNewRuleIntent('hours');
+        setNewRuleResponse(INTENT_TEMPLATES['hours']);
+        toast.success('✅ Regra criada com sucesso!');
       }
     } catch (err) {
-      console.error('Erro:', err);
-      toast.error('Erro ao criar regra');
+      console.error('Erro ao criar regra:', err);
+      const errorMsg = (err as any)?.message || 'Erro desconhecido';
+      
+      // Mensagens específicas de erro
+      if (errorMsg.includes('RLS')) {
+        toast.error('❌ Erro de permissão. Você está autenticado?');
+      } else if (errorMsg.includes('401') || errorMsg.includes('403')) {
+        toast.error('❌ Autenticação expirou. Faça login novamente.');
+      } else {
+        toast.error(`❌ Erro ao criar regra: ${errorMsg}`);
+      }
     }
   };
 
@@ -333,7 +361,18 @@ export const ChatbotSettingsPanel = () => {
               </p>
             </div>
 
-            <Dialog open={showNewRuleDialog} onOpenChange={setShowNewRuleDialog}>
+            <Dialog
+              open={showNewRuleDialog}
+              onOpenChange={(open) => {
+                setShowNewRuleDialog(open);
+                // Reset form quando abre/fecha dialog
+                if (!open) {
+                  setNewRuleKeywords('');
+                  setNewRuleIntent('hours');
+                  setNewRuleResponse(INTENT_TEMPLATES['hours']);
+                }
+              }}
+            >
               <DialogTrigger asChild>
                 <Button>
                   <Plus className="w-4 h-4 mr-2" />
