@@ -33,6 +33,9 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
     is_active_parsed: isActive,
   });
   
+  // ✅ NOVO (07/04/2026): Suportar pricesBySize para tamanhos customizados
+  const pricesBySize = data.prices_by_size || data.pricesBySize;
+  
   return {
     id: supabaseData.id,
     name: supabaseData.name || data.name,
@@ -43,6 +46,8 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
     // ✅ Suportar ambos os formatos: camelCase (priceSmall) e snake_case (price_small)
     priceSmall: data.priceSmall ?? data.price_small ?? undefined,
     priceLarge: data.priceLarge ?? data.price_large ?? undefined,
+    // ✅ NOVO: Mapa de preços por tamanho (customizados)
+    pricesBySize: pricesBySize ?? undefined,
     image: data.image,
     isPopular: data.is_popular ?? false,
     isNew: data.is_new ?? false,
