@@ -80,6 +80,7 @@
   import { PrintNodeSettings } from '@/components/admin/PrintNodeSettings';
   import { AutoConfirmSettings } from '@/components/admin/AutoConfirmSettings';
   import { NotificationsTab } from '@/components/admin/NotificationsTab';
+  import { ChatbotSettingsPanel } from '@/components/admin/ChatbotSettingsPanel';
   import { LoyaltySettingsPanel } from '@/components/admin/LoyaltySettingsPanel';
   import { FaithfulCustomersAdmin } from '@/components/admin/FaithfulCustomersAdmin';
   import { CouponManagementPanel } from '@/components/admin/CouponManagementPanel';
@@ -1573,6 +1574,14 @@
                     </TabsTrigger>
 
                     <TabsTrigger
+                      value="chatbot"
+                      className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                    >
+                      <MessageCircle className="w-4 h-4" />
+                      <span className="text-sm font-medium">Chatbot</span>
+                    </TabsTrigger>
+
+                    <TabsTrigger
                       value="analytics"
                       className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
                     >
@@ -2709,6 +2718,11 @@
             {/* Notifications Tab */}
             <TabsContent value="notifications">
               <NotificationsTab />
+            </TabsContent>
+
+            {/* Chatbot Tab */}
+            <TabsContent value="chatbot">
+              <ChatbotSettingsPanel />
             </TabsContent>
 
             {/* Analytics Tab */}
