@@ -562,7 +562,7 @@ export function PaymentSettingsPanel() {
       <Alert className="bg-blue-50 border-blue-200">
         <AlertCircle className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-800">
-          <strong>🚀 IMPORTANTE!:</strong> Faça um TESTE depagamento via PIX e aguarde a confirmação de pagamento antes de atender seus clientes
+          <strong>🚀 IMPORTANTE!:</strong> Faça um TESTE de pagamento via PIX e aguarde a confirmação de pagamento antes de atender seus clientes
         </AlertDescription>
       </Alert>
     </div>
