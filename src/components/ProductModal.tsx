@@ -140,17 +140,36 @@ export function ProductModal() {
 
     let total = 0;
 
+    // ✅ NOVO: Helper para pegar preço de uma pizza por tamanho
+    // Suporta tanto novo sistema (pricesBySize) quanto legado (priceSmall/priceLarge)
+    const getPizzaPriceBySize = (pizza: Product, sizeId: string): number => {
+      // Se pizza tem pricesBySize (novo sistema), usar
+      if (pizza.pricesBySize && pizza.pricesBySize[sizeId]) {
+        return pizza.pricesBySize[sizeId];
+      }
+      
+      // Fallback para sistema legado
+      if (sizeId === 'broto' && pizza.priceSmall) {
+        return pizza.priceSmall;
+      }
+      if (sizeId === 'grande' && pizza.priceLarge) {
+        return pizza.priceLarge;
+      }
+      
+      // Se não encontrou, retorna 0 (produto sem preço)
+      return 0;
+    };
+
     // Base price
-    if (isPizza && selectedProduct.priceSmall && selectedProduct.priceLarge) {
-      // ✅ COMPATIBILIDADE: Mapear sizeId para priceSmall/priceLarge
-      // Até implementar novo sistema de preços
-      total = size === 'broto' ? selectedProduct.priceSmall : selectedProduct.priceLarge;
+    if (isPizza) {
+      // ✅ NOVO: Usar novo sistema de preços dinâmicos
+      total = getPizzaPriceBySize(selectedProduct, size);
       
       // Half-half: use the higher price
       if (isHalfHalf && secondHalfId) {
         const secondPizza = allPizzas.find(p => p.id === secondHalfId);
         if (secondPizza) {
-          const secondPrice = size === 'broto' ? secondPizza.priceSmall! : secondPizza.priceLarge!;
+          const secondPrice = getPizzaPriceBySize(secondPizza, size);
           total = Math.max(total, secondPrice);
         }
       }
@@ -479,7 +498,7 @@ export function ProductModal() {
                             <Label htmlFor={sizeConfig.id} className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-secondary transition-colors">
                               <span className="font-semibold">{sizeConfig.name}</span>
                               <span className="text-lg font-bold text-primary">
-                                {sizeConfig.id === 'broto' && selectedProduct.priceSmall ? formatPrice(selectedProduct.priceSmall) : formatPrice(selectedProduct.priceLarge || 0)}
+                                {formatPrice(getPizzaPriceBySize(selectedProduct, sizeConfig.id))}
                               </span>
                               <span className="text-xs text-muted-foreground">{sizeConfig.description}</span>
                             </Label>
@@ -493,7 +512,7 @@ export function ProductModal() {
                             <RadioGroupItem value="grande" id="grande" className="peer sr-only" />
                             <Label htmlFor="grande" className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-secondary transition-colors">
                               <span className="font-semibold">Grande</span>
-                              <span className="text-lg font-bold text-primary">{formatPrice(selectedProduct.priceLarge)}</span>
+                              <span className="text-lg font-bold text-primary">{formatPrice(getPizzaPriceBySize(selectedProduct, 'grande'))}</span>
                               <span className="text-xs text-muted-foreground">8 fatias</span>
                             </Label>
                           </div>
@@ -503,7 +522,7 @@ export function ProductModal() {
                             <RadioGroupItem value="broto" id="broto" className="peer sr-only" />
                             <Label htmlFor="broto" className="flex flex-col items-center justify-center p-4 border-2 rounded-xl cursor-pointer peer-data-[state=checked]:border-primary peer-data-[state=checked]:bg-primary/5 hover:bg-secondary transition-colors">
                               <span className="font-semibold">Broto</span>
-                              <span className="text-lg font-bold text-primary">{formatPrice(selectedProduct.priceSmall)}</span>
+                              <span className="text-lg font-bold text-primary">{formatPrice(getPizzaPriceBySize(selectedProduct, 'broto'))}</span>
                               <span className="text-xs text-muted-foreground">4 fatias</span>
                             </Label>
                           </div>
