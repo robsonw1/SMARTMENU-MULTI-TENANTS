@@ -562,8 +562,7 @@ export function PaymentSettingsPanel() {
       <Alert className="bg-blue-50 border-blue-200">
         <AlertCircle className="h-4 w-4 text-blue-600" />
         <AlertDescription className="text-blue-800">
-          <strong>🚀 Faça um pagamento via pix após configurado:</strong> Cada estabelecimento utiliza sua própria conta Mercado Pago. 
-          Você não intermedia pagamentos, apenas fornece a plataforma + suporte técnico.
+          <strong>🚀 IMPORTANTE!:</strong> Faça um TESTE depagamento via PIX e aguarde a confirmação de pagamento antes de atender seus clientes
         </AlertDescription>
       </Alert>
     </div>
