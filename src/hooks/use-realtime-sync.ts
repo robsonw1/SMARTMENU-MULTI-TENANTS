@@ -136,7 +136,15 @@ export const useRealtimeSync = (adminTenantIdProp?: string) => {
               continue;
             }
             
-            catalogStore.upsertProduct(parseProductFromSupabase(product));
+            const parsed = parseProductFromSupabase(product);
+            console.log('🔄 [PRODUCTS-POLLING] Sincronizando produto:', {
+              id: parsed.id,
+              name: parsed.name,
+              pricesBySize: parsed.pricesBySize,
+              priceSmall: parsed.priceSmall,
+              priceLarge: parsed.priceLarge,
+            });
+            catalogStore.upsertProduct(parsed);
           }
           
           // ✅ Detectar e remover produtos que foram deletados no banco
@@ -260,7 +268,13 @@ export const useRealtimeSync = (adminTenantIdProp?: string) => {
           
           if (payload.eventType === 'INSERT' || payload.eventType === 'UPDATE') {
             const product = parseProductFromSupabase(payload.new as any);
-            console.log('✅ Atualizando produto via webhook:', product.id, 'isActive:', product.isActive, 'price:', product.price ?? product.priceSmall);
+            console.log('✅ [WEBHOOK] Atualizando produto via webhook:', {
+              id: product.id,
+              name: product.name,
+              priceSmall: product.priceSmall,
+              priceLarge: product.priceLarge,
+              pricesBySize: product.pricesBySize,
+            });
             
             // Registrar que este produto foi sincronizado via webhook
             lastLocalProductUpdate.set(payload.new.id, Date.now() + 10000); // +10s para evitar polling logo depois
