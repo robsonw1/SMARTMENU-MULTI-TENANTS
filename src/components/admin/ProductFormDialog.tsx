@@ -104,21 +104,26 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
     setPrice(product.price != null ? String(product.price) : "");
     
     // ✅ NOVO: Preencher pricesBySize com os preços existentes do produto
-    // Suportar tanto priceSmall/priceLarge (padrão) quanto custom sizes
+    // Suportar tanto priceSmall/priceLarge (padrão) quanto custom sizes (pricesBySize novo)
     const sizePrices: Record<string, string> = {};
     
-    // Se tem priceSmall, adicionar ao mapa com ID padrão 'broto'
-    if (product.priceSmall != null) {
-      sizePrices['broto'] = String(product.priceSmall);
+    // Se tem pricesBySize (novo sistema), usar como base
+    if (product.pricesBySize && Object.keys(product.pricesBySize).length > 0) {
+      Object.entries(product.pricesBySize).forEach(([sizeId, price]) => {
+        sizePrices[sizeId] = String(price);
+      });
+    } else {
+      // Fallback para sistema legado (priceSmall/priceLarge)
+      // Se tem priceSmall, adicionar ao mapa com ID padrão 'broto'
+      if (product.priceSmall != null) {
+        sizePrices['broto'] = String(product.priceSmall);
+      }
+      
+      // Se tem priceLarge, adicionar ao mapa com ID padrão 'grande'
+      if (product.priceLarge != null) {
+        sizePrices['grande'] = String(product.priceLarge);
+      }
     }
-    
-    // Se tem priceLarge, adicionar ao mapa com ID padrão 'grande'
-    if (product.priceLarge != null) {
-      sizePrices['grande'] = String(product.priceLarge);
-    }
-    
-    // Se houver dados customizados em product.data ou outro campo, adicionar também
-    // (para suporte futuro a outras estruturas)
     
     setPricesBySize(sizePrices);
     
@@ -272,15 +277,25 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
     // Se for categoria pizza, converter os preços do mapa para priceSmall/priceLarge
     let finalPriceSmall: number | undefined;
     let finalPriceLarge: number | undefined;
+    // ✅ NOVO (07/04/2026): Converter TODOS os pricesBySize para números
+    const finalPricesBySize: Record<string, number> = {};
     
     if (isPizzaCategory) {
-      // Buscar 'broto' e 'grande' do mapa (IDs padrão)
-      finalPriceSmall = pricesBySize['broto'] ? toNumberOrUndefined(pricesBySize['broto']) : undefined;
-      finalPriceLarge = pricesBySize['grande'] ? toNumberOrUndefined(pricesBySize['grande']) : undefined;
+      // Converter todos os preços do mapa de string para number
+      Object.entries(pricesBySize).forEach(([sizeId, priceStr]) => {
+        const priceNum = toNumberOrUndefined(priceStr);
+        if (priceNum !== undefined) {
+          finalPricesBySize[sizeId] = priceNum;
+        }
+      });
+      
+      // Buscar 'broto' e 'grande' do mapa (IDs padrão) para compatibilidade legada
+      finalPriceSmall = finalPricesBySize['broto'];
+      finalPriceLarge = finalPricesBySize['grande'];
     }
 
     // Validar que ao menos um preço foi preenchido
-    if (!finalPrice && !finalPriceSmall && !finalPriceLarge) {
+    if (!finalPrice && Object.keys(finalPricesBySize).length === 0) {
       toast.error('Preencha o preço do produto');
       return;
     }
@@ -298,6 +313,8 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
       isPopular,
       priceSmall: finalPriceSmall,
       priceLarge: finalPriceLarge,
+      // ✅ NOVO: Guardar TODOS os preços customizados
+      pricesBySize: Object.keys(finalPricesBySize).length > 0 ? finalPricesBySize : undefined,
     };
 
     // ✅ NOVO: Upload de imagem se selecionada
@@ -332,6 +349,8 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
         price: nextProduct.price ?? null,
         price_small: nextProduct.priceSmall ?? null,
         price_large: nextProduct.priceLarge ?? null,
+        // ✅ NOVO: Incluir mapa completo de preços customizados
+        prices_by_size: nextProduct.pricesBySize ?? null,
         ingredients: nextProduct.ingredients || [],
         image: finalImageUrl || undefined,
         is_active: nextProduct.isActive !== false,
