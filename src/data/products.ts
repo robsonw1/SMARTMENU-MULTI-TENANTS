@@ -6,9 +6,10 @@ export interface Product {
   description: string;
   ingredients: string[];
   category: 'combos' | 'promocionais' | 'tradicionais' | 'premium' | 'especiais' | 'doces' | 'bebidas' | 'adicionais' | 'bordas';
-  priceSmall?: number; // Broto
-  priceLarge?: number; // Grande
+  priceSmall?: number; // Broto (legado)
+  priceLarge?: number; // Grande (legado)
   price?: number; // For single-price items
+  pricesBySize?: Record<string, number>; // ✅ NOVO: Mapa dinâmico de preços por tamanho (customizados)
   image?: string;
   isPopular?: boolean;
   isNew?: boolean;
