@@ -135,30 +135,31 @@ export function ProductModal() {
     }).format(price);
   };
 
+  // ✅ NOVO (07/04/2026): Helper para pegar preço de uma pizza por tamanho
+  // Suporta tanto novo sistema (pricesBySize) quanto legado (priceSmall/priceLarge)
+  // Movido para fora de calculateTotal() para ser reutilizável no JSX
+  const getPizzaPriceBySize = (pizza: Product, sizeId: string): number => {
+    // Se pizza tem pricesBySize (novo sistema), usar
+    if (pizza.pricesBySize && pizza.pricesBySize[sizeId]) {
+      return pizza.pricesBySize[sizeId];
+    }
+    
+    // Fallback para sistema legado
+    if (sizeId === 'broto' && pizza.priceSmall) {
+      return pizza.priceSmall;
+    }
+    if (sizeId === 'grande' && pizza.priceLarge) {
+      return pizza.priceLarge;
+    }
+    
+    // Se não encontrou, retorna 0 (produto sem preço)
+    return 0;
+  };
+
   const calculateTotal = () => {
     if (!selectedProduct) return 0;
 
     let total = 0;
-
-    // ✅ NOVO: Helper para pegar preço de uma pizza por tamanho
-    // Suporta tanto novo sistema (pricesBySize) quanto legado (priceSmall/priceLarge)
-    const getPizzaPriceBySize = (pizza: Product, sizeId: string): number => {
-      // Se pizza tem pricesBySize (novo sistema), usar
-      if (pizza.pricesBySize && pizza.pricesBySize[sizeId]) {
-        return pizza.pricesBySize[sizeId];
-      }
-      
-      // Fallback para sistema legado
-      if (sizeId === 'broto' && pizza.priceSmall) {
-        return pizza.priceSmall;
-      }
-      if (sizeId === 'grande' && pizza.priceLarge) {
-        return pizza.priceLarge;
-      }
-      
-      // Se não encontrou, retorna 0 (produto sem preço)
-      return 0;
-    };
 
     // Base price
     if (isPizza) {
