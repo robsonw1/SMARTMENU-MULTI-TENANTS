@@ -26,15 +26,19 @@ const parseProductFromSupabase = (supabaseData: any): Product => {
   // ✅ Determinar isActive: se está explicitamente false, é false. Caso contrário, true
   const isActive = data.is_active === true || (data.is_active !== false && data.is_active !== undefined);
   
-  console.log('🔄 Parseando produto do Realtime:', {
+  console.log('🔄 [PARSE_PRODUCT] Parseando produto do Realtime:', {
     id: supabaseData.id,
     name: supabaseData.name,
-    is_active_raw: data.is_active,
-    is_active_parsed: isActive,
+    category: data.category,
+    price_small: data.price_small,
+    price_large: data.price_large,
+    prices_by_size_raw: data.prices_by_size,
   });
   
   // ✅ NOVO (07/04/2026): Suportar pricesBySize para tamanhos customizados
   const pricesBySize = data.prices_by_size || data.pricesBySize;
+  
+  console.log('🔄 [PARSE_PRODUCT] pricesBySize lido:', pricesBySize);
   
   return {
     id: supabaseData.id,
