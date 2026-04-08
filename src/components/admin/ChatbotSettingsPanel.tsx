@@ -1,0 +1,465 @@
+import { useState, useEffect } from 'react';
+import { supabase } from '@/integrations/supabase/client';
+import { useSecureTenantId } from '@/hooks/use-secure-tenant-id';
+import { Button } from '@/components/ui/button';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Input } from '@/components/ui/input';
+import { Label } from '@/components/ui/label';
+import { Textarea } from '@/components/ui/textarea';
+import { Switch } from '@/components/ui/switch';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Badge } from '@/components/ui/badge';
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from '@/components/ui/table';
+import { MessageCircle, Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { toast } from 'sonner';
+
+// Types
+interface ChatbotConfig {
+  id: string;
+  tenant_id: string;
+  is_enabled: boolean;
+  response_timeout_seconds: number;
+  escalation_keyword: string;
+  fallback_message: string;
+  created_at: string;
+  updated_at: string;
+}
+
+interface ChatbotRule {
+  id: string;
+  chatbot_config_id: string;
+  intent: string;
+  keywords: string[];
+  pattern_regex: string;
+  response_template: string;
+  response_variation_1: string;
+  response_variation_2: string;
+  match_threshold: number;
+  enabled: boolean;
+  order_priority: number;
+  created_at: string;
+  updated_at: string;
+}
+
+const INTENT_LABELS: Record<string, string> = {
+  hours: '🕐 Horário de Atendimento',
+  menu: '📋 Cardápio Completo',
+  order_how: '📦 Como Fazer Pedido',
+  order_status: '🚗 Status do Pedido',
+  customization: '🍕 Customização',
+  payment: '💳 Formas de Pagamento',
+  delivery: '🚚 Entrega',
+  minimum_order: '💰 Valor Mínimo',
+  location: '📍 Localização',
+  contact: '📞 Contato',
+  custom: '⚙️ Customizado',
+};
+
+const INTENT_TEMPLATES: Record<string, string> = {
+  hours:
+    'Olá! 👋 Nosso horário de atendimento é:\n🕐 Segunda a Sexta: {store.hours_weekday}\n🕐 Sábado: {store.hours_saturday}\n🕐 Domingo: {store.hours_sunday}',
+  menu: 'Veja nosso cardápio completo em {store.menu_url}\n🍕 Temos pizzas, bebidas e adicionais incríveis!',
+  order_how:
+    'Para fazer um pedido, basta:\n1️⃣ Escolher seus produtos\n2️⃣ Adicionar ao carrinho\n3️⃣ Pagar (PIX, Crédito ou Débito)\n4️⃣ Pronto! Seu pedido chegará em ~{store.delivery_time} minutos',
+  order_status: 'Seu pedido #{order.id} está {order.status}\n⏱️ Tempo estimado: {order.estimated_time}',
+  payment: 'Aceitamos:\n💳 Cartão de Crédito/Débito\n🟢 PIX (Instantâneo)\n💰 Dinheiro na entrega',
+  delivery: 'Sim! Fazemos entrega dentro do bairro\n🚚 Tempo médio: {store.delivery_time} minutos\n💸 Taxa: R$ {store.delivery_fee}',
+};
+
+export const ChatbotSettingsPanel = () => {
+  const { tenantId } = useSecureTenantId();
+  const [config, setConfig] = useState<ChatbotConfig | null>(null);
+  const [rules, setRules] = useState<ChatbotRule[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  // Form state
+  const [editingRule, setEditingRule] = useState<ChatbotRule | null>(null);
+  const [showNewRuleDialog, setShowNewRuleDialog] = useState(false);
+  const [newRuleIntent, setNewRuleIntent] = useState('hours');
+  const [newRuleKeywords, setNewRuleKeywords] = useState('');
+  const [newRuleResponse, setNewRuleResponse] = useState(INTENT_TEMPLATES['hours']);
+
+  // Load data
+  useEffect(() => {
+    if (!tenantId) return;
+    loadData();
+  }, [tenantId]);
+
+  const loadData = async () => {
+    try {
+      setLoading(true);
+
+      // Load config
+      const { data: configData } = await (supabase as any)
+        .from('chatbot_configurations')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .single();
+
+      if (configData) {
+        setConfig(configData as ChatbotConfig);
+      }
+
+      // Load rules
+      if (configData) {
+        const { data: rulesData } = await (supabase as any)
+          .from('chatbot_rules')
+          .select('*')
+          .eq('chatbot_config_id', configData.id)
+          .order('order_priority', { ascending: true });
+
+        if (rulesData) {
+          setRules(rulesData as ChatbotRule[]);
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao carregar dados:', err);
+      toast.error('Erro ao carregar configurações do chatbot');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleToggleChatbot = async (enabled: boolean) => {
+    if (!config) return;
+
+    try {
+      const { error } = await (supabase as any)
+        .from('chatbot_configurations')
+        .update({ is_enabled: enabled })
+        .eq('id', config.id);
+
+      if (error) throw error;
+
+      setConfig({ ...config, is_enabled: enabled });
+      toast.success(enabled ? '✅ Chatbot ativado!' : '⏸️ Chatbot desativado');
+    } catch (err) {
+      console.error('Erro:', err);
+      toast.error('Erro ao atualizar configuração');
+    }
+  };
+
+  const handleAddRule = async () => {
+    if (!config || !newRuleKeywords.trim() || !newRuleResponse.trim()) {
+      toast.error('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      const keywords = newRuleKeywords
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+
+      const { data, error } = await (supabase as any)
+        .from('chatbot_rules')
+        .insert({
+          chatbot_config_id: config.id,
+          intent: newRuleIntent,
+          keywords,
+          response_template: newRuleResponse,
+          response_variation_1: '',
+          response_variation_2: '',
+          match_threshold: 70,
+          enabled: true,
+          order_priority: rules.length + 1,
+        })
+        .select();
+
+      if (error) throw error;
+
+      if (data) {
+        setRules([...rules, data[0] as ChatbotRule]);
+        setShowNewRuleDialog(false);
+        setNewRuleKeywords('');
+        setNewRuleResponse('');
+        toast.success('✅ Regra criada!');
+      }
+    } catch (err) {
+      console.error('Erro:', err);
+      toast.error('Erro ao criar regra');
+    }
+  };
+
+  const handleDeleteRule = async (ruleId: string) => {
+    if (!window.confirm('Tem certeza que deseja deletar esta regra?')) return;
+
+    try {
+      const { error } = await (supabase as any)
+        .from('chatbot_rules')
+        .delete()
+        .eq('id', ruleId);
+
+      if (error) throw error;
+
+      setRules(rules.filter((r) => r.id !== ruleId));
+      toast.success('✅ Regra deletada');
+    } catch (err) {
+      console.error('Erro:', err);
+      toast.error('Erro ao deletar regra');
+    }
+  };
+
+  const handleToggleRule = async (rule: ChatbotRule) => {
+    try {
+      const { error } = await (supabase as any)
+        .from('chatbot_rules')
+        .update({ enabled: !rule.enabled })
+        .eq('id', rule.id);
+
+      if (error) throw error;
+
+      setRules(
+        rules.map((r) => (r.id === rule.id ? { ...r, enabled: !r.enabled } : r))
+      );
+      toast.success(rule.enabled ? '✅ Regra desativada' : '✅ Regra ativada');
+    } catch (err) {
+      console.error('Erro:', err);
+      toast.error('Erro ao atualizar regra');
+    }
+  };
+
+  if (loading) {
+    return <div className="p-6">Carregando...</div>;
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-3xl font-bold flex items-center gap-2">
+            <MessageCircle className="w-8 h-8" />
+            Chatbot Inteligente
+          </h2>
+          <p className="text-muted-foreground mt-1">
+            Configure respostas automáticas para perguntas frequentes
+          </p>
+        </div>
+      </div>
+
+      {/* Main Tabs */}
+      <Tabs defaultValue="config" className="w-full">
+        <TabsList className="grid w-full grid-cols-2">
+          <TabsTrigger value="config">⚙️ Configurações</TabsTrigger>
+          <TabsTrigger value="rules">📋 Regras ({rules.length})</TabsTrigger>
+        </TabsList>
+
+        {/* CONFIGURATION TAB */}
+        <TabsContent value="config" className="space-y-6">
+          <Card>
+            <CardHeader>
+              <CardTitle>Status do Chatbot</CardTitle>
+              <CardDescription>Ative ou desative o chatbot para sua loja</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              {config && (
+                <>
+                  <div className="flex items-center justify-between p-4 bg-accent rounded-lg">
+                    <div>
+                      <h3 className="font-semibold">Habilitar Chatbot</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {config.is_enabled ? '✅ Chatbot está ativo' : '⏸️ Chatbot desativado'}
+                      </p>
+                    </div>
+                    <Switch checked={config.is_enabled} onCheckedChange={handleToggleChatbot} />
+                  </div>
+
+                  {/* Settings */}
+                  <div className="space-y-4">
+                    <div>
+                      <Label>Timeout de Resposta (segundos)</Label>
+                      <Input
+                        value={config.response_timeout_seconds}
+                        readOnly
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Palavr-chave para Escalar</Label>
+                      <Input
+                        value={config.escalation_keyword}
+                        readOnly
+                        className="mt-1"
+                      />
+                    </div>
+
+                    <div>
+                      <Label>Mensagem Padrão (sem match)</Label>
+                      <Textarea
+                        value={config.fallback_message}
+                        readOnly
+                        className="mt-1"
+                        rows={3}
+                      />
+                    </div>
+                  </div>
+                </>
+              )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* RULES TAB */}
+        <TabsContent value="rules" className="space-y-6">
+          <div className="flex justify-between items-center">
+            <div>
+              <h3 className="text-lg font-semibold">Regras de FAQ</h3>
+              <p className="text-sm text-muted-foreground">
+                Defina padrões e respostas automáticas para cada tipo de pergunta
+              </p>
+            </div>
+
+            <Dialog open={showNewRuleDialog} onOpenChange={setShowNewRuleDialog}>
+              <DialogTrigger asChild>
+                <Button>
+                  <Plus className="w-4 h-4 mr-2" />
+                  Nova Regra
+                </Button>
+              </DialogTrigger>
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Criar Nova Regra</DialogTitle>
+                  <DialogDescription>
+                    Defina um padrão de perguntas e suas respostas automáticas
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>Tipo de Pergunta</Label>
+                    <Select value={newRuleIntent} onValueChange={setNewRuleIntent}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(INTENT_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Palavras-chave (separadas por vírgula)</Label>
+                    <Textarea
+                      placeholder="horário, abre quando, que horas, quando abre"
+                      value={newRuleKeywords}
+                      onChange={(e) => setNewRuleKeywords(e.target.value)}
+                      className="mt-1"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Resposta Automática</Label>
+                    <Textarea
+                      placeholder="Escreva a resposta que será enviada..."
+                      value={newRuleResponse}
+                      onChange={(e) => setNewRuleResponse(e.target.value)}
+                      className="mt-1"
+                      rows={4}
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleAddRule}
+                    className="w-full"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Salvar Regra
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+
+          {/* Rules Table */}
+          <Card>
+            <CardContent className="p-0">
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Tipo</TableHead>
+                    <TableHead>Palavras-chave</TableHead>
+                    <TableHead>Status</TableHead>
+                    <TableHead>Ações</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {rules.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                        Nenhuma regra criada. Crie uma para começar! 🚀
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    rules.map((rule) => (
+                      <TableRow key={rule.id}>
+                        <TableCell>
+                          <Badge variant="outline">{INTENT_LABELS[rule.intent] || rule.intent}</Badge>
+                        </TableCell>
+                        <TableCell className="text-sm">
+                          {rule.keywords.slice(0, 2).join(', ')}
+                          {rule.keywords.length > 2 && ` (+${rule.keywords.length - 2})`}
+                        </TableCell>
+                        <TableCell>
+                          <Badge
+                            variant={rule.enabled ? 'default' : 'secondary'}
+                          >
+                            {rule.enabled ? '✅ Ativa' : '⏸️ Inativa'}
+                          </Badge>
+                        </TableCell>
+                        <TableCell className="text-right space-x-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleToggleRule(rule)}
+                          >
+                            {rule.enabled ? '⏸️' : '▶️'}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleDeleteRule(rule.id)}
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </CardContent>
+          </Card>
+        </TabsContent>
+      </Tabs>
+    </div>
+  );
+};
