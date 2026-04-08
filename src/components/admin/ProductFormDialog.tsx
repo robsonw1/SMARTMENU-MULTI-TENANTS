@@ -103,39 +103,43 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
     // Pre-fill price fields based on product type
     setPrice(product.price != null ? String(product.price) : "");
     
-    // ✅ NOVO: Preencher pricesBySize com os preços existentes do produto
-    // Suportar tanto priceSmall/priceLarge (padrão) quanto custom sizes (pricesBySize novo)
+    // ✅ CONSOLIDADO (07/04/2026): Preencher pricesBySize com sincronização com sizes_config
+    // Isso garante que ambos existentes E novos tamanhos aparecem nos inputs
     const sizePrices: Record<string, string> = {};
     
-    console.log('📝 [EDIT_LOAD] Carregando produto para editar:', {
-      productId: product.id,
-      productName: product.name,
-      pricesBySize: product.pricesBySize,
-      priceSmall: product.priceSmall,
-      priceLarge: product.priceLarge,
-    });
-    
-    // Se tem pricesBySize (novo sistema), usar como base
+    // Passo 1: Carregar dados existentes (novo sistema ou legado)
     if (product.pricesBySize && Object.keys(product.pricesBySize).length > 0) {
-      console.log('📝 [EDIT_LOAD] ✅ Usando pricesBySize:', product.pricesBySize);
+      console.log('📝 [EDIT] Usando pricesBySize existente:', product.pricesBySize);
       Object.entries(product.pricesBySize).forEach(([sizeId, price]) => {
         sizePrices[sizeId] = String(price);
       });
     } else {
       // Fallback para sistema legado (priceSmall/priceLarge)
-      console.log('📝 [EDIT_LOAD] ⚠️ Usando fallback legado (priceSmall/priceLarge)');
-      // Se tem priceSmall, adicionar ao mapa com ID padrão 'broto'
+      console.log('📝 [EDIT] Usando fallback legado (priceSmall/priceLarge)');
       if (product.priceSmall != null) {
         sizePrices['broto'] = String(product.priceSmall);
       }
-      
-      // Se tem priceLarge, adicionar ao mapa com ID padrão 'grande'
       if (product.priceLarge != null) {
         sizePrices['grande'] = String(product.priceLarge);
       }
     }
     
-    console.log('📝 [EDIT_LOAD] sizePrices finais:', sizePrices);
+    // Passo 2: SINCRONIZAR com TODOS os tamanhos de sizes_config
+    // Garante que novos/customizados aparecem nos inputs mesmo se vazios ou já preenchidos
+    if (settingsForm.sizes_config && Array.isArray(settingsForm.sizes_config)) {
+      console.log('📝 [EDIT] Sincronizando com sizes_config:', settingsForm.sizes_config);
+      settingsForm.sizes_config.forEach((size: any) => {
+        if (size.isActive) {
+          // Se tamanho está ativo e NÃO tem preço, adicionar vazio
+          if (!sizePrices.hasOwnProperty(size.id)) {
+            console.log(`  └─ Novo tamanho encontrado: ${size.id}, adicionando vazio`);
+            sizePrices[size.id] = '';
+          }
+        }
+      });
+    }
+    
+    console.log('📝 [EDIT] sizePrices final para renderizar:', sizePrices);
     setPricesBySize(sizePrices);
     
     // ✅ NOVO: Pre-fill imagem se tiver
@@ -146,36 +150,7 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
       setExistingImageUrl(null);
       setEnableImages(false);
     }
-  }, [open, product]);
-
-  // ✅ NOVO (07/04/2026): UseEffect para sincronizar pricesBySize quando sizes_config muda
-  // Isso garante que quando novos tamanhos são adicionados via "Gerenciar Tamanhos",
-  // os inputs aparecem e funcionam corretamente no ProductFormDialog
-  useEffect(() => {
-    if (!open) return;
-    if (!isPizzaCategory) return;
-    
-    // Se não há sizes_config ou está vazio, não fazer nada
-    if (!settingsForm.sizes_config || settingsForm.sizes_config.length === 0) {
-      return;
-    }
-
-    // Garantir que pricesBySize tem entradas para todos os tamanhos ativos
-    // Mantém valores já digitados mas adiciona tamanhos novos
-    const updatedPrices: Record<string, string> = { ...pricesBySize };
-    
-    settingsForm.sizes_config.forEach((size: any) => {
-      if (size.isActive && !updatedPrices.hasOwnProperty(size.id)) {
-        // Novo tamanho foi adicionado, mas não tem preço yet
-        updatedPrices[size.id] = '';
-      }
-    });
-
-    // Só atualizar se houve mudança (evita re-renders desnecessários)
-    if (Object.keys(updatedPrices).length > Object.keys(pricesBySize).length) {
-      setPricesBySize(updatedPrices);
-    }
-  }, [open, settingsForm.sizes_config, isPizzaCategory, pricesBySize]);
+  }, [open, product, settingsForm.sizes_config]); // ✅ IMPORTANTE: Adicionar sizes_config como dependency
 
   const reset = () => {
     setName("");
@@ -374,7 +349,9 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
         is_new: nextProduct.isNew || false,
       };
 
-      const { error } = await (supabase as any)
+      console.log('💾 [SAVE_DB] Enviando dataJson para Supabase:', JSON.stringify(dataJson, null, 2));
+
+      const { data, error } = await (supabase as any)
         .from('products')
         .upsert({
           id: nextProduct.id,
@@ -383,13 +360,15 @@ export function ProductFormDialog({ open, onOpenChange, product, tenantId }: Pro
           tenant_id: tenantId,
         }, { onConflict: 'id' });
 
+      console.log('💾 [SAVE_DB] Resposta do upsert:', { data, error });
+
       if (error) {
         toast.error('Erro ao salvar produto no banco');
-        console.error('Erro Supabase:', error);
+        console.error('❌ Erro Supabase:', error);
         return;
       }
 
-      console.log(`✅ [SAVE] Produto ${nextProduct.id} salvo com imagem: ${finalImageUrl}`);
+      console.log(`✅ [SAVE_DB_SUCCESS] Produto ${nextProduct.id} DEFINITIVAMENTE salvo no banco com prices_by_size:`, nextProduct.pricesBySize);
       toast.success(isEdit ? 'Produto atualizado!' : 'Produto criado!');
     } catch (error) {
       toast.error('Erro ao salvar produto');
