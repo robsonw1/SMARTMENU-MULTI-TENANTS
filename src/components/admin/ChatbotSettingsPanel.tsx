@@ -132,28 +132,25 @@ export const ChatbotSettingsPanel = () => {
 
       let finalConfig = configData?.[0] as ChatbotConfig | null;
 
-      // ✅ FALLBACK: Se não houver config, criar uma
+      // ✅ FALLBACK: Se não houver config, criar uma via RPC (contorna RLS)
       if (!finalConfig) {
-        console.warn('⚠️ Nenhuma config encontrada. Criando fallback...');
-        const { data: newConfig, error: createError } = await (supabase as any)
-          .from('chatbot_configurations')
-          .insert({
-            tenant_id: tenantId,
-            is_enabled: false,
-            response_timeout_seconds: 30,
-            escalation_keyword: 'atendente',
-            fallback_message: 'Desculpe, não consegui entender. Gostaria de falar com um atendente?',
-          })
-          .select()
-          .single();
+        console.warn('⚠️ Nenhuma config encontrada. Criando via RPC function...');
+        const { data: rpcResult, error: rpcError } = await (supabase as any)
+          .rpc('create_chatbot_config', {
+            p_tenant_id: tenantId,
+          });
 
-        if (createError) {
-          console.error('❌ Erro ao criar config fallback:', createError);
-          throw new Error(`Não foi possível carregar/criar configuração do chatbot: ${createError.message}`);
+        if (rpcError) {
+          console.error('❌ Erro ao criar config via RPC:', rpcError);
+          throw new Error(`Não foi possível criar configuração do chatbot: ${rpcError.message}`);
         }
 
-        finalConfig = newConfig as ChatbotConfig;
-        console.log('✅ Config criada com sucesso!');
+        if (rpcResult && rpcResult.length > 0) {
+          finalConfig = rpcResult[0] as ChatbotConfig;
+          console.log('✅ Config criada com sucesso via RPC!', { id: finalConfig.id, tenant_id: finalConfig.tenant_id });
+        } else {
+          throw new Error('RPC não retornou dados de configuração');
+        }
       }
 
       if (finalConfig) {
