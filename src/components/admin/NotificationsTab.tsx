@@ -106,6 +106,66 @@ export const NotificationsTab = () => {
     }
   }, [authTenantId]);
 
+  // ✅ NOVA: Real-time listener permanente para atualizações de instâncias
+  useEffect(() => {
+    if (!authTenantId) return;
+
+    const subscription = (supabase as any)
+      .channel(`whatsapp_instances_${authTenantId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'whatsapp_instances',
+          filter: `tenant_id=eq.${authTenantId}`,
+        },
+        (payload: any) => {
+          console.log('🔔 Real-time update recebido:', payload);
+          
+          // Atualizar instância específica em tempo real
+          if (payload.eventType === 'UPDATE' && payload.new?.id) {
+            const updatedInstance = payload.new as WhatsAppInstance;
+            setInstances((prev) =>
+              prev.map((inst) =>
+                inst.id === updatedInstance.id ? updatedInstance : inst
+              )
+            );
+            
+            // Se conectou, mostrar notificação
+            if (updatedInstance.is_connected && !instances.find(i => i.id === updatedInstance.id)?.is_connected) {
+              toast.success(`✅ ${updatedInstance.establishment_name} conectado com sucesso!`);
+            }
+          } else {
+            // Para INSERT/DELETE, recarregar lista
+            loadInstances();
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log('📡 Real-time subscription status:', status);
+      });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [authTenantId]);
+
+  // ✅ NOVA: Auto-polling enquanto aguarda conexão
+  useEffect(() => {
+    // Se há instâncias aguardando conexão, fazer polling a cada 5 segundos
+    const hasWaitingInstances = instances.some(inst => !inst.is_connected);
+    
+    if (!hasWaitingInstances) return;
+
+    const interval = setInterval(() => {
+      console.log('🔄 Polling para instâncias aguardando conexão...');
+      loadInstances();
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [instances]);
+
   const loadInstances = async () => {
     if (!authTenantId) return;
     
@@ -119,27 +179,6 @@ export const NotificationsTab = () => {
 
       if (error) throw error;
       setInstances(data as WhatsAppInstance[]);
-      
-      // Subscribe to realtime changes
-      const subscription = (supabase as any)
-        .channel('whatsapp_instances_changes')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'whatsapp_instances',
-          },
-          (payload: any) => {
-            console.log('Instance updated:', payload);
-            if (authTenantId) loadInstances(); // Recarregar quando há mudanças
-          }
-        )
-        .subscribe();
-
-      return () => {
-        subscription.unsubscribe();
-      };
     } catch (err) {
       console.error('Erro ao carregar instâncias:', err);
       toast.error('Erro ao carregar instâncias de WhatsApp');
