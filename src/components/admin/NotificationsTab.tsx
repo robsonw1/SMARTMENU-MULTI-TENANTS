@@ -252,6 +252,14 @@ export const NotificationsTab = () => {
 
       if (data?.success) {
         toast.success('Instance de WhatsApp criada com sucesso! Clique em "Criar conexão" para escanear o QR code');
+        
+        // Mostrar informação sobre webhook
+        if (data?.webhook_configured) {
+          toast.success('✅ Webhook de chatbot já configurado automaticamente! Chatbot pronto para usar.');
+        } else if (data?.webhook_info) {
+          console.warn('⚠️ Webhook Info:', data.webhook_info);
+        }
+        
         setEstablishmentName('');
         setOpenModal(false);
         await loadInstances();
