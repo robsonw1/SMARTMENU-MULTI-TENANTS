@@ -366,6 +366,75 @@ Nota: O admin da plataforma está configurando o webhook manualmente.`;
     }
   };
 
+  const handleEditRule = (rule: ChatbotRule) => {
+    setEditingRule(rule);
+    setNewRuleIntent(rule.intent);
+    setNewRuleKeywords(rule.keywords.join(', '));
+    setNewRuleResponse(rule.response_template);
+  };
+
+  const handleUpdateRule = async () => {
+    if (!editingRule) return;
+
+    if (!newRuleKeywords.trim()) {
+      toast.error('Adicione pelo menos uma palavra-chave');
+      return;
+    }
+
+    if (!newRuleResponse.trim()) {
+      toast.error('Escreva uma resposta automática');
+      return;
+    }
+
+    try {
+      const keywords = newRuleKeywords
+        .split(',')
+        .map((k) => k.trim())
+        .filter(Boolean);
+
+      const { error } = await (supabase as any)
+        .from('chatbot_rules')
+        .update({
+          intent: newRuleIntent,
+          keywords,
+          response_template: newRuleResponse,
+        })
+        .eq('id', editingRule.id);
+
+      if (error) throw error;
+
+      setRules(
+        rules.map((r) =>
+          r.id === editingRule.id
+            ? {
+                ...r,
+                intent: newRuleIntent,
+                keywords,
+                response_template: newRuleResponse,
+              }
+            : r
+        )
+      );
+
+      setEditingRule(null);
+      setNewRuleKeywords('');
+      setNewRuleIntent('hours');
+      setNewRuleResponse(INTENT_TEMPLATES['hours']);
+      toast.success('✅ Regra atualizada com sucesso!');
+    } catch (err) {
+      console.error('Erro ao atualizar regra:', err);
+      const errorMsg = (err as any)?.message || 'Erro desconhecido';
+
+      if (errorMsg.includes('RLS')) {
+        toast.error('❌ Erro de permissão. Você está autenticado?');
+      } else if (errorMsg.includes('401') || errorMsg.includes('403')) {
+        toast.error('❌ Autenticação expirou. Faça login novamente.');
+      } else {
+        toast.error(`❌ Erro ao atualizar regra: ${errorMsg}`);
+      }
+    }
+  };
+
   if (loading) {
     return <div className="p-6">Carregando...</div>;
   }
@@ -568,6 +637,76 @@ Nota: O admin da plataforma está configurando o webhook manualmente.`;
                 </div>
               </DialogContent>
             </Dialog>
+
+            {/* EDIT RULE DIALOG */}
+            <Dialog
+              open={!!editingRule}
+              onOpenChange={(open) => {
+                if (!open) {
+                  setEditingRule(null);
+                  setNewRuleKeywords('');
+                  setNewRuleIntent('hours');
+                  setNewRuleResponse(INTENT_TEMPLATES['hours']);
+                }
+              }}
+            >
+              <DialogContent className="max-w-2xl">
+                <DialogHeader>
+                  <DialogTitle>Editar Regra</DialogTitle>
+                  <DialogDescription>
+                    Modifique as palavras-chave e respostas desta regra
+                  </DialogDescription>
+                </DialogHeader>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label>Tipo de Pergunta</Label>
+                    <Select value={newRuleIntent} onValueChange={setNewRuleIntent}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Object.entries(INTENT_LABELS).map(([key, label]) => (
+                          <SelectItem key={key} value={key}>
+                            {label}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label>Palavras-chave (separadas por vírgula)</Label>
+                    <Textarea
+                      placeholder={KEYWORD_EXAMPLES[newRuleIntent] || 'palavra-chave1, palavra-chave2, palavra-chave3'}
+                      value={newRuleKeywords}
+                      onChange={(e) => setNewRuleKeywords(e.target.value)}
+                      className="mt-1"
+                      rows={2}
+                    />
+                  </div>
+
+                  <div>
+                    <Label>Resposta Automática</Label>
+                    <Textarea
+                      placeholder="Escreva a resposta que será enviada..."
+                      value={newRuleResponse}
+                      onChange={(e) => setNewRuleResponse(e.target.value)}
+                      className="mt-1"
+                      rows={4}
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleUpdateRule}
+                    className="w-full"
+                  >
+                    <Save className="w-4 h-4 mr-2" />
+                    Atualizar Regra
+                  </Button>
+                </div>
+              </DialogContent>
+            </Dialog>
           </div>
 
           {/* Rules Table */}
@@ -607,6 +746,14 @@ Nota: O admin da plataforma está configurando o webhook manualmente.`;
                           </Badge>
                         </TableCell>
                         <TableCell className="text-right space-x-2">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => handleEditRule(rule)}
+                            title="Editar regra"
+                          >
+                            <Edit2 className="w-4 h-4" />
+                          </Button>
                           <Button
                             size="sm"
                             variant="ghost"
