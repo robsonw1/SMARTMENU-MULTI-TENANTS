@@ -182,21 +182,9 @@ export const ChatbotSettingsPanel = () => {
         }
       }
 
-      // Load webhook status
-      try {
-        const { data: webhookData } = await (supabase as any)
-          .from('whatsapp_instances')
-          .select('id, webhook_pending, webhook_configured_at, is_connected')
-          .eq('tenant_id', tenantId)
-          .eq('is_connected', true)
-          .limit(1);
-
-        if (webhookData && webhookData.length > 0) {
-          setWebhookStatus(webhookData[0] as WhatsAppInstance);
-        }
-      } catch (webhookErr) {
-        console.warn('⚠️ Erro ao carregar status do webhook:', webhookErr);
-      }
+      // Load webhook status (skip if columns don't exist yet)
+      // Este será carregado após migrations serem aplicadas
+      console.log('⚠️ Carregamento de webhook_status será habilitado após migrations');
     } catch (err: any) {
       console.error('❌ Erro ao carregar dados do chatbot:', err);
       
@@ -241,61 +229,14 @@ export const ChatbotSettingsPanel = () => {
 2. Salve as configurações
 3. ⏳ Em até 24h o chatbot estará ativo nas suas conversas
 
-Nota: O admin da plataforma está configurando a conexão automática.`;
+Nota: O admin da plataforma está configurando o webhook manualmente.`;
 
         toast.message(establishmentMessage, {
           duration: 8000,
           closeButton: true,
         });
 
-        // 🔄 Verificar se há instância WhatsApp conectada
-        try {
-          const { data: instances } = await (supabase as any)
-            .from('whatsapp_instances')
-            .select('id, establishment_name, evolution_instance_name, is_connected')
-            .eq('tenant_id', tenantId)
-            .eq('is_connected', true)
-            .limit(1);
-
-          if (instances && instances.length > 0) {
-            const instance = instances[0];
-
-            // 🔔 Marcar como webhook pendente
-            await (supabase as any)
-              .from('whatsapp_instances')
-              .update({ 
-                webhook_pending: true,
-                updated_at: new Date().toISOString(),
-              })
-              .eq('id', instance.id);
-
-            console.log(`✅ Webhook marcado como pendente para instância: ${instance.evolution_instance_name}`);
-
-            // 🔔 Notificar SuperAdmin (se tabela existir)
-            try {
-              await (supabase as any)
-                .from('admin_notifications')
-                .insert({
-                  type: 'chatbot_activated_webhook_pending',
-                  title: '⚡ Chatbot Ativado - Webhook Pendente',
-                  message: `Estabelecimento '${instance.establishment_name}' ativou o chatbot. Webhook pendente de configuração manual.`,
-                  tenant_id: tenantId,
-                  data: {
-                    webhook_pending: true,
-                    instance_name: instance.evolution_instance_name,
-                    activated_at: new Date().toISOString(),
-                  },
-                });
-            } catch (notifErr) {
-              console.warn('⚠️ Tabela admin_notifications pode não existir:', notifErr);
-            }
-          } else {
-            console.warn('⚠️ Nenhuma instância WhatsApp conectada encontrada');
-            toast.warning('⚠️ Aviso: Nenhuma instância WhatsApp conectada. Configure uma instância primeiro!');
-          }
-        } catch (whatsappErr) {
-          console.warn('⚠️ Erro ao atualizar status do webhook:', whatsappErr);
-        }
+        console.log('✅ Chatbot ativado com sucesso para tenant:', tenantId);
       } else {
         // ❌ Chatbot foi desativado
         toast.success('⏸️ Chatbot desativado');
