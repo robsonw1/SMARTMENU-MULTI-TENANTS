@@ -86,10 +86,10 @@ const INTENT_LABELS: Record<string, string> = {
 
 const KEYWORD_EXAMPLES: Record<string, string> = {
   hours: 'horário, abre quando, que horas, quando abre',
-  menu: 'cardápio, menu, o que vocês têm, prato do dia',
+  menu: 'cardápio, menu, catálogo, o que vocês têm, prato do dia',
   order_how: 'como pedir, como faço, como encomendar, passo a passo',
-  order_status: 'meu pedido, onde está, quando chega, status pedido',
-  customization: 'personalizar, sem..., com..., mudança',
+  order_status: 'ta acaminho, já saiu, meu pedido, onde está, quando chega, status pedido',
+  customization: 'personalizar, aceita vale refeição, sem..., com..., mudança',
   payment: 'pagar, pagamento, cartão, aceita pix',
   delivery: 'entrega, delivery, frete, taxa envio',
   minimum_order: 'valor mínimo, mínimo pedido, qual mínimo',
@@ -102,11 +102,15 @@ const INTENT_TEMPLATES: Record<string, string> = {
   hours:
     'Olá! 👋 Nosso horário de atendimento é:\n🕐 Segunda a Sexta: {store.hours_weekday}\n🕐 Sábado: {store.hours_saturday}\n🕐 Domingo: {store.hours_sunday}',
   menu: 'Veja nosso cardápio completo de hoje:\n{store.url}\n\n📱 Peça online em nosso APP e Ganhe 2% de Cashback a cada compra!\n\n',
-  order_how: 'Basta acessar nosso APP:\n{store.url}\n\n1️⃣ Escolher seus produtos\n2️⃣ Adicionar ao carrinho\n3️⃣ Escolher forma de pagamento (PIX, Crédito, Débito ou Dinheiro)\n4️⃣ Pronto! Seu pedido chegará em ~{store.delivery_time} minutos',
+  order_how: '📱 Basta acessar nosso APP:\n{store.url}\n\n1️⃣ Escolher seus produtos\n2️⃣ Adicionar ao carrinho\n3️⃣ Escolher forma de pagamento (PIX, Crédito, Débito ou Dinheiro)\n4️⃣ Pronto! Seu pedido chegará em ~{store.delivery_time} minutos',
   order_status: 'Motoboy já está na rua com seu pedido\n⏱️ Tempo estimado: {order.estimated_time}',
   payment: 'Aceitamos:\n💳 Cartão de Crédito/Débito\n🟢 PIX (Instantânico)\n💰 Dinheiro na entrega',
-  delivery: 'Sim! Fazemos entrega dentro do bairro.\n\n Faça seu pedido em nosso APP e selecione o bairro:\n{store.url}\n\n🚚 Tempo médio: {store.delivery_time} minutos\n💸 Taxa: R$ {store.delivery_fee}',
+  delivery: 'Sim! Fazemos entrega dentro do bairro.\n\n 📱 Peça online em nosso APP:\n{store.url}\n\n🚚 Tempo médio: {store.delivery_time} minutos\n💸 Taxa: R$ {store.delivery_fee}',
   location: 'Aqui está nossa localização:\n📍 [Adicione o link da sua localização]\n\n📱 Peça pelo nosso APP crie sua conta e ganhe 2% de Cashback a cada compra!\n{store.url}',
+  customization: 'Sim, fazemos customizações! 🍕\n\nVocê pode escolher:\n✨ Remover ingredientes\n✨ Adicionar extras\n✨ Substituir ingredientes\n\n📱 Faça seu pedido personalizado em:\n{store.url}',
+  minimum_order: 'Valor mínimo para entrega: R$ [Seu valor mínimo]\n\n💡 Dica: Você pode aproveitar e pedir um Sachê ou uma Bebida para completar e ganhar 2% de Cashback!\n\n📱 Peça agora:\n{store.url}',
+  contact: 'Entre em contato conosco! 📞\n\n📞 Telefone: {store.phone}\n📍 Endereço: {store.address}\n🕐 Horários: {store.hours_weekday}\n\n📱 Também estamos no APP:\n{store.url}',
+  custom: 'Digite aqui sua resposta personalizada para esta pergunta!',
 };
 
 export const ChatbotSettingsPanel = () => {
