@@ -32,7 +32,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table';
-import { MessageCircle, Plus, Edit2, Trash2, Save, X } from 'lucide-react';
+import { MessageCircle, Plus, Edit2, Trash2, Save, X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { toast } from 'sonner';
 
 // Types
@@ -61,6 +61,13 @@ interface ChatbotRule {
   order_priority: number;
   created_at: string;
   updated_at: string;
+}
+
+interface WhatsAppInstance {
+  id: string;
+  webhook_pending: boolean;
+  webhook_configured_at: string | null;
+  is_connected: boolean;
 }
 
 const INTENT_LABELS: Record<string, string> = {
@@ -93,6 +100,7 @@ export const ChatbotSettingsPanel = () => {
   const [config, setConfig] = useState<ChatbotConfig | null>(null);
   const [rules, setRules] = useState<ChatbotRule[]>([]);
   const [loading, setLoading] = useState(true);
+  const [webhookStatus, setWebhookStatus] = useState<WhatsAppInstance | null>(null);
 
   // Form state
   const [editingRule, setEditingRule] = useState<ChatbotRule | null>(null);
@@ -173,6 +181,22 @@ export const ChatbotSettingsPanel = () => {
           console.log(`✅ ${rulesData.length} regra(s) carregada(s)`);
         }
       }
+
+      // Load webhook status
+      try {
+        const { data: webhookData } = await (supabase as any)
+          .from('whatsapp_instances')
+          .select('id, webhook_pending, webhook_configured_at, is_connected')
+          .eq('tenant_id', tenantId)
+          .eq('is_connected', true)
+          .limit(1);
+
+        if (webhookData && webhookData.length > 0) {
+          setWebhookStatus(webhookData[0] as WhatsAppInstance);
+        }
+      } catch (webhookErr) {
+        console.warn('⚠️ Erro ao carregar status do webhook:', webhookErr);
+      }
     } catch (err: any) {
       console.error('❌ Erro ao carregar dados do chatbot:', err);
       
@@ -203,7 +227,79 @@ export const ChatbotSettingsPanel = () => {
       if (error) throw error;
 
       setConfig({ ...config, is_enabled: enabled });
-      toast.success(enabled ? '✅ Chatbot ativado!' : '⏸️ Chatbot desativado');
+
+      if (enabled) {
+        // ✅ Chatbot foi ativado
+        toast.success('✅ Chatbot ativado!');
+
+        // 📋 Mostrar aviso com próximos passos para o estabelecimento
+        const establishmentMessage = `
+✅ Chatbot ativado com sucesso!
+
+📝 Próximos passos:
+1. Configure suas regras de palavras-chave e respostas
+2. Salve as configurações
+3. ⏳ Em até 24h o chatbot estará ativo nas suas conversas
+
+Nota: O admin da plataforma está configurando a conexão automática.`;
+
+        toast.message(establishmentMessage, {
+          duration: 8000,
+          closeButton: true,
+        });
+
+        // 🔄 Verificar se há instância WhatsApp conectada
+        try {
+          const { data: instances } = await (supabase as any)
+            .from('whatsapp_instances')
+            .select('id, establishment_name, evolution_instance_name, is_connected')
+            .eq('tenant_id', tenantId)
+            .eq('is_connected', true)
+            .limit(1);
+
+          if (instances && instances.length > 0) {
+            const instance = instances[0];
+
+            // 🔔 Marcar como webhook pendente
+            await (supabase as any)
+              .from('whatsapp_instances')
+              .update({ 
+                webhook_pending: true,
+                updated_at: new Date().toISOString(),
+              })
+              .eq('id', instance.id);
+
+            console.log(`✅ Webhook marcado como pendente para instância: ${instance.evolution_instance_name}`);
+
+            // 🔔 Notificar SuperAdmin (se tabela existir)
+            try {
+              await (supabase as any)
+                .from('admin_notifications')
+                .insert({
+                  type: 'chatbot_activated_webhook_pending',
+                  title: '⚡ Chatbot Ativado - Webhook Pendente',
+                  message: `Estabelecimento '${instance.establishment_name}' ativou o chatbot. Webhook pendente de configuração manual.`,
+                  tenant_id: tenantId,
+                  data: {
+                    webhook_pending: true,
+                    instance_name: instance.evolution_instance_name,
+                    activated_at: new Date().toISOString(),
+                  },
+                });
+            } catch (notifErr) {
+              console.warn('⚠️ Tabela admin_notifications pode não existir:', notifErr);
+            }
+          } else {
+            console.warn('⚠️ Nenhuma instância WhatsApp conectada encontrada');
+            toast.warning('⚠️ Aviso: Nenhuma instância WhatsApp conectada. Configure uma instância primeiro!');
+          }
+        } catch (whatsappErr) {
+          console.warn('⚠️ Erro ao atualizar status do webhook:', whatsappErr);
+        }
+      } else {
+        // ❌ Chatbot foi desativado
+        toast.success('⏸️ Chatbot desativado');
+      }
     } catch (err) {
       console.error('Erro:', err);
       toast.error('Erro ao atualizar configuração');
@@ -356,6 +452,41 @@ export const ChatbotSettingsPanel = () => {
                     </div>
                     <Switch checked={config.is_enabled} onCheckedChange={handleToggleChatbot} />
                   </div>
+
+                  {/* ⚡ WEBHOOK STATUS WARNING */}
+                  {config.is_enabled && (
+                    webhookStatus?.webhook_pending ? (
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg space-y-2">
+                        <div className="flex items-start gap-2">
+                          <div className="text-lg">🔄</div>
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-blue-900">Webhook em Configuração</h4>
+                            <p className="text-sm text-blue-800 mt-1">
+                              O admin da plataforma está configurando a conexão entre suas mensagens WhatsApp e o chatbot.
+                            </p>
+                            <p className="text-sm text-blue-700 mt-2 font-medium">
+                              ⏳ Tempo estimado: até 24 horas
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : webhookStatus?.webhook_configured_at ? (
+                      <div className="p-4 bg-green-50 border border-green-200 rounded-lg space-y-2">
+                        <div className="flex items-start gap-2">
+                          <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                          <div className="flex-1">
+                            <h4 className="font-semibold text-green-900">Webhook Configurado ✅</h4>
+                            <p className="text-sm text-green-800 mt-1">
+                              A conexão com suas mensagens WhatsApp foi configurada com sucesso!
+                            </p>
+                            <p className="text-xs text-green-700 mt-2">
+                              Configurado em: {new Date(webhookStatus.webhook_configured_at).toLocaleDateString('pt-BR')}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    ) : null
+                  )}
 
                   {/* Settings */}
                   <div className="space-y-4">
