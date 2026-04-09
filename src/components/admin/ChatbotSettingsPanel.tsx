@@ -84,15 +84,29 @@ const INTENT_LABELS: Record<string, string> = {
   custom: '⚙️ Customizado',
 };
 
+const KEYWORD_EXAMPLES: Record<string, string> = {
+  hours: 'horário, abre quando, que horas, quando abre',
+  menu: 'cardápio, menu, o que vocês têm, prato do dia',
+  order_how: 'como pedir, como faço, como encomendar, passo a passo',
+  order_status: 'meu pedido, onde está, quando chega, status pedido',
+  customization: 'personalizar, sem..., com..., mudança',
+  payment: 'pagar, pagamento, cartão, aceita pix',
+  delivery: 'entrega, delivery, frete, taxa envio',
+  minimum_order: 'valor mínimo, mínimo pedido, qual mínimo',
+  location: 'endereço, onde fica, localização, avenida',
+  contact: 'contato, telefone, whatsapp, fone',
+  custom: 'sua palavra-chave aqui',
+};
+
 const INTENT_TEMPLATES: Record<string, string> = {
   hours:
     'Olá! 👋 Nosso horário de atendimento é:\n🕐 Segunda a Sexta: {store.hours_weekday}\n🕐 Sábado: {store.hours_saturday}\n🕐 Domingo: {store.hours_sunday}',
-  menu: 'Veja nosso cardápio completo em {store.menu_url}\n🍕 Temos pizzas, bebidas e adicionais incríveis!',
-  order_how:
-    'Para fazer um pedido, basta:\n1️⃣ Escolher seus produtos\n2️⃣ Adicionar ao carrinho\n3️⃣ Pagar (PIX, Crédito ou Débito)\n4️⃣ Pronto! Seu pedido chegará em ~{store.delivery_time} minutos',
-  order_status: 'Seu pedido #{order.id} está {order.status}\n⏱️ Tempo estimado: {order.estimated_time}',
-  payment: 'Aceitamos:\n💳 Cartão de Crédito/Débito\n🟢 PIX (Instantâneo)\n💰 Dinheiro na entrega',
-  delivery: 'Sim! Fazemos entrega dentro do bairro\n🚚 Tempo médio: {store.delivery_time} minutos\n💸 Taxa: R$ {store.delivery_fee}',
+  menu: 'Veja nosso cardápio completo de hoje:\n{store.url}\n\n📱 Peça online em nosso APP e Ganhe 2% de Cashback a cada compra!\n\n',
+  order_how: 'Basta acessar nosso APP:\n{store.url}\n\n1️⃣ Escolher seus produtos\n2️⃣ Adicionar ao carrinho\n3️⃣ Escolher forma de pagamento (PIX, Crédito, Débito ou Dinheiro)\n4️⃣ Pronto! Seu pedido chegará em ~{store.delivery_time} minutos',
+  order_status: 'Motoboy já está na rua com seu pedido\n⏱️ Tempo estimado: {order.estimated_time}',
+  payment: 'Aceitamos:\n💳 Cartão de Crédito/Débito\n🟢 PIX (Instantânico)\n💰 Dinheiro na entrega',
+  delivery: 'Sim! Fazemos entrega dentro do bairro.\n\n Faça seu pedido em nosso APP e selecione o bairro:\n{store.url}\n\n🚚 Tempo médio: {store.delivery_time} minutos\n💸 Taxa: R$ {store.delivery_fee}',
+  location: 'Aqui está nossa localização:\n📍 [Adicione o link da sua localização]\n\n📱 Peça pelo nosso APP crie sua conta e ganhe 2% de Cashback a cada compra!\n{store.url}',
 };
 
 export const ChatbotSettingsPanel = () => {
@@ -521,7 +535,7 @@ Nota: O admin da plataforma está configurando o webhook manualmente.`;
                   <div>
                     <Label>Palavras-chave (separadas por vírgula)</Label>
                     <Textarea
-                      placeholder="horário, abre quando, que horas, quando abre"
+                      placeholder={KEYWORD_EXAMPLES[newRuleIntent] || 'palavra-chave1, palavra-chave2, palavra-chave3'}
                       value={newRuleKeywords}
                       onChange={(e) => setNewRuleKeywords(e.target.value)}
                       className="mt-1"
