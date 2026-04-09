@@ -41,8 +41,10 @@ interface ChatbotConfig {
   tenant_id: string;
   is_enabled: boolean;
   response_timeout_seconds: number;
-  escalation_keyword: string;
+  escalation_keywords?: string[];
   fallback_message: string;
+  pause_duration_minutes?: number;
+  auto_pause_on_escalation?: boolean;
   created_at: string;
   updated_at: string;
 }
@@ -120,6 +122,15 @@ export const ChatbotSettingsPanel = () => {
   const [loading, setLoading] = useState(true);
   const [webhookStatus, setWebhookStatus] = useState<WhatsAppInstance | null>(null);
 
+  // Form state - Editable fields
+  const [editMode, setEditMode] = useState(false);
+  const [timeoutSeconds, setTimeoutSeconds] = useState(30);
+  const [escalationKeywords, setEscalationKeywords] = useState('atendente');
+  const [fallbackMessage, setFallbackMessage] = useState('');
+  const [pauseDurationMinutes, setPauseDurationMinutes] = useState(30);
+  const [autoPauseEnabled, setAutoPauseEnabled] = useState(true);
+  const [saveLoading, setSaveLoading] = useState(false);
+
   // Form state
   const [editingRule, setEditingRule] = useState<ChatbotRule | null>(null);
   const [showNewRuleDialog, setShowNewRuleDialog] = useState(false);
@@ -181,6 +192,14 @@ export const ChatbotSettingsPanel = () => {
 
       if (finalConfig) {
         setConfig(finalConfig);
+        // ✅ Populate editable fields
+        setTimeoutSeconds(finalConfig.response_timeout_seconds || 30);
+        // Convert array to comma-separated string for editing
+        const keywordsString = (finalConfig.escalation_keywords || ['atendente']).join(', ');
+        setEscalationKeywords(keywordsString);
+        setFallbackMessage(finalConfig.fallback_message || '');
+        setPauseDurationMinutes(finalConfig.pause_duration_minutes || 30);
+        setAutoPauseEnabled(finalConfig.auto_pause_on_escalation !== false);
       }
 
       // Load rules
@@ -235,10 +254,7 @@ export const ChatbotSettingsPanel = () => {
       setConfig({ ...config, is_enabled: enabled });
 
       if (enabled) {
-        // ✅ Chatbot foi ativado
         toast.success('✅ Chatbot ativado!');
-
-        // 📋 Mostrar aviso com próximos passos para o estabelecimento
         const establishmentMessage = `
 ✅ Chatbot ativado com sucesso!
 
@@ -256,12 +272,86 @@ Nota: O admin da plataforma está configurando o webhook manualmente.`;
 
         console.log('✅ Chatbot ativado com sucesso para tenant:', tenantId);
       } else {
-        // ❌ Chatbot foi desativado
         toast.success('⏸️ Chatbot desativado');
       }
     } catch (err) {
       console.error('Erro:', err);
       toast.error('Erro ao atualizar configuração');
+    }
+  };
+
+  // ✅ NEW: Save configuration changes
+  const handleSaveConfig = async () => {
+    if (!config) return;
+
+    // Validation
+    if (!escalationKeywords.trim()) {
+      toast.error('❌ Palavras-chave não podem estar vazias');
+      return;
+    }
+    if (!fallbackMessage.trim()) {
+      toast.error('❌ Mensagem padrão não pode estar vazia');
+      return;
+    }
+    if (timeoutSeconds < 1 || timeoutSeconds > 300) {
+      toast.error('❌ Timeout deve estar entre 1 e 300 segundos');
+      return;
+    }
+    if (pauseDurationMinutes < 1 || pauseDurationMinutes > 120) {
+      toast.error('❌ Duração de pausa deve estar entre 1 e 120 minutos');
+      return;
+    }
+
+    try {
+      setSaveLoading(true);
+
+      // Convert comma-separated string to array
+      const keywordsArray = escalationKeywords
+        .split(',')
+        .map(k => k.trim())
+        .filter(k => k.length > 0);
+
+      if (keywordsArray.length === 0) {
+        toast.error('❌ Pelo menos uma palavra-chave é necessária');
+        return;
+      }
+
+      const { error } = await (supabase as any)
+        .from('chatbot_configurations')
+        .update({
+          response_timeout_seconds: timeoutSeconds,
+          escalation_keywords: keywordsArray,
+          fallback_message: fallbackMessage.trim(),
+          pause_duration_minutes: pauseDurationMinutes,
+          auto_pause_on_escalation: autoPauseEnabled,
+        })
+        .eq('id', config.id);
+
+      if (error) throw error;
+
+      // Update local state
+      setConfig({
+        ...config,
+        response_timeout_seconds: timeoutSeconds,
+        escalation_keywords: keywordsArray,
+        fallback_message: fallbackMessage.trim(),
+        pause_duration_minutes: pauseDurationMinutes,
+        auto_pause_on_escalation: autoPauseEnabled,
+      });
+
+      setEditMode(false);
+      toast.success('✅ Configurações salvas com sucesso!');
+      console.log('✅ Chatbot config atualizada:', {
+        timeout: timeoutSeconds,
+        keywords: keywordsArray,
+        pauseDuration: pauseDurationMinutes,
+        autoPause: autoPauseEnabled,
+      });
+    } catch (err: any) {
+      console.error('❌ Erro ao salvar:', err);
+      toast.error(`❌ Erro ao salvar: ${err.message || 'Desconhecido'}`);
+    } finally {
+      setSaveLoading(false);
     }
   };
 
@@ -518,33 +608,196 @@ Nota: O admin da plataforma está configurando o webhook manualmente.`;
 
                   {/* Settings */}
                   <div className="space-y-4">
-                    <div>
-                      <Label>Timeout de Resposta (segundos)</Label>
-                      <Input
-                        value={config.response_timeout_seconds}
-                        readOnly
-                        className="mt-1"
-                      />
-                    </div>
+                    {!editMode ? (
+                      // VIEW MODE
+                      <div className="space-y-4">
+                        <div>
+                          <Label className="text-sm font-medium">Timeout de Resposta</Label>
+                          <div className="mt-2 p-3 bg-muted rounded-lg text-sm">
+                            {config.response_timeout_seconds} segundos
+                          </div>
+                        </div>
 
-                    <div>
-                      <Label>Palavr-chave para Escalar</Label>
-                      <Input
-                        value={config.escalation_keyword}
-                        readOnly
-                        className="mt-1"
-                      />
-                    </div>
+                        <div>
+                          <Label className="text-sm font-medium">Palavras-chave para Escalar (atendente)</Label>
+                          <div className="mt-2 p-3 bg-muted rounded-lg text-sm font-mono">
+                            {(config.escalation_keywords || ['atendente']).map((keyword, idx) => (
+                              <div key={idx}>
+                                <Badge variant="secondary" className="mr-1 mb-1">
+                                  "{keyword}"
+                                </Badge>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
 
-                    <div>
-                      <Label>Mensagem Padrão (sem match)</Label>
-                      <Textarea
-                        value={config.fallback_message}
-                        readOnly
-                        className="mt-1"
-                        rows={3}
-                      />
-                    </div>
+                        <div>
+                          <Label className="text-sm font-medium">Mensagem Padrão</Label>
+                          <div className="mt-2 p-3 bg-muted rounded-lg text-sm whitespace-pre-wrap">
+                            {config.fallback_message}
+                          </div>
+                        </div>
+
+                        <div className="p-4 border border-blue-200 bg-blue-50 rounded-lg space-y-2">
+                          <div className="flex items-start gap-2">
+                            <div className="text-lg">⏸️</div>
+                            <div className="flex-1">
+                              <h4 className="font-semibold text-blue-900">Pausa Automática para Atendimento</h4>
+                              <p className="text-sm text-blue-800 mt-1">
+                                {config.auto_pause_on_escalation !== false
+                                  ? '✅ Ativada: Quando cliente digita a palavra-chave, o chatbot pausa automaticamente por'
+                                  : '⏸️ Desativada: O chatbot não pausa automaticamente'}
+                              </p>
+                              {config.auto_pause_on_escalation !== false && (
+                                <p className="text-sm font-medium text-blue-900 mt-2">
+                                  ⏱️ Duração: {config.pause_duration_minutes || 30} minutos
+                                </p>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-4">
+                          <Button
+                            onClick={() => setEditMode(true)}
+                            variant="outline"
+                            className="flex-1"
+                          >
+                            <Edit2 className="w-4 h-4 mr-2" />
+                            Editar Configurações
+                          </Button>
+                        </div>
+                      </div>
+                    ) : (
+                      // EDIT MODE
+                      <div className="space-y-4">
+                        <div>
+                          <Label htmlFor="timeout" className="text-sm font-medium">
+                            Timeout de Resposta (segundos)
+                          </Label>
+                          <Input
+                            id="timeout"
+                            type="number"
+                            min="1"
+                            max="300"
+                            value={timeoutSeconds}
+                            onChange={(e) => setTimeoutSeconds(Number(e.target.value))}
+                            className="mt-1"
+                            placeholder="30"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">Tempo máximo para resposta automática</p>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="keywords" className="text-sm font-medium">
+                            Palavras-chave para Escalar (múltiplas separadas por vírgula)
+                          </Label>
+                          <Input
+                            id="keywords"
+                            value={escalationKeywords}
+                            onChange={(e) => setEscalationKeywords(e.target.value)}
+                            className="mt-1"
+                            placeholder="atendente, humano, falar com pessoa, suporte"
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Cliente digita isso para falar com um atendente. Separe múltiplas palavras-chave com vírgula.
+                          </p>
+                        </div>
+
+                        <div>
+                          <Label htmlFor="fallback" className="text-sm font-medium">
+                            Mensagem Padrão (quando bot não entende)
+                          </Label>
+                          <Textarea
+                            id="fallback"
+                            value={fallbackMessage}
+                            onChange={(e) => setFallbackMessage(e.target.value)}
+                            className="mt-1"
+                            rows={3}
+                            placeholder="Desculpe, não entendi sua pergunta. Digite 'atendente' para falar com alguém..."
+                          />
+                          <p className="text-xs text-muted-foreground mt-1">
+                            Resposta quando nenhuma regra combinar
+                          </p>
+                        </div>
+
+                        {/* NEW FIELDS */}
+                        <div className="border-t pt-4 space-y-4">
+                          <h4 className="font-semibold text-sm flex items-center gap-2">
+                            <span>⏸️</span> Configurações de Pausa para Atendimento
+                          </h4>
+
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between p-3 bg-muted rounded-lg">
+                              <div>
+                                <Label htmlFor="autoPause" className="text-sm font-medium cursor-pointer">
+                                  Pausar Automaticamente ao Escalar
+                                </Label>
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Quando cliente digita a palavra-chave, pausa o chatbot
+                                </p>
+                              </div>
+                              <Switch
+                                id="autoPause"
+                                checked={autoPauseEnabled}
+                                onCheckedChange={setAutoPauseEnabled}
+                              />
+                            </div>
+
+                            {autoPauseEnabled && (
+                              <div>
+                                <Label htmlFor="pauseDuration" className="text-sm font-medium">
+                                  Duração da Pausa (minutos)
+                                </Label>
+                                <Input
+                                  id="pauseDuration"
+                                  type="number"
+                                  min="1"
+                                  max="120"
+                                  value={pauseDurationMinutes}
+                                  onChange={(e) => setPauseDurationMinutes(Number(e.target.value))}
+                                  className="mt-1"
+                                  placeholder="30"
+                                />
+                                <p className="text-xs text-muted-foreground mt-1">
+                                  Quantos minutos o chatbot fica pausado enquanto atendente conversa
+                                </p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 pt-4">
+                          <Button
+                            onClick={handleSaveConfig}
+                            disabled={saveLoading}
+                            className="flex-1"
+                          >
+                            {saveLoading ? '⏳ Salvando...' : '💾 Salvar Alterações'}
+                          </Button>
+                          <Button
+                            onClick={() => {
+                              setEditMode(false);
+                              // Reset to previous values
+                              if (config) {
+                                setTimeoutSeconds(config.response_timeout_seconds || 30);
+                                const keywordsString = (config.escalation_keywords || ['atendente']).join(', ');
+                                setEscalationKeywords(keywordsString);
+                                setFallbackMessage(config.fallback_message || '');
+                                setPauseDurationMinutes(config.pause_duration_minutes || 30);
+                                setAutoPauseEnabled(config.auto_pause_on_escalation !== false);
+                              }
+                            }}
+                            variant="outline"
+                            className="flex-1"
+                            disabled={saveLoading}
+                          >
+                            <X className="w-4 h-4 mr-2" />
+                            Cancelar
+                          </Button>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
