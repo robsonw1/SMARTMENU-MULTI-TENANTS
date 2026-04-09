@@ -115,7 +115,7 @@ const INTENT_TEMPLATES: Record<string, string> = {
   custom: 'Digite aqui sua resposta personalizada para esta pergunta!',
 };
 
-export const ChatbotSettingsPanel = () => {
+export function ChatbotSettingsPanel() {
   const { tenantId } = useSecureTenantId();
   const [config, setConfig] = useState<ChatbotConfig | null>(null);
   const [rules, setRules] = useState<ChatbotRule[]>([]);
