@@ -58,6 +58,7 @@
     AlertCircle,
     Upload,
     X,
+    Megaphone,
   } from 'lucide-react';
   import {
     Product,
@@ -86,6 +87,7 @@
   import { CouponManagementPanel } from '@/components/admin/CouponManagementPanel';
   import { PaymentSettingsPanel } from '@/components/admin/PaymentSettingsPanel';
   import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
+  import { MarketingCampaignPanel } from '@/components/admin/MarketingCampaignPanel';
   import { QRCodeDisplay } from '@/components/QRCodeDisplay';
   import { toast } from 'sonner';
   import { format, startOfDay, endOfDay } from 'date-fns';
@@ -1582,6 +1584,14 @@
                     </TabsTrigger>
 
                     <TabsTrigger
+                      value="marketing"
+                      className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
+                    >
+                      <Megaphone className="w-4 h-4" />
+                      <span className="text-sm font-medium">Marketing</span>
+                    </TabsTrigger>
+
+                    <TabsTrigger
                       value="analytics"
                       className="w-full justify-start gap-3 px-4 py-3 rounded-lg hover:bg-accent data-[state=active]:bg-primary data-[state=active]:text-primary-foreground transition-colors"
                     >
@@ -2723,6 +2733,11 @@
             {/* Chatbot Tab */}
             <TabsContent value="chatbot">
               <ChatbotSettingsPanel />
+            </TabsContent>
+
+            {/* Marketing Tab */}
+            <TabsContent value="marketing">
+              <MarketingCampaignPanel />
             </TabsContent>
 
             {/* Analytics Tab */}
