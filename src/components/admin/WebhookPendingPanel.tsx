@@ -50,12 +50,17 @@ export const WebhookPendingPanel = () => {
       setRefreshing(true);
 
       // 🔍 QUERY: Buscar todas as instâncias com webhook pendente
-      const { data, error } = await (supabase as any)
-        .from('whatsapp_instances')
-        .select('*')
-        .eq('webhook_pending', true)
-        .eq('is_connected', true)
-        .order('created_at', { ascending: false });
+      // Temporarily skip while migrations pending
+      // const { data, error } = await (supabase as any)
+      //   .from('whatsapp_instances')
+      //   .select('*')
+      //   .eq('webhook_pending', true)
+      //   .eq('is_connected', true)
+      //   .order('created_at', { ascending: false });
+      
+      // TODO: Re-enable after migrations are applied
+      const data = [];
+      const error = null;
 
       if (error) {
         console.error('❌ Erro ao buscar webhooks pendentes:', error);
