@@ -103,7 +103,7 @@ const INTENT_TEMPLATES: Record<string, string> = {
     'Olá! 👋 Nosso horário de atendimento é:\n🕐 Segunda a Sexta: {store.hours_weekday}\n🕐 Sábado: {store.hours_saturday}\n🕐 Domingo: {store.hours_sunday}',
   menu: 'Veja nosso cardápio completo de hoje:\n{store.url}\n\n📱 Peça online em nosso APP e Ganhe 2% de Cashback a cada compra!\n\n',
   order_how: '📱 Basta acessar nosso APP:\n{store.url}\n\n1️⃣ Escolher seus produtos\n2️⃣ Adicionar ao carrinho\n3️⃣ Escolher forma de pagamento (PIX, Crédito, Débito ou Dinheiro)\n4️⃣ Pronto! Seu pedido chegará em ~{store.delivery_time} minutos',
-  order_status: 'Motoboy já está na rua com seu pedido\n⏱️ Tempo estimado: {order.estimated_time}',
+  order_status: 'Motoboy já está na rua com seu pedido\n⏱️ deve chegar em 15 min',
   payment: 'Aceitamos:\n💳 Cartão de Crédito/Débito\n🟢 PIX (Instantânico)\n💰 Dinheiro na entrega',
   delivery: 'Sim! Fazemos entrega dentro do bairro.\n\n 📱 Peça online em nosso APP:\n{store.url}\n\n🚚 Tempo médio: {store.delivery_time} minutos\n💸 Taxa: R$ {store.delivery_fee}',
   location: 'Aqui está nossa localização:\n📍 [Adicione o link da sua localização]\n\n📱 Peça pelo nosso APP crie sua conta e ganhe 2% de Cashback a cada compra!\n{store.url}',
