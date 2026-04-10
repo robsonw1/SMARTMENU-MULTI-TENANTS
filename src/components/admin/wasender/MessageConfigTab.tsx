@@ -44,9 +44,15 @@ export function MessageConfigTab({ messages, onMessagesChange }: MessageConfigTa
   };
 
   const handleFileUpload = (sequence: number, files: FileList | null) => {
-    if (!files) return;
+    if (!files || files.length === 0) return;
 
     const file = files[0];
+    
+    // Validate file exists
+    if (!file) {
+      toast.error('Erro ao selecionar arquivo');
+      return;
+    }
     
     // Validate file size
     if (file.size > FILE_SIZE_LIMIT) {
