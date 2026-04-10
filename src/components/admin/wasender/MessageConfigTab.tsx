@@ -117,7 +117,7 @@ export function MessageConfigTab({ messages, onMessagesChange }: MessageConfigTa
               <CardHeader>
                 <CardTitle>
                   Mensagem {message.sequence}
-                  {messages[message.sequence - 1]?.text && (
+                  {message.text && (
                     <Badge className="ml-2" variant="outline">
                       ✓ Preenchida
                     </Badge>
