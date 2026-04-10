@@ -475,6 +475,9 @@ export function WASenderPanel() {
       // 7. Trigger Edge Function for immediate execution
       if (immediate) {
         try {
+          // Show initial toast
+          const toastId = toast.loading(`🚀 Iniciando campanha "${launchConfig.name}"...`);
+          
           const { error: funcError } = await supabase.functions.invoke(
             'process-wasender-campaigns',
             {
@@ -485,20 +488,23 @@ export function WASenderPanel() {
             }
           );
 
+          // Update toast based on response
           if (funcError) {
             console.warn('Edge Function trigger warning:', funcError);
-            toast.warning(
-              `✅ Campanha criada! Processamento pode estar em andamento...`
+            toast.dismiss(toastId);
+            toast.success(
+              `✅ Campanha criada! Processamento iniciando em background...`
             );
           } else {
+            toast.dismiss(toastId);
             toast.success(
-              `✅ Campanha "${launchConfig.name}" iniciada e processando!`
+              `✅ Campanha "${launchConfig.name}" iniciada com sucesso!\n📊 Acompanhe em tempo real abaixo...`
             );
           }
         } catch (funcErr: any) {
           console.warn('Edge Function call warning:', funcErr);
           toast.success(
-            `✅ Campanha "${launchConfig.name}" criada! Processamento iniciado...`
+            `✅ Campanha "${launchConfig.name}" criada!\n📊 Processamento em andamento...`
           );
         }
       } else {
