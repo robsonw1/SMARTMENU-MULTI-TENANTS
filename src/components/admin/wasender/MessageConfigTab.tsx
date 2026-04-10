@@ -4,12 +4,12 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
-import { Upload, X, FileAudio, Image as ImageIcon, FileText } from 'lucide-react';
+import { Upload, X, FileAudio, Image as ImageIcon, FileText, Film } from 'lucide-react';
 import { toast } from 'sonner';
 
 interface MessageAttachment {
   name: string;
-  type: 'audio' | 'image' | 'document';
+  type: 'audio' | 'image' | 'video' | 'document';
   file: File;
   icon: string;
 }
@@ -28,10 +28,16 @@ interface MessageConfigTabProps {
 const ACCEPTED_FORMATS = {
   audio: ['.ogg', '.opus', '.mp3', '.m4a'],
   image: ['.jpg', '.jpeg', '.png', '.gif', '.webp'],
+  video: ['.mp4'],
   document: ['.pdf', '.doc', '.docx', '.xls', '.xlsx'],
 };
 
-const FILE_SIZE_LIMIT = 5 * 1024 * 1024; // 5MB
+const FILE_SIZE_LIMIT = {
+  audio: 16 * 1024 * 1024,     // 16MB
+  image: 5 * 1024 * 1024,      // 5MB
+  video: 16 * 1024 * 1024,     // 16MB
+  document: 100 * 1024 * 1024, // 100MB
+};
 
 export function MessageConfigTab({ messages, onMessagesChange }: MessageConfigTabProps) {
   const handleMessageChange = (sequence: number, text: string) => {
@@ -54,18 +60,14 @@ export function MessageConfigTab({ messages, onMessagesChange }: MessageConfigTa
       return;
     }
     
-    // Validate file size
-    if (file.size > FILE_SIZE_LIMIT) {
-      toast.error('Arquivo muito grande (máx 5MB)');
-      return;
-    }
-
     // Determine file type
-    let fileType: 'audio' | 'image' | 'document' | null = null;
+    let fileType: 'audio' | 'image' | 'video' | 'document' | null = null;
     if (file.type.startsWith('audio/') || file.name.endsWith('.ogg') || file.name.endsWith('.opus')) {
       fileType = 'audio';
     } else if (file.type.startsWith('image/')) {
       fileType = 'image';
+    } else if (file.type.startsWith('video/') || file.name.endsWith('.mp4')) {
+      fileType = 'video';
     } else if (file.type === 'application/pdf' || file.name.endsWith('.pdf')) {
       fileType = 'document';
     } else if (file.type.startsWith('application/')) {
@@ -77,11 +79,26 @@ export function MessageConfigTab({ messages, onMessagesChange }: MessageConfigTa
       return;
     }
 
+    // Validate file size based on type
+    const maxSize = FILE_SIZE_LIMIT[fileType];
+    if (file.size > maxSize) {
+      const maxMB = maxSize / (1024 * 1024);
+      toast.error(`Arquivo muito grande (máx ${maxMB}MB)`);
+      return;
+    }
+
+    const iconMap = {
+      audio: '🎵',
+      image: '🖼️',
+      video: '🎬',
+      document: '📄',
+    };
+
     const attachment: MessageAttachment = {
       name: file.name,
       type: fileType,
       file: file,
-      icon: fileType === 'audio' ? '🎵' : fileType === 'image' ? '🖼️' : '📄',
+      icon: iconMap[fileType],
     };
 
     const updated = [...messages];
@@ -91,7 +108,15 @@ export function MessageConfigTab({ messages, onMessagesChange }: MessageConfigTa
       updated[idx].attachments = updated[idx].attachments.filter((a) => a.type !== fileType);
       updated[idx].attachments.push(attachment);
       onMessagesChange(updated);
-      toast.success(`✅ ${fileType === 'audio' ? 'Áudio' : fileType === 'image' ? 'Imagem' : 'Documento'} adicionado`);
+
+      const typeNames = {
+        audio: 'Áudio',
+        image: 'Imagem',
+        video: 'Vídeo',
+        document: 'Documento',
+      };
+
+      toast.success(`✅ ${typeNames[fileType]} adicionado`);
     }
   };
 
@@ -195,6 +220,34 @@ export function MessageConfigTab({ messages, onMessagesChange }: MessageConfigTa
                       .filter((a) => a.type === 'image')
                       .map((att, idx) => (
                         <div key={idx} className="mt-2 flex items-center justify-between bg-green-50 p-2 rounded">
+                          <span className="text-sm">{att.icon} {att.name}</span>
+                          <button
+                            onClick={() => handleRemoveAttachment(message.sequence, message.attachments.indexOf(att))}
+                            className="text-red-500 hover:text-red-700"
+                          >
+                            <X className="w-4 h-4" />
+                          </button>
+                        </div>
+                      ))}
+                  </div>
+
+                  {/* Video */}
+                  <div className="border-2 border-dashed border-muted rounded-lg p-4 cursor-pointer hover:border-primary transition">
+                    <label className="flex items-center gap-2 cursor-pointer">
+                      <Film className="w-4 h-4" />
+                      <span className="text-sm">Vídeo (.mp4)</span>
+                      <input
+                        type="file"
+                        accept=".mp4,video/mp4"
+                        onChange={(e) => handleFileUpload(message.sequence, e.target.files)}
+                        className="hidden"
+                      />
+                    </label>
+
+                    {message.attachments
+                      .filter((a) => a.type === 'video')
+                      .map((att, idx) => (
+                        <div key={idx} className="mt-2 flex items-center justify-between bg-purple-50 p-2 rounded">
                           <span className="text-sm">{att.icon} {att.name}</span>
                           <button
                             onClick={() => handleRemoveAttachment(message.sequence, message.attachments.indexOf(att))}
