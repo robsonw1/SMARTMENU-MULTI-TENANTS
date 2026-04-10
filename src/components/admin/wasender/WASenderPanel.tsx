@@ -374,8 +374,18 @@ export function WASenderPanel() {
             if (att.file.size === 0) {
               throw new Error(`Arquivo ${att.name} está vazio`);
             }
-            if (att.file.size > 5 * 1024 * 1024) {
-              throw new Error(`Arquivo ${att.name} excede 5MB`);
+
+            // Validate file size by type
+            const maxSizes: Record<string, number> = {
+              image: 5 * 1024 * 1024,      // 5MB
+              video: 50 * 1024 * 1024,     // 50MB
+              audio: 16 * 1024 * 1024,     // 16MB
+              document: 100 * 1024 * 1024, // 100MB
+            };
+            const maxSize = maxSizes[att.type] || 100 * 1024 * 1024;
+            if (att.file.size > maxSize) {
+              const maxMB = maxSize / (1024 * 1024);
+              throw new Error(`Arquivo ${att.name} excede ${maxMB}MB`);
             }
 
             // Sanitize and upload file
