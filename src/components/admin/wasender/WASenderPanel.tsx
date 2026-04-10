@@ -22,7 +22,7 @@ interface Contact {
 
 interface MessageAttachment {
   name: string;
-  type: 'audio' | 'image' | 'document';
+  type: 'audio' | 'image' | 'video' | 'document';
   file: File;
   icon: string;
 }
