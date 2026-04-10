@@ -393,7 +393,7 @@ export function WASenderPanel() {
                 👥 Contatos ({contacts.length})
               </TabsTrigger>
               <TabsTrigger value="messages">
-                💬 Mensagens (5)
+                💬 Mensagens ({messages.filter((m) => m.text.trim() !== '').length})
               </TabsTrigger>
               <TabsTrigger value="delays">⏱️ Atrasos</TabsTrigger>
               <TabsTrigger value="launch">🚀 Lançar</TabsTrigger>
