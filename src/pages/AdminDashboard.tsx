@@ -87,7 +87,7 @@
   import { CouponManagementPanel } from '@/components/admin/CouponManagementPanel';
   import { PaymentSettingsPanel } from '@/components/admin/PaymentSettingsPanel';
   import { AnalyticsPanel } from '@/components/admin/AnalyticsPanel';
-  import { MarketingCampaignPanel } from '@/components/admin/MarketingCampaignPanel';
+  import { WASenderPanel } from '@/components/admin/wasender/WASenderPanel';
   import { QRCodeDisplay } from '@/components/QRCodeDisplay';
   import { toast } from 'sonner';
   import { format, startOfDay, endOfDay } from 'date-fns';
@@ -2737,7 +2737,7 @@
 
             {/* Marketing Tab */}
             <TabsContent value="marketing">
-              <MarketingCampaignPanel />
+              <WASenderPanel />
             </TabsContent>
 
             {/* Analytics Tab */}
