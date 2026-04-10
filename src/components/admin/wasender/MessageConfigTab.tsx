@@ -35,7 +35,7 @@ const ACCEPTED_FORMATS = {
 const FILE_SIZE_LIMIT = {
   audio: 16 * 1024 * 1024,     // 16MB
   image: 5 * 1024 * 1024,      // 5MB
-  video: 16 * 1024 * 1024,     // 16MB
+  video: 50 * 1024 * 1024,     // 50MB
   document: 100 * 1024 * 1024, // 100MB
 };
 
