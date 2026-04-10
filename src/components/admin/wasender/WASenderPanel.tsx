@@ -106,6 +106,11 @@ export function WASenderPanel() {
     }
   };
 
+  // Helper: Sanitize filename to avoid storage errors
+  const sanitizeFileName = (fileName: string): string => {
+    return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 200);
+  };
+
   const handleCreateCampaign = async (immediate: boolean = true) => {
     if (!launchConfig.name.trim()) {
       toast.error('Digite o nome da campanha');
@@ -153,8 +158,14 @@ export function WASenderPanel() {
 
       if (contactsError) throw contactsError;
 
-      // 3. Add messages with attachments
-      for (const msg of messages) {
+      // 3. Add messages with attachments (ONLY non-empty messages)
+      const messagesWithText = messages.filter((m) => m.text.trim() !== '');
+      
+      if (messagesWithText.length === 0) {
+        throw new Error('Adicione pelo menos uma mensagem com texto');
+      }
+
+      for (const msg of messagesWithText) {
         const { data: msgData, error: msgError } = await (supabase as any)
           .from('campaign_messages_v2')
           .insert({
@@ -171,19 +182,34 @@ export function WASenderPanel() {
         // Upload attachments if any
         if (msg.attachments.length > 0) {
           for (const att of msg.attachments) {
-            // Upload file to Supabase Storage
-            const fileName = `campaigns/${campaignId}/msg${msg.sequence}/${att.name}`;
-            const { error: uploadError } = await (supabase as any).storage
-              .from('marketing-attachments')
-              .upload(fileName, att.file, { upsert: true });
+            // Validate file
+            if (att.file.size === 0) {
+              throw new Error(`Arquivo ${att.name} está vazio`);
+            }
+            if (att.file.size > 5 * 1024 * 1024) {
+              throw new Error(`Arquivo ${att.name} excede 5MB`);
+            }
 
-            if (!uploadError) {
+            // Sanitize and upload file
+            const sanitizedFileName = sanitizeFileName(att.name);
+            const fileName = `campaigns/${campaignId}/msg${msg.sequence}/${Date.now()}_${sanitizedFileName}`;
+            
+            try {
+              const { error: uploadError } = await (supabase as any).storage
+                .from('marketing-attachments')
+                .upload(fileName, att.file, { upsert: false });
+
+              if (uploadError) {
+                console.error('Storage upload error:', uploadError);
+                throw new Error(`Erro ao fazer upload de ${att.name}: ${uploadError.message}`);
+              }
+
               const { data: urlData } = (supabase as any).storage
                 .from('marketing-attachments')
                 .getPublicUrl(fileName);
 
               // Insert media record
-              await (supabase as any)
+              const { error: mediaError } = await (supabase as any)
                 .from('campaign_media_attachments')
                 .insert({
                   message_id: msgData.id,
@@ -195,13 +221,47 @@ export function WASenderPanel() {
                   file_url: urlData.publicUrl,
                   media_type: att.type,
                 });
+
+              if (mediaError) throw mediaError;
+            } catch (uploadErr: any) {
+              console.error('File upload failed:', uploadErr);
+              throw new Error(`Falha no upload: ${uploadErr.message}`);
             }
           }
         }
       }
 
-      // 4. Create delay config
-      await (supabase as any)
+      // 4. Create execution log (ONLY if immediate execution)
+      if (immediate) {
+        const executionRecords = [];
+        for (const contact of contacts) {
+          for (const msg of messagesWithText) {
+            executionRecords.push({
+              campaign_id: campaignId,
+              tenant_id: tenantId,
+              customer_phone: contact.phone,
+              customer_name: contact.name || contact.phone,
+              message_sequence: msg.sequence,
+              status: 'pending',
+              scheduled_at: new Date().toISOString(),
+            });
+          }
+        }
+
+        if (executionRecords.length > 0) {
+          const { error: execError } = await (supabase as any)
+            .from('campaign_execution_log')
+            .insert(executionRecords);
+
+          if (execError) {
+            console.warn('Execution log creation warning:', execError);
+            // Don't throw - continue anyway
+          }
+        }
+      }
+
+      // 5. Create delay config
+      const { error: delayError } = await (supabase as any)
         .from('campaign_delay_config')
         .insert({
           campaign_id: campaignId,
@@ -211,8 +271,10 @@ export function WASenderPanel() {
           delay_after_x_messages_seconds: delayConfig.delayAfterXMessageSeconds,
         });
 
-      // 5. Create analytics record
-      await (supabase as any)
+      if (delayError) console.warn('Delay config warning:', delayError);
+
+      // 6. Create analytics record
+      const { error: analyticsError } = await (supabase as any)
         .from('campaign_analytics_v2')
         .insert({
           campaign_id: campaignId,
@@ -220,9 +282,42 @@ export function WASenderPanel() {
           total_contacts: contacts.length,
         });
 
-      toast.success(
-        `✅ Campanha "${launchConfig.name}" ${immediate ? 'iniciada' : 'agendada'}!`
-      );
+      if (analyticsError) console.warn('Analytics creation warning:', analyticsError);
+
+      // 7. Trigger Edge Function for immediate execution
+      if (immediate) {
+        try {
+          const { error: funcError } = await supabase.functions.invoke(
+            'process-wasender-campaigns',
+            {
+              body: {
+                campaignId,
+                tenantId,
+              },
+            }
+          );
+
+          if (funcError) {
+            console.warn('Edge Function trigger warning:', funcError);
+            toast.warning(
+              `✅ Campanha criada! Processamento pode estar em andamento...`
+            );
+          } else {
+            toast.success(
+              `✅ Campanha "${launchConfig.name}" iniciada e processando!`
+            );
+          }
+        } catch (funcErr: any) {
+          console.warn('Edge Function call warning:', funcErr);
+          toast.success(
+            `✅ Campanha "${launchConfig.name}" criada! Processamento iniciado...`
+          );
+        }
+      } else {
+        toast.success(
+          `✅ Campanha "${launchConfig.name}" agendada com sucesso!`
+        );
+      }
 
       // Reset form
       setShowNewForm(false);
