@@ -16,6 +16,7 @@ interface LaunchTabProps {
   config: LaunchConfig;
   onConfigChange: (config: LaunchConfig) => void;
   totalContacts: number;
+  totalMessages: number;
   onSchedule: () => void;
   onLaunchNow: () => void;
   isLoading?: boolean;
@@ -25,6 +26,7 @@ export function LaunchTab({
   config,
   onConfigChange,
   totalContacts,
+  totalMessages,
   onSchedule,
   onLaunchNow,
   isLoading = false,
@@ -58,11 +60,11 @@ export function LaunchTab({
               <p className="text-xs text-muted-foreground">Contatos</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-600">5</p>
+              <p className="text-2xl font-bold text-blue-600">{totalMessages}</p>
               <p className="text-xs text-muted-foreground">Mensagens</p>
             </div>
             <div>
-              <p className="text-2xl font-bold text-blue-600">~{totalContacts * 5}</p>
+              <p className="text-2xl font-bold text-blue-600">~{totalContacts * totalMessages}</p>
               <p className="text-xs text-muted-foreground">Total de Msgs</p>
             </div>
           </div>
