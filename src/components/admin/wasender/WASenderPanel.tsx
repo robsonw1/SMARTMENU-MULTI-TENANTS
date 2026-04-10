@@ -598,6 +598,7 @@ export function WASenderPanel() {
                 config={launchConfig}
                 onConfigChange={setLaunchConfig}
                 totalContacts={contacts.length}
+                totalMessages={messages.filter((m) => m.text.trim() !== '').length}
                 onSchedule={() => setShowScheduleModal(true)}
                 onLaunchNow={() => handleCreateCampaign(true)}
                 isLoading={loading}
