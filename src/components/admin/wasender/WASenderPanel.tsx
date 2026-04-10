@@ -111,6 +111,194 @@ export function WASenderPanel() {
     return fileName.replace(/[^a-zA-Z0-9._-]/g, '_').substring(0, 200);
   };
 
+  const handleDeleteCampaign = async (campaignId: string): Promise<boolean> => {
+    if (!window.confirm('Tem certeza que deseja remover esta campanha? Todos os dados serão deletados permanentemente.')) {
+      return false;
+    }
+
+    try {
+      setLoading(true);
+
+      // Delete in cascade order (respect foreign keys)
+      
+      // 1. Delete campaign_execution_log
+      const { error: execLogsError } = await (supabase as any)
+        .from('campaign_execution_log')
+        .delete()
+        .eq('campaign_id', campaignId);
+      if (execLogsError) throw execLogsError;
+
+      // 2. Delete campaign_media_attachments
+      const { error: mediaError } = await (supabase as any)
+        .from('campaign_media_attachments')
+        .delete()
+        .eq('campaign_id', campaignId);
+      if (mediaError) throw mediaError;
+
+      // 3. Delete campaign_messages_v2
+      const { error: messagesError } = await (supabase as any)
+        .from('campaign_messages_v2')
+        .delete()
+        .eq('campaign_id', campaignId);
+      if (messagesError) throw messagesError;
+
+      // 4. Delete campaign_contact_lists
+      const { error: contactsError } = await (supabase as any)
+        .from('campaign_contact_lists')
+        .delete()
+        .eq('campaign_id', campaignId);
+      if (contactsError) throw contactsError;
+
+      // 5. Delete campaign_delay_config
+      const { error: delayError } = await (supabase as any)
+        .from('campaign_delay_config')
+        .delete()
+        .eq('campaign_id', campaignId);
+      if (delayError) throw delayError;
+
+      // 6. Delete campaign_analytics_v2
+      const { error: analyticsError } = await (supabase as any)
+        .from('campaign_analytics_v2')
+        .delete()
+        .eq('campaign_id', campaignId);
+      if (analyticsError) throw analyticsError;
+
+      // 7. Delete from storage (all files for this campaign)
+      try {
+        const { data: files, error: listError } = await (supabase as any).storage
+          .from('marketing-attachments')
+          .list(`campaigns/${campaignId}`);
+
+        if (!listError && files) {
+          for (const file of files) {
+            await (supabase as any).storage
+              .from('marketing-attachments')
+              .remove([`campaigns/${campaignId}/${file.name}`]);
+          }
+        }
+      } catch (storageErr) {
+        console.warn('Storage cleanup warning:', storageErr);
+        // Don't throw - continue anyway
+      }
+
+      // 8. Finally delete the campaign itself
+      const { error: campaignError } = await (supabase as any)
+        .from('wasender_campaigns')
+        .delete()
+        .eq('id', campaignId);
+      if (campaignError) throw campaignError;
+
+      toast.success('✅ Campanha removida completamente');
+      return true;
+    } catch (err: any) {
+      console.error('Erro ao deletar campanha:', err);
+      toast.error(`Erro ao deletar: ${err.message}`);
+      return false;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEditCampaign = async (campaignToEdit: Campaign) => {
+    try {
+      setLoading(true);
+
+      // Load campaign data for editing
+      const [contactsData, messagesData, delayData] = await Promise.all([
+        (supabase as any)
+          .from('campaign_contact_lists')
+          .select('customer_phone, customer_name, source')
+          .eq('campaign_id', campaignToEdit.id),
+        (supabase as any)
+          .from('campaign_messages_v2')
+          .select('*')
+          .eq('campaign_id', campaignToEdit.id)
+          .order('sequence_number'),
+        (supabase as any)
+          .from('campaign_delay_config')
+          .select('*')
+          .eq('campaign_id', campaignToEdit.id)
+          .single(),
+      ]);
+
+      if (contactsData.error || messagesData.error) {
+        throw new Error('Erro ao carregar dados da campanha');
+      }
+
+      // Populate form with existing data
+      setContacts(
+        (contactsData.data || []).map((c: any) => ({
+          phone: c.customer_phone,
+          name: c.customer_name,
+          source: c.source as 'manual' | 'csv' | 'excel',
+        }))
+      );
+
+      // Build messages with attachments
+      if (messagesData.data) {
+        const messagesWithAttachments = await Promise.all(
+          messagesData.data.map(async (msg: any) => {
+            const { data: attachments } = await (supabase as any)
+              .from('campaign_media_attachments')
+              .select('*')
+              .eq('message_id', msg.id);
+
+            return {
+              sequence: msg.sequence_number,
+              text: msg.message_text,
+              attachments: (attachments || []).map((att: any) => ({
+                name: att.file_name,
+                type: att.media_type as 'audio' | 'image' | 'document',
+                file: null, // Can't reconstruct File object
+                icon: att.media_type === 'audio' ? '🎵' : att.media_type === 'image' ? '🖼️' : '📄',
+              })),
+            };
+          })
+        );
+
+        setMessages(
+          Array.from({ length: 5 }, (_, i) => {
+            const existing = messagesWithAttachments.find((m) => m.sequence === i + 1);
+            return existing || { sequence: i + 1, text: '', attachments: [] };
+          })
+        );
+      }
+
+      if (delayData.data) {
+        setDelayConfig({
+          delayBeforeEachMsg: delayData.data.delay_before_each_msg_seconds,
+          delayAfterXMessages: delayData.data.delay_after_x_messages,
+          delayAfterXMessageSeconds: delayData.data.delay_after_x_messages_seconds,
+        });
+      }
+
+      setLaunchConfig({
+        name: campaignToEdit.name,
+        description: campaignToEdit.name,
+      });
+
+      setShowNewForm(true);
+      setCurrentTab('contacts');
+      setSelectedCampaign(null);
+      toast.info('Edite os dados da campanha e clique em "INICIAR AGORA" para atualizar');
+    } catch (err: any) {
+      console.error('Erro ao carregar campanha para edição:', err);
+      toast.error(`Erro: ${err.message}`);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleDeleteCampaignCallback = async () => {
+    if (selectedCampaign) {
+      const success = await handleDeleteCampaign(selectedCampaign.id);
+      if (success) {
+        loadCampaigns();
+        setSelectedCampaign(null);
+      }
+    }
+  };
+
   const handleCreateCampaign = async (immediate: boolean = true) => {
     if (!launchConfig.name.trim()) {
       toast.error('Digite o nome da campanha');
@@ -349,14 +537,8 @@ export function WASenderPanel() {
           onStatusChange={(status) => {
             setSelectedCampaign({ ...selectedCampaign, status });
           }}
-          onDelete={() => {
-            loadCampaigns();
-            setSelectedCampaign(null);
-          }}
-          onEdit={() => {
-            // Implementar edição later
-            toast.info('Edição será implementada em breve');
-          }}
+          onDelete={handleDeleteCampaignCallback}
+          onEdit={() => handleEditCampaign(selectedCampaign)}
         />
       </div>
     );
