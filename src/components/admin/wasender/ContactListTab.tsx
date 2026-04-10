@@ -13,7 +13,6 @@ import {
 } from '@/components/ui/table';
 import { Upload, Plus, Trash2, Download } from 'lucide-react';
 import { toast } from 'sonner';
-import Papa from 'papaparse';
 
 interface Contact {
   phone: string;
@@ -67,44 +66,56 @@ export function ContactListTab({ contacts, onContactsChange }: ContactListTabPro
     setFileInput(file);
 
     if (file.type === 'text/csv' || file.name.endsWith('.csv')) {
-      Papa.parse(file, {
-        header: true,
-        skipEmptyLines: true,
-        complete: (results) => {
-          try {
-            const parsed = results.data as any[];
-            const newContacts: Contact[] = [];
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const csv = e.target?.result as string;
+          const lines = csv.trim().split('\n');
+          const newContacts: Contact[] = [];
 
-            parsed.forEach((row) => {
-              const phone = row.phone || row.Telefone || row.número || row.phone;
-              const name = row.name || row.Nome || row.name || 'Contato';
+          // Skip header row
+          const isHeader = (line: string) => {
+            const lower = line.toLowerCase();
+            return lower.includes('telefone') || lower.includes('number') || lower.includes('phone');
+          };
 
-              if (phone) {
-                const phoneClean = phone.toString().replace(/\D/g, '');
-                if (phoneClean.length >= 10) {
-                  if (!contacts.some((c) => c.phone === phoneClean)) {
-                    newContacts.push({
-                      phone: phoneClean,
-                      name: name.toString(),
-                      source: 'csv',
-                    });
-                  }
-                }
-              }
-            });
-
-            onContactsChange([...contacts, ...newContacts]);
-            toast.success(`✅ ${newContacts.length} contatos importados do CSV`);
-          } catch (err) {
-            toast.error('Erro ao processar CSV');
+          let startIdx = 0;
+          if (lines.length > 0 && isHeader(lines[0])) {
+            startIdx = 1;
           }
-        },
-        error: () => {
-          toast.error('Erro ao ler arquivo CSV');
-        },
-      });
+
+          for (let i = startIdx; i < lines.length; i++) {
+            const line = lines[i].trim();
+            if (!line) continue;
+
+            // Split by comma or semicolon
+            const parts = line.includes(';')
+              ? line.split(';').map((p) => p.trim())
+              : line.split(',').map((p) => p.trim());
+
+            const phone = parts[0]?.replace(/\D/g, '');
+            const name = parts[1] || 'Contato';
+
+            if (phone && phone.length >= 10) {
+              if (!contacts.some((c) => c.phone === phone)) {
+                newContacts.push({
+                  phone,
+                  name,
+                  source: 'csv',
+                });
+              }
+            }
+          }
+
+          onContactsChange([...contacts, ...newContacts]);
+          toast.success(`✅ ${newContacts.length} contatos importados do CSV`);
+        } catch (err) {
+          toast.error('Erro ao processar CSV');
+        }
+      };
+      reader.readAsText(file);
     } else {
-      toast.error('Use arquivo CSV ou XLSX');
+      toast.error('Use arquivo CSV');
     }
   };
 
@@ -137,11 +148,11 @@ export function ContactListTab({ contacts, onContactsChange }: ContactListTabPro
         </CardHeader>
         <CardContent className="space-y-4">
           <div>
-            <Label>Fazer upload de CSV ou XLSX</Label>
+            <Label>Fazer upload de CSV</Label>
             <div className="mt-2 flex gap-2">
               <Input
                 type="file"
-                accept=".csv,.xlsx"
+                accept=".csv"
                 onChange={handleFileUpload}
                 className="flex-1"
               />
@@ -151,7 +162,7 @@ export function ContactListTab({ contacts, onContactsChange }: ContactListTabPro
               </Button>
             </div>
             <p className="text-xs text-muted-foreground mt-2">
-              CSV/XLSX com colunas: Telefone, Nome
+              Arquivo CSV com colunas: Telefone, Nome (separadas por vírgula ou ponto-e-vírgula)
             </p>
           </div>
         </CardContent>
