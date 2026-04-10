@@ -13,7 +13,7 @@ import { supabase } from '@/integrations/supabase/client';
 
 // Cache em memória (por sessão)
 const tenantCache = new Map<string, { tenantId: string; timestamp: number }>();
-const CACHE_TTL = 5 * 60 * 1000; // 5 minutos
+const CACHE_TTL = 10 * 60 * 1000; // 10 minutos (aumentado para reduzir queries)
 
 // ✅ Fallback: Guardar user ID em sessionStorage para recuperação
 const CACHED_USER_ID_KEY = 'sb-auth-user-id';
@@ -64,11 +64,19 @@ export const useSecureTenantId = (): UseTenantResult => {
 
     const fetchTenantIdWithRetry = async () => {
       let retryCount = 0;
-      const MAX_RETRIES = 5;
+      const MAX_RETRIES = 3; // Reduzido de 5 para 3 (mais rápido)
       let lastError: Error | null = null;
+      
+      // ✅ Timeout global: 2 segundos (reduzido de 5s)
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Tenant ID resolution timeout (2s)')), 2000)
+      );
 
       // ✅ Usar singleton session (chamado UMA VEZ)
-      const { userId, error: sessionError } = await fetchSessionOnce();
+      const { userId, error: sessionError } = await Promise.race([
+        fetchSessionOnce(),
+        timeoutPromise as Promise<{ userId: string | null; error: Error | null }>
+      ]);
 
       if (sessionError) {
         if (isMounted) {
@@ -118,11 +126,16 @@ export const useSecureTenantId = (): UseTenantResult => {
           retryCount++;
           console.log(`[useSecureTenantId] Query admin_users tentativa ${retryCount}/${MAX_RETRIES}...`);
 
-          const { data: adminData, error: adminError } = await (supabase as any)
-            .from('admin_users')
-            .select('tenant_id')
-            .eq('id', userId)
-            .single();
+          const { data: adminData, error: adminError } = await Promise.race([
+            (supabase as any)
+              .from('admin_users')
+              .select('tenant_id')
+              .eq('id', userId)
+              .single(),
+            new Promise((_, reject) => 
+              setTimeout(() => reject(new Error('admin_users query timeout')), 1500)
+            )
+          ]) as any;
 
           if (adminError) {
             throw new Error(`User is not an admin or not found: ${adminError.message}`);
@@ -199,7 +212,18 @@ export const useSecureTenantId = (): UseTenantResult => {
       }
     };
 
-    fetchTenantIdWithRetry();
+    fetchTenantIdWithRetry().catch((timeoutErr) => {
+      if (isMounted) {
+        console.error('[useSecureTenantId] Fatal fetch error:', timeoutErr.message);
+        setResult({
+          tenantId: null,
+          loading: false,
+          error: timeoutErr,
+          isAuthenticated: false,
+          isAdmin: false,
+        });
+      }
+    });
 
     return () => {
       isMounted = false;
