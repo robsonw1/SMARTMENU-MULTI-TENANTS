@@ -271,44 +271,54 @@ export function WASenderPanel() {
 
       // 7. Delete from storage (all files for this campaign - recursive)
       try {
-        // Recursive function to delete all files and folders
-        const deleteStorageFolder = async (path: string) => {
-          const { data: items, error: listError } = await (supabase as any).storage
-            .from('marketing-attachments')
-            .list(path, { limit: 10000 });
-
-          if (listError) {
-            console.warn(`Erro ao listar ${path}:`, listError);
-            return;
-          }
-
-          if (!items || items.length === 0) return;
-
-          // Separate files and folders
-          const files = items.filter((item: any) => !item.id);
-          const folders = items.filter((item: any) => item.id);
-
-          // Delete all files in current path
-          if (files.length > 0) {
-            const filePaths = files.map((f: any) => `${path}/${f.name}`);
-            const { error: deleteError } = await (supabase as any).storage
+        // Collect all file paths recursively
+        const allFilePaths: string[] = [];
+        
+        const collectFilePaths = async (path: string) => {
+          try {
+            const { data: items, error: listError } = await (supabase as any).storage
               .from('marketing-attachments')
-              .remove(filePaths);
+              .list(path, { limit: 10000 });
 
-            if (deleteError) {
-              console.warn(`Erro ao deletar arquivos em ${path}:`, deleteError);
+            if (listError || !items) return;
+
+            for (const item of items) {
+              const itemPath = `${path}/${item.name}`;
+              
+              if (item.id) {
+                // It's a folder - recurse
+                await collectFilePaths(itemPath);
+              } else {
+                // It's a file - add to collection
+                allFilePaths.push(itemPath);
+              }
             }
-          }
-
-          // Recursively delete files in subfolders
-          for (const folder of folders) {
-            await deleteStorageFolder(`${path}/${folder.name}`);
+          } catch (err) {
+            console.warn(`Erro ao listar ${path}:`, err);
           }
         };
 
-        // Start deletion from campaign folder
-        await deleteStorageFolder(`campaigns/${campaignId}`);
-        console.log(`✅ Pasta de arquivos 'campaigns/${campaignId}' deletada com sucesso`);
+        // Collect all files
+        await collectFilePaths(`campaigns/${campaignId}`);
+
+        // Delete all files in batches (Supabase has limits)
+        if (allFilePaths.length > 0) {
+          console.log(`🗑️ Deletando ${allFilePaths.length} arquivo(s)...`);
+          
+          // Delete in chunks of 100 to avoid API limits
+          for (let i = 0; i < allFilePaths.length; i += 100) {
+            const chunk = allFilePaths.slice(i, i + 100);
+            const { error: deleteError } = await (supabase as any).storage
+              .from('marketing-attachments')
+              .remove(chunk);
+
+            if (deleteError) {
+              console.error(`Erro ao deletar chunk ${i / 100 + 1}:`, deleteError);
+            }
+          }
+          
+          console.log(`✅ ${allFilePaths.length} arquivo(s) deletado(s) com sucesso!`);
+        }
       } catch (storageErr) {
         console.warn('Storage cleanup warning:', storageErr);
         // Don't throw - continue anyway
