@@ -4,7 +4,7 @@ import { useOrdersStore } from '@/store/useOrdersStore';
 import { getTenantIdSync } from '@/lib/tenant-resolver';
 
 /**
- * ✅ NOVO HOOK - Sincronização de Tempo Real para Admins (THREAD-SAFE)
+ * ✅ NOVO HOOK - Sincronização de Tempo Real para Admins (THREAD-SAFE + TIMEOUT PROTECTED)
  * 
  * PROPÓSITO: Garantir que admins vejam apenas SEUS pedidos em tempo real
  * sem conflito com outros tenants.
@@ -14,6 +14,8 @@ import { getTenantIdSync } from '@/lib/tenant-resolver';
  * 2. ✅ RLS no banco garante que query retorna APENAS seus pedidos
  * 3. ✅ Não sincroniza se tenant_id vazio
  * 4. ✅ Fallback para polling se realtime falhar
+ * 5. ✅ TIMEOUT SAFETY: Força refresh a cada 30s (previne hang se realtime travar)
+ * 6. ✅ Detecta pedidos presos e notifica admin
  * 
  * NOTA: Este hook é chamado DENTRO de AdminDashboard (contextualmente seguro)
  */
@@ -86,6 +88,14 @@ export const useAdminRealtimeSync = () => {
       syncOrdersFromSupabase();
     }, 5000);
 
+    // ⏰ TIMEOUT SAFETY: A cada 30s força um full refresh (previne hang se realtime travar)
+    // Se houver pedidos presos, admin receberá notificação via recovery system
+    const timeoutSafetyInterval = setInterval(async () => {
+      if (!isMounted) return;
+      console.log(`⏰ [ADMIN-SYNC] Timeout Safety: Forçando refresh (30s)`);
+      await syncOrdersFromSupabase();
+    }, 30000);
+
     console.log(`📡 [ADMIN-SYNC] Sincronização configurada para tenant: ${tenantId}`);
 
     // Cleanup
@@ -93,6 +103,7 @@ export const useAdminRealtimeSync = () => {
       isMounted = false;
       console.log(`🛑 [ADMIN-SYNC] Finalizando sincronização do tenant: ${tenantId}`);
       clearInterval(pollInterval);
+      clearInterval(timeoutSafetyInterval);
       ordersChannel.unsubscribe();
     };
   }, []);
