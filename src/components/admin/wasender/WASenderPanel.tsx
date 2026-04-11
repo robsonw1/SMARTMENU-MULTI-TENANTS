@@ -163,33 +163,17 @@ export function WASenderPanel() {
         .eq('campaign_id', campaignId);
       if (analyticsError) throw analyticsError;
 
-      // 7. Delete from storage (all files for this campaign - recursive)
+      // 7. Delete from storage (all files for this campaign)
       try {
-        // First list all message folders
-        const { data: msgFolders, error: listError } = await (supabase as any).storage
+        const { data: files, error: listError } = await (supabase as any).storage
           .from('marketing-attachments')
-          .list(`campaigns/${campaignId}`, { limit: 1000 });
+          .list(`campaigns/${campaignId}`);
 
-        if (!listError && msgFolders) {
-          // For each message folder, delete all files inside
-          for (const folder of msgFolders) {
-            if (folder.id) { // It's a folder (has id property)
-              const { data: files } = await (supabase as any).storage
-                .from('marketing-attachments')
-                .list(`campaigns/${campaignId}/${folder.name}`, { limit: 1000 });
-
-              if (files) {
-                const filePaths = files
-                  .filter((f: any) => !f.id) // Only files, not folders
-                  .map((f: any) => `campaigns/${campaignId}/${folder.name}/${f.name}`);
-
-                if (filePaths.length > 0) {
-                  await (supabase as any).storage
-                    .from('marketing-attachments')
-                    .remove(filePaths);
-                }
-              }
-            }
+        if (!listError && files) {
+          for (const file of files) {
+            await (supabase as any).storage
+              .from('marketing-attachments')
+              .remove([`campaigns/${campaignId}/${file.name}`]);
           }
         }
       } catch (storageErr) {
