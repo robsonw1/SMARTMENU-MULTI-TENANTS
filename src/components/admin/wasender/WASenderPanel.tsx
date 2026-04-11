@@ -269,58 +269,24 @@ export function WASenderPanel() {
         .eq('campaign_id', campaignId);
       if (analyticsError) throw analyticsError;
 
-      // 7. Delete from storage (all files for this campaign - recursive)
+      // 7. Delete from storage via Edge Function (handles recursion + service role)
       try {
-        // Collect all file paths recursively
-        const allFilePaths: string[] = [];
-        
-        const collectFilePaths = async (path: string) => {
-          try {
-            const { data: items, error: listError } = await (supabase as any).storage
-              .from('marketing-attachments')
-              .list(path, { limit: 10000 });
-
-            if (listError || !items) return;
-
-            for (const item of items) {
-              const itemPath = `${path}/${item.name}`;
-              
-              if (item.id) {
-                // It's a folder - recurse
-                await collectFilePaths(itemPath);
-              } else {
-                // It's a file - add to collection
-                allFilePaths.push(itemPath);
-              }
-            }
-          } catch (err) {
-            console.warn(`Erro ao listar ${path}:`, err);
+        console.log(`🗑️ Chamando Edge Function para deletar storage...`);
+        const { data: functionResult, error: funcError } = await supabase.functions.invoke(
+          'delete-campaign-storage',
+          {
+            body: { campaignId },
           }
-        };
+        );
 
-        // Collect all files
-        await collectFilePaths(`campaigns/${campaignId}`);
-
-        // Delete all files in batches (Supabase has limits)
-        if (allFilePaths.length > 0) {
-          console.log(`🗑️ Deletando ${allFilePaths.length} arquivo(s)...`);
-          
-          // Delete in chunks of 100 to avoid API limits
-          for (let i = 0; i < allFilePaths.length; i += 100) {
-            const chunk = allFilePaths.slice(i, i + 100);
-            const { error: deleteError } = await (supabase as any).storage
-              .from('marketing-attachments')
-              .remove(chunk);
-
-            if (deleteError) {
-              console.error(`Erro ao deletar chunk ${i / 100 + 1}:`, deleteError);
-            }
-          }
-          
-          console.log(`✅ ${allFilePaths.length} arquivo(s) deletado(s) com sucesso!`);
+        if (funcError) {
+          console.error('Erro na Edge Function:', funcError);
+        } else {
+          console.log('✅ Storage deletado:', functionResult);
+          toast.success(`🗑️ ${functionResult?.files_deleted || 0} arquivo(s) removido(s) do storage`);
         }
       } catch (storageErr) {
-        console.warn('Storage cleanup warning:', storageErr);
+        console.error('Storage function error:', storageErr);
         // Don't throw - continue anyway
       }
 
