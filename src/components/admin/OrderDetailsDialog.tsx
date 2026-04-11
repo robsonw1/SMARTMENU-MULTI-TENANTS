@@ -23,7 +23,7 @@ import { format } from 'date-fns';
 import { ptBR } from 'date-fns/locale';
 import { toast } from 'sonner';
 import { useState, useEffect } from 'react';
-import { MessageCircle } from 'lucide-react';
+import { MessageCircle, AlertCircle, RefreshCw } from 'lucide-react';
 import { OrderItemDetails } from './OrderItemDetailsRenderer';
 
 type OrderStatus = 'pending' | 'agendado' | 'confirmed' | 'preparing' | 'delivering' | 'delivered' | 'cancelled';
@@ -58,6 +58,7 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
   const updateOrderStatus = useOrdersStore((s) => s.updateOrderStatus);
   const [isConfirmingPayment, setIsConfirmingPayment] = useState(false);
   const [localOrder, setLocalOrder] = useState<Order | null>(order);
+  const [isRecoveringOrders, setIsRecoveringOrders] = useState(false);
 
   // 🔄 Carregar pedido FRESCO do banco quando o dialog abre (para garantir campos como change_amount)
   useEffect(() => {
@@ -379,24 +380,94 @@ export function OrderDetailsDialog({ open, onOpenChange, order }: OrderDetailsDi
     }
   };
 
+  // 🔴 RECOVERY: Recupera pedidos presos em status intermediário
+  const handleRecoverStuckOrders = async () => {
+    if (!localOrder?.tenantId) {
+      toast.error('Não foi possível identificar o estabelecimento');
+      return;
+    }
+
+    try {
+      setIsRecoveringOrders(true);
+      toast.loading('🔄 Verificando pedidos presos...');
+
+      const { data, error } = await (supabase as any).rpc('fix_hung_orders', {
+        p_tenant_id: localOrder.tenantId,
+      }) as any;
+
+      if (error) throw error;
+
+      toast.dismiss();
+      const fixedCount = Array.isArray(data) ? data.length : 0;
+      toast.success(
+        `✅ ${fixedCount} pedido(s) recuperado(s)!\n⏳ Recarregando...`
+      );
+
+      // Recarregar e fechar
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      console.error('Erro ao recuperar pedidos:', err);
+      toast.dismiss();
+      toast.error(`Erro: ${err.message}`);
+    } finally {
+      setIsRecoveringOrders(false);
+    }
+  };
+
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-gutter-stable">
-        <DialogHeader>
-          <DialogTitle className="flex items-center gap-3">
-            Pedido {localOrder.id}
-            <Badge variant="default" className={`${statusColors[localOrder.status]} text-white`}>
-              {statusLabels[localOrder.status]}
-            </Badge>
-            {localOrder.autoConfirmedByPix && (
-              <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 text-xs">
-                🤖 Auto-confirmado por PIX
+      <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto overflow-x-hidden scrollbar-gutter-stable p-0">
+        <div className="px-6 pt-6 pb-0 sticky top-0 bg-white dark:bg-slate-950 z-10 border-b">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-3">
+              Pedido {localOrder.id}
+              <Badge variant="default" className={`${statusColors[localOrder.status]} text-white`}>
+                {statusLabels[localOrder.status]}
               </Badge>
-            )}
-          </DialogTitle>
-        </DialogHeader>
+              {localOrder.autoConfirmedByPix && (
+                <Badge variant="outline" className="bg-green-100 text-green-800 border-green-300 text-xs">
+                  🤖 Auto-confirmado por PIX
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+        </div>
 
-        <div className="space-y-6">
+        <div className="px-6 pb-6 space-y-6">
+          {/* 🔴 ALERT: Se pedido estiver em status intermediário */}
+          {['processing', 'confirming', 'pending_payment', 'payment_processing'].includes(localOrder.status) && (
+            <div className="bg-yellow-50 border-l-4 border-yellow-400 p-4 rounded">
+              <div className="flex gap-3">
+                <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-semibold text-yellow-900 mb-1">⚠️ Pedido em Processamento</h4>
+                  <p className="text-sm text-yellow-800 mb-3">
+                    Este pedido está em um status intermediário. Se houver problemas de sincronização, use o botão abaixo.
+                  </p>
+                  <Button
+                    onClick={handleRecoverStuckOrders}
+                    disabled={isRecoveringOrders}
+                    size="sm"
+                    className="bg-yellow-600 hover:bg-yellow-700"
+                  >
+                    {isRecoveringOrders ? (
+                      <>
+                        <RefreshCw className="w-3 h-3 mr-1 animate-spin" />
+                        Recuperando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3 h-3 mr-1" />
+                        Recuperar Pedidos Presos
+                      </>
+                    )}
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
           {/* Status Change */}
           <div className="space-y-2">
             <Label>Alterar Status</Label>
