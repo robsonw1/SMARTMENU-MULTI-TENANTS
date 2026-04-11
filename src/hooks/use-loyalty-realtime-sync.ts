@@ -128,11 +128,20 @@ export const useLoyaltyRealtimeSync = () => {
         await refreshCurrentCustomer();
       }, 5000);
 
-      console.log('✅ Realtime sync iniciado com polling fallback');
+      // ⏰ TIMEOUT SAFETY: A cada 30s força refresh extra
+      // Previne que loyalty points fiquem presos em 'processing'
+      const timeoutSafetyInterval = setInterval(async () => {
+        if (!isMounted) return;
+        console.log('⏰ [LOYALTY-SYNC] Timeout Safety: Forçando refresh (30s)');
+        await refreshCurrentCustomer();
+      }, 30000);
+
+      console.log('✅ Realtime sync iniciado com polling fallback + timeout safety');
 
       return () => {
         isMounted = false;
         if (pollingInterval) clearInterval(pollingInterval);
+        clearInterval(timeoutSafetyInterval);
         supabase.removeChannel(customerChannel);
         supabase.removeChannel(transactionsChannel);
         supabase.removeChannel(couponsChannel);
