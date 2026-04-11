@@ -4,7 +4,7 @@ import { useSecureTenantId } from '@/hooks/use-secure-tenant-id';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Plus, Send, Megaphone } from 'lucide-react';
+import { Plus, Send, Megaphone, AlertCircle, RefreshCw } from 'lucide-react';
 import { toast } from 'sonner';
 
 import { ContactListTab } from './ContactListTab';
@@ -82,6 +82,11 @@ export function WASenderPanel() {
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [loading, setLoading] = useState(false);
+  
+  // States para recovery de campanhas hung
+  const [hungCampaigns, setHungCampaigns] = useState<any[]>([]);
+  const [isCheckingRecovery, setIsCheckingRecovery] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   // Modal de agendamento
   const [showScheduleModal, setShowScheduleModal] = useState(false);
@@ -89,7 +94,108 @@ export function WASenderPanel() {
   useEffect(() => {
     if (!tenantId) return;
     loadCampaigns();
+    checkForHungCampaigns();
+    
+    // Recheck every 30 seconds
+    const interval = setInterval(checkForHungCampaigns, 30000);
+    return () => clearInterval(interval);
   }, [tenantId]);
+
+  const checkForHungCampaigns = async () => {
+    try {
+      setIsCheckingRecovery(true);
+      const { data, error } = await (supabase as any).rpc('check_hung_campaigns', {
+        p_tenant_id: tenantId,
+      }) as any;
+      if (!error && data) {
+        setHungCampaigns(data);
+      }
+    } catch (err) {
+      console.warn('Erro ao verificar campanhas hung:', err);
+    } finally {
+      setIsCheckingRecovery(false);
+    }
+  };
+
+  const handleRecoverHungCampaigns = async () => {
+    if (
+      !window.confirm(
+        `⚠️ RECUPERAÇÃO DE ${hungCampaigns.length} CAMPANHA(S)\n\nIsso vai:\n✅ Marcar campanhas como "concluídas"\n✅ Liberar hooks de realtime travados\n✅ Restaurar notificações, logo e chatbot\n✅ Recarregar a página\n\nDeseja continuar?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsRecovering(true);
+      toast.loading('🔄 Recuperando campanhas hung...');
+
+      const { data, error } = await (supabase as any).rpc('fix_hung_campaigns', {
+        p_tenant_id: tenantId,
+      }) as any;
+
+      if (error) throw error;
+
+      toast.dismiss();
+      const recoveredCount = Array.isArray(data) ? data.length : 0;
+      toast.success(
+        `✅ ${recoveredCount} campanha(s) recuperada(s)!\n\n⏳ Recarregando página...`
+      );
+
+      setHungCampaigns([]);
+      
+      // Carregar campanhas atualizadas
+      setTimeout(() => {
+        loadCampaigns();
+        // Recarregar página após 2 segundos para reinicializar hooks
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      console.error('Erro ao recuperar campanhas:', err);
+      toast.dismiss();
+      toast.error(`❌ Erro: ${err.message}`);
+    } finally {
+      setIsRecovering(false);
+    }
+  };
+
+  const handleEmergencyCleanup = async (campaignId: string, campaignName: string) => {
+    if (
+      !window.confirm(
+        `⚠️ LIMPEZA DE EMERGÊNCIA\n\nVai DELETAR COMPLETAMENTE a campanha:\n"${campaignName}"\n\nIsso é irreversível e vai:\n❌ Deletar do banco de dados\n❌ Deletar arquivos do storage\n❌ Liberar realtime travado\n\nTem CERTEZA?`
+      )
+    ) {
+      return;
+    }
+
+    try {
+      setIsRecovering(true);
+      toast.loading('🔄 Deletando campanha de emergência...');
+
+      const { data, error } = await (supabase as any).rpc('emergency_cleanup_campaign', {
+        p_campaign_id: campaignId,
+        p_tenant_id: tenantId,
+      }) as any;
+
+      if (error) throw error;
+
+      toast.dismiss();
+      const cleanupMsg = data && Array.isArray(data) && data.length > 0 
+        ? `✅ Campanha deletada completamente!\n⏳ Recarregando página...`
+        : `✅ Limpeza concluída!\n⏳ Recarregando página...`;
+      toast.success(cleanupMsg);
+
+      setTimeout(() => {
+        window.location.reload();
+      }, 1500);
+    } catch (err: any) {
+      console.error('Erro em cleanup:', err);
+      toast.dismiss();
+      toast.error(`❌ Erro: ${err.message}`);
+    } finally {
+      setIsRecovering(false);
+    }
+  };
 
   const loadCampaigns = async () => {
     try {
@@ -653,6 +759,89 @@ export function WASenderPanel() {
             >
               Cancelar
             </Button>
+          </div>
+        </Card>
+      )}
+
+      {/* 🔴 HUNG CAMPAIGNS CRITICAL ALERT */}
+      {hungCampaigns && hungCampaigns.length > 0 && !showNewForm && (
+        <Card className="bg-red-50 border-red-300 border-2">
+          <div className="p-4 space-y-4">
+            <div className="flex items-start gap-3">
+              <AlertCircle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+              <div className="flex-1">
+                <h4 className="font-bold text-red-900 text-lg mb-2">
+                  🚨 RECUPERAÇÃO CRÍTICA NECESSÁRIA
+                </h4>
+                <p className="text-sm text-red-800 mb-3">
+                  <strong>{hungCampaigns.length} campanha(s)</strong> está/estão travada(s) em processamento.
+                  <br />
+                  Isso é o que tá causando:
+                </p>
+                <ul className="text-sm text-red-700 ml-4 space-y-1 mb-4">
+                  <li>❌ Notificações carregando eternamente</li>
+                  <li>❌ Logo da loja desaparecida</li>
+                  <li>❌ Chatbot preso em carregamento</li>
+                  <li>❌ Desconexão total com banco de dados</li>
+                  <li>❌ Admin Dashboard sem produtos</li>
+                </ul>
+
+                {/* Campaign Details */}
+                <div className="bg-red-100 rounded p-3 mb-4 space-y-2 text-xs text-red-800">
+                  {hungCampaigns.map((camp: any) => (
+                    <div key={camp.campaign_id} className="flex justify-between items-center">
+                      <div>
+                        <strong>{camp.campaign_name}</strong>
+                        <span className="text-red-600 ml-2">
+                          (Parada há {Math.round(camp.minutes_stuck)} min)
+                        </span>
+                        <div className="text-xs mt-1">
+                          📤 {camp.total_messages_sent} enviadas | ⏳ {camp.total_messages_pending} pendentes
+                        </div>
+                      </div>
+                      <Button
+                        onClick={() =>
+                          handleEmergencyCleanup(camp.campaign_id, camp.campaign_name)
+                        }
+                        disabled={isRecovering}
+                        size="sm"
+                        variant="destructive"
+                        className="text-xs whitespace-nowrap ml-2"
+                      >
+                        🗑️ Deletar
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Main Recovery Button */}
+                <div className="flex gap-2">
+                  <Button
+                    onClick={handleRecoverHungCampaigns}
+                    disabled={isRecovering || isCheckingRecovery}
+                    className="bg-red-600 hover:bg-red-700 flex-1 font-bold"
+                    size="lg"
+                  >
+                    {isRecovering ? (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2 animate-spin" />
+                        🔄 Recuperando...
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-4 h-4 mr-2" />
+                        ✅ RECUPERAR AGORA (Recomendado)
+                      </>
+                    )}
+                  </Button>
+                </div>
+
+                <p className="text-xs text-red-700 mt-3 italic">
+                  💡 Dica: "Recuperar" vai marcar as campanhas como concluídas e reiniciar os sistemas.
+                  Se isso não funcionar, use o botão "Deletar" para cada campanha.
+                </p>
+              </div>
+            </div>
           </div>
         </Card>
       )}
