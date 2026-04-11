@@ -106,12 +106,12 @@ export function WASenderPanel() {
       setIsCheckingRecovery(true);
       const { data, error } = await (supabase as any).rpc('check_hung_campaigns', {
         p_tenant_id: tenantId,
-      }) as any;
+      }).catch(() => ({ data: null, error: null })) as any;
       if (!error && data) {
         setHungCampaigns(data);
       }
     } catch (err) {
-      console.warn('Erro ao verificar campanhas hung:', err);
+      // Silenciosamente ignora se RPC não existir
     } finally {
       setIsCheckingRecovery(false);
     }
